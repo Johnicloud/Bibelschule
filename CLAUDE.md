@@ -14,19 +14,30 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - Dienste teilen nur die Fach-ID, keine Datenbank.
 - Ereignisse an andere Dienste laufen über den Port `EventPublisher`.
 - Neue Funktion = zuerst Anwendungsfall und Test, dann Adapter, dann Oberfläche.
-- Backend: Python + FastAPI. Frontend: Vue 3 + Tailwind (Hell/Dunkel). Start: `docker compose up --build`.
+- Backend: Python + FastAPI. Frontend: Vue 3 + Tailwind (Hell/Dunkel), spricht nur mit dem Kern (`/api`). Start: `docker compose up --build`.
 
 ## Stand
-- [fertig] Karteikarten-Dienst (Fächer, Karten: Umdrehen, Multiple Choice, Richtig/Falsch, Fälligkeit, Startseite, Webhook)
-- [offen] Kern "Bibelschule": zentrale Fächerverwaltung, Dienstverzeichnis; Karteikarten hängen sich per Fach-ID ein
-- [offen] Lesenachweis-Dienst mit Prognose (Seiten und Kapitel, Durchgänge, Frist)
-- [offen] Register-Dienst (Namen und Orte mit Bibelstellen, sortiert nach Name und Bibelreihenfolge)
+- [fertig] Karteikarten-Dienst (Fächer, Karten: Umdrehen, Multiple Choice, Richtig/Falsch, Fälligkeit, Webhook, Fach-Hooks)
+- [fertig] Kern: zentrale Fächerverwaltung, Dienstverzeichnis (`SERVICES`), Weiterleitung `/api/<dienst>/…`, Statusübersicht, Abgleich
+- [fertig] Lesenachweis-Dienst mit Prognose (Seiten/Kapitel, Durchgänge, Frist, Tempo der letzten 14 Tage)
+- [fertig] Register-Dienst (Namen und Orte mit Bibelstellen, alphabetisch / Bibelreihenfolge / nach Stelle)
+- [fertig] Oberfläche: Start (Status je Fach), Fächer, Fach mit Reitern Karteikarten/Lesenachweis/Register, Alle Karten, Lernen
+- [ungeprüft] Docker-Build, Oberfläche im Browser und die FastAPI-Schicht der Dienste wurden noch nicht ausgeführt
+  (bisher nur Tests der Domäne und Anwendung, Syntaxprüfung). Erster Schritt beim Weiterarbeiten: `docker compose up --build` und alles durchklicken.
+
+## Fach-Vertrag (jeder Dienst)
+`GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status`.
+Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
 ## Später
-Lesenachweis als PDF ausfüllen · Aufgabenblatt, Skript und Fragen mit Ollama einlesen (Ollama läuft
-direkt auf dem Mac, Container erreichen es über host.docker.internal:11434) · Status-Dashboard ·
-Auswendiglern-Modus.
+Lesenachweis als PDF ausfüllen (Vorlage nötig) · Aufgabenblatt, Skript und Fragen mit Ollama einlesen (Ollama läuft
+direkt auf dem Mac, Container erreichen es über host.docker.internal:11434) ·
+Auswendiglern-Modus · Import alter `decks.json` (Karten einem Kern-Fach zuordnen).
 
 ## Entscheidungen
+- Der Kern ist der einzige Eingang der Oberfläche; er reicht Aufrufe an die Dienste weiter.
+- Tempo für die Prognose: Durchschnitt der letzten 14 Tage. „Knapp“ = Tempo unter 115 % des Bedarfs.
+- Bibelbücher: 66, evangelische Reihenfolge, Kurznamen nach Lutherbibel; Bücher mit einem Kapitel (Obd, Phlm, 2Joh, 3Joh, Jud): „Jud 5“ = Vers 5.
+- Fachnamen führt nur der Kern; Lesenachweis und Register kennen nur die Fach-ID.
 - Leitner-Stufen: 0, 1, 2, 4, 8, 16 Tage. Falsche Karten sind sofort wieder fällig.
 - Ergebnisse der KI sind immer nur Vorschläge, die der Nutzer prüft.

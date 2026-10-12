@@ -1,17 +1,46 @@
+# Bibelschule: Kern + drei Dienste + Oberfläche. Start: docker compose up --build  ->  http://localhost:8080
 services:
-  backend:
-    build: ./backend
+  kern:
+    build: ./kern/backend
+    environment:
+      # Dienstverzeichnis (Name=URL). Ein neuer Dienst ist hier ein neuer Eintrag.
+      SERVICES: karteikarten=http://karteikarten:8000,lesenachweis=http://lesenachweis:8000,register=http://register:8000
+    volumes:
+      - ./data/kern:/app/data            # Fächer
+    depends_on: [karteikarten, lesenachweis, register]
+    restart: unless-stopped
+
+  karteikarten:
+    build: ./karteikarten
     environment:
       EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-}
       EXTERNAL_SERVICE_TOKEN: ${EXTERNAL_SERVICE_TOKEN:-}
     volumes:
-      - ./data:/app/data      # Karteikarten bleiben beim Neustart erhalten
+      - ./data/karteikarten:/app/data    # Karteikarten bleiben beim Neustart erhalten
+    restart: unless-stopped
+
+  lesenachweis:
+    build: ./lesenachweis
+    environment:
+      TZ: ${TZ:-Europe/Berlin}           # "heute" im Leseprotokoll gilt in deiner Zeitzone
+      EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-}
+      EXTERNAL_SERVICE_TOKEN: ${EXTERNAL_SERVICE_TOKEN:-}
+    volumes:
+      - ./data/lesenachweis:/app/data
+    restart: unless-stopped
+
+  register:
+    build: ./register
+    environment:
+      EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-}
+      EXTERNAL_SERVICE_TOKEN: ${EXTERNAL_SERVICE_TOKEN:-}
+    volumes:
+      - ./data/register:/app/data
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build: ./kern/frontend
     ports:
       - "8080:80"
-    depends_on:
-      - backend
+    depends_on: [kern]
     restart: unless-stopped
