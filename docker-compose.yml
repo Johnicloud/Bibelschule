@@ -1,0 +1,17 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-}
+      EXTERNAL_SERVICE_TOKEN: ${EXTERNAL_SERVICE_TOKEN:-}
+    volumes:
+      - ./data:/app/data      # Karteikarten bleiben beim Neustart erhalten
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
