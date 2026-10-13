@@ -4,6 +4,7 @@ import threading
 from pathlib import Path
 
 from app.application.ports import SubjectRepository
+from app.adapters.outbound.storage import atomic_write_text, daily_backup
 from app.domain.models import Subject
 
 
@@ -18,9 +19,8 @@ class JsonSubjectRepository(SubjectRepository):
         return {d["id"]: Subject(id=d["id"], name=d["name"]) for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, subjects: dict[str, Subject]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps([{"id": s.id, "name": s.name} for s in subjects.values()],
-                                        ensure_ascii=False, indent=2), "utf-8")
+        daily_backup(self.path)
+        atomic_write_text(self.path, json.dumps([{"id": s.id, "name": s.name} for s in subjects.values()], ensure_ascii=False, indent=2))
 
     def list(self) -> list[Subject]:
         with self._lock:

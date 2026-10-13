@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__LABEL__</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 1rem; }
+  form { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  input { flex: 1; padding: .6rem .8rem; font: inherit; border-radius: .7rem; border: 1px solid #8886; background: transparent; color: inherit; }
+  button { padding: .6rem 1rem; font: inherit; border-radius: .7rem; border: 0; background: #0d9488; color: #fff; cursor: pointer; }
+  button.del { background: transparent; color: #e11d48; padding: .3rem .6rem; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; align-items: center; justify-content: space-between; padding: .7rem 0; border-bottom: 1px solid #8884; }
+  #fehler { color: #e11d48; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<!-- Diese Seite erscheint als Reiter im Fach. Sie wird als /api/__NAME__/ui?subject=<Fach-ID> geladen,
+     darum zeigen die relativen Adressen unten (items) auf den eigenen Dienst. -->
+<form id="form">
+  <input id="text" placeholder="Neuer Eintrag" aria-label="Neuer Eintrag" autocomplete="off">
+  <button>Hinzufügen</button>
+</form>
+<div id="fehler" role="alert"></div>
+<ul id="liste"></ul>
+<script>
+  const subject = new URLSearchParams(location.search).get('subject') || ''
+  const fehler = document.getElementById('fehler')
+
+  async function call(method, path, body) {
+    const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined,
+                                    body: body ? JSON.stringify(body) : undefined })
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(typeof e.detail === 'string' ? e.detail : 'Etwas ist schiefgelaufen.') }
+    return res.status === 204 ? null : res.json()
+  }
+  async function laden() {
+    const liste = document.getElementById('liste')
+    liste.replaceChildren()
+    for (const item of await call('GET', 'items?subject_id=' + encodeURIComponent(subject))) {
+      const li = document.createElement('li')
+      const span = document.createElement('span'); span.textContent = item.text
+      const del = document.createElement('button'); del.className = 'del'; del.textContent = 'Löschen'
+      del.onclick = async () => { await call('DELETE', 'items/' + item.id); laden() }
+      li.append(span, del); liste.append(li)
+    }
+  }
+  document.getElementById('form').onsubmit = async (e) => {
+    e.preventDefault(); fehler.textContent = ''
+    try {
+      await call('POST', 'items', { subject_id: subject, text: document.getElementById('text').value })
+      document.getElementById('text').value = ''; await laden()
+    } catch (err) { fehler.textContent = err.message }
+  }
+  laden().catch((err) => { fehler.textContent = err.message })
+</script>
+</body>
+</html>

@@ -18,7 +18,6 @@ class RegisterEntry:
     kind: str
     name: str
     refs: list[BibleRef] = field(default_factory=list)
-    note: str = ""
     id: str = field(default_factory=new_id)
 
     @property

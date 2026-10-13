@@ -6,6 +6,7 @@ export function createSubjectService(api) {
     create: (name) => api.createSubject(name.trim()),
     rename: (id, name) => api.renameSubject(id, name.trim()),
     remove: (id) => api.deleteSubject(id),
+    services: () => api.services(),
     overview: () => api.overview(),
     sync: () => api.sync(),
   }

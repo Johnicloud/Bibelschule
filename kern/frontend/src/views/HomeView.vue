@@ -2,7 +2,7 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import StatCard from '../components/ui/StatCard.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
-import { BAR_CLASSES, READING_STATUS, SERVICE_LABELS, TONE_CLASSES, formatDate, num } from '../domain/status'
+import { BAR_CLASSES, NATIVE_SERVICES, READING_STATUS, TONE_CLASSES, formatDate, num } from '../domain/status'
 
 const emit = defineEmits(['open-subject', 'study', 'nav'])
 const subjects = inject('subjects')
@@ -25,6 +25,8 @@ async function sync() {
 const rows = computed(() => overview.value?.subjects ?? [])
 const services = computed(() => overview.value?.services ?? [])
 const offline = computed(() => services.value.filter((s) => !s.online))
+// Dienste ohne eigene Kachel hier: sie zeigen ihre Kennzahlen aus dem Manifest
+const extras = computed(() => services.value.filter((x) => !NATIVE_SERVICES.includes(x.name) && x.fields.length))
 const sum = (pick) => rows.value.reduce((n, s) => n + (pick(s.status) ?? 0), 0)
 const cardCount = computed(() => sum((s) => s.karteikarten?.card_count))
 const dueCount = computed(() => sum((s) => s.karteikarten?.due_count))
@@ -59,13 +61,13 @@ onMounted(load)
     <ul v-if="rows.length" class="grid gap-4">
       <li v-for="s in rows" :key="s.id" class="panel p-5">
         <button class="text-left text-xl font-semibold hover:text-teal-600 dark:hover:text-teal-400"
-          @click="$emit('open-subject', s.id, 'cards')">{{ s.name }}</button>
+          @click="$emit('open-subject', s.id, 'karteikarten')">{{ s.name }}</button>
 
         <div class="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Karteikarten</div>
             <button v-if="s.status.karteikarten" class="mt-1 text-left text-sm hover:underline"
-              @click="$emit('open-subject', s.id, 'cards')">
+              @click="$emit('open-subject', s.id, 'karteikarten')">
               <span class="text-lg font-semibold tabular-nums">{{ s.status.karteikarten.due_count }}</span> fällig
               <span class="text-slate-500 dark:text-slate-400">von {{ s.status.karteikarten.card_count }}</span>
             </button>
@@ -76,7 +78,7 @@ onMounted(load)
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Lesenachweis</div>
             <template v-if="s.status.lesenachweis">
               <button v-if="s.status.lesenachweis.task_count" class="mt-1 block w-full text-left text-sm"
-                @click="$emit('open-subject', s.id, 'reading')">
+                @click="$emit('open-subject', s.id, 'lesenachweis')">
                 <span class="text-lg font-semibold tabular-nums">{{ num(s.status.lesenachweis.percent) }} %</span> gelesen
                 <span class="ml-1 rounded-full px-2 py-0.5 text-xs" :class="TONE_CLASSES[readingStatus(s.status.lesenachweis).tone]">
                   {{ readingStatus(s.status.lesenachweis).label }}
@@ -103,6 +105,17 @@ onMounted(load)
             </button>
             <p v-else class="mt-1 text-sm text-slate-400">nicht erreichbar</p>
           </div>
+
+          <div v-for="x in extras" :key="x.name">
+            <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ x.label }}</div>
+            <component :is="x.panel ? 'button' : 'p'" v-if="s.status[x.name]" class="mt-1 text-left text-sm"
+              :class="x.panel ? 'hover:underline' : ''" @click="x.panel && $emit('open-subject', s.id, x.name)">
+              <template v-for="f in x.fields" :key="f.key">
+                <span class="text-lg font-semibold tabular-nums">{{ s.status[x.name][f.key] }}</span> {{ f.label }}{{ ' ' }}
+              </template>
+            </component>
+            <p v-else class="mt-1 text-sm text-slate-400">nicht erreichbar</p>
+          </div>
         </div>
       </li>
     </ul>
@@ -116,7 +129,7 @@ onMounted(load)
     <div class="panel flex flex-wrap items-center gap-x-5 gap-y-2 p-4 text-sm">
       <span v-for="s in services" :key="s.name" class="flex items-center gap-2">
         <span class="h-2.5 w-2.5 rounded-full" :class="s.online ? 'bg-teal-500' : 'bg-rose-500'" aria-hidden="true"></span>
-        {{ SERVICE_LABELS[s.name] || s.name }}
+        {{ s.label }}
         <span class="sr-only">{{ s.online ? 'erreichbar' : 'nicht erreichbar' }}</span>
       </span>
       <span v-if="!services.length" class="text-slate-500 dark:text-slate-400">Keine Dienste eingetragen.</span>
@@ -125,7 +138,7 @@ onMounted(load)
       </button>
     </div>
     <p v-if="offline.length" class="mt-2 text-sm text-amber-700 dark:text-amber-300">
-      Nicht erreichbar: {{ offline.map((s) => SERVICE_LABELS[s.name] || s.name).join(', ') }}.
+      Nicht erreichbar: {{ offline.map((s) => s.label).join(', ') }}.
       Sobald der Dienst läuft, übernimmt „Dienste abgleichen“ alle Fächer.
     </p>
   </section>

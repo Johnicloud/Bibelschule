@@ -9,8 +9,8 @@ export function createRegisterService(api) {
       kind: e.kind,
       name: e.name.trim(),
       refs: [e.refs],
-      note: (e.note || '').trim(),
     }),
     remove: (id) => api.deleteEntry(id),
+    exportUrl: (subjectId, opts) => api.exportUrl(subjectId, opts),
   }
 }

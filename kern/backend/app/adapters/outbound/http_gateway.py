@@ -1,9 +1,12 @@
-"""Ausgehender Adapter: das Dienstverzeichnis (Name -> URL) und HTTP zu den Diensten."""
+"""Ausgehender Adapter: das Dienstverzeichnis (Name -> URL, dauerhaft gemerkt) und HTTP zu den Diensten."""
 import json
 import logging
+import threading
+from pathlib import Path
 
 import httpx
 
+from app.adapters.outbound.storage import atomic_write_text
 from app.application.ports import ServiceGateway
 
 log = logging.getLogger(__name__)
@@ -21,19 +24,56 @@ def parse_services(text: str) -> dict[str, str]:
 
 
 class HttpServiceGateway(ServiceGateway):
-    def __init__(self, services: dict[str, str], timeout: float = 3.0):
-        self.services = services
+    """Das Verzeichnis kommt aus zwei Quellen: fest eingetragene Dienste (SERVICES) und Dienste, die sich
+    selbst anmelden. Angemeldete bleiben in einer Datei erhalten, auch wenn der Kern neu startet."""
+
+    def __init__(self, seed: dict[str, str] | None = None, registry_file: Path | None = None, timeout: float = 3.0):
         self.timeout = timeout
+        self.registry_file = Path(registry_file) if registry_file else None
+        self._lock = threading.Lock()
+        self._entries: dict[str, dict] = {}
+        if self.registry_file and self.registry_file.exists():
+            self._entries = json.loads(self.registry_file.read_text("utf-8"))
+        for name, url in (seed or {}).items():
+            self._entries.setdefault(name, {"manifest": {}})["url"] = url
+
+    def _save(self) -> None:
+        if self.registry_file:
+            atomic_write_text(self.registry_file, json.dumps(self._entries, ensure_ascii=False, indent=2))
 
     def names(self) -> list[str]:
-        return list(self.services)
+        with self._lock:
+            return list(self._entries)
+
+    def register(self, name: str, url: str) -> None:
+        with self._lock:
+            self._entries.setdefault(name, {"manifest": {}})["url"] = url
+            self._save()
+
+    def _url(self, service: str) -> str:
+        return self._entries[service]["url"]
 
     def _request(self, service: str, method: str, path: str, **kw) -> httpx.Response | None:
         try:
-            return httpx.request(method, self.services[service] + path, timeout=self.timeout, **kw)
+            return httpx.request(method, self._url(service) + path, timeout=self.timeout, **kw)
         except httpx.HTTPError as e:
             log.warning("Dienst %s nicht erreichbar: %s", service, e)
             return None
+
+    def manifest(self, service: str, live: bool = True) -> dict:
+        if live:
+            r = self._request(service, "GET", "/api/manifest")
+            if r is not None and r.status_code == 200:
+                fresh = r.json()
+                with self._lock:
+                    if self._entries[service].get("manifest") != fresh:
+                        self._entries[service]["manifest"] = fresh
+                        self._save()
+        return self._entries[service].get("manifest") or {}
+
+    def list_subjects(self, service: str) -> list[dict] | None:
+        r = self._request(service, "GET", "/api/subjects")
+        return r.json() if r is not None and r.status_code == 200 else None
 
     def online(self, service: str) -> bool:
         r = self._request(service, "GET", "/api/health")

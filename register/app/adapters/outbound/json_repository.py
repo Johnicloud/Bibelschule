@@ -4,19 +4,20 @@ import threading
 from pathlib import Path
 
 from app.application.ports import RegisterRepository
+from app.adapters.outbound.storage import atomic_write_text, daily_backup
 from app.domain.bible import BibleRef
 from app.domain.models import RegisterEntry
 
 
 def _to_dict(e: RegisterEntry) -> dict:
-    return {"id": e.id, "subject_id": e.subject_id, "kind": e.kind, "name": e.name, "note": e.note,
+    return {"id": e.id, "subject_id": e.subject_id, "kind": e.kind, "name": e.name,
             "refs": [{"book": r.book, "chapter": r.chapter, "verse": r.verse,
                       "chapter_end": r.chapter_end, "verse_end": r.verse_end} for r in e.refs]}
 
 
 def _from_dict(d: dict) -> RegisterEntry:
     return RegisterEntry(
-        id=d["id"], subject_id=d["subject_id"], kind=d["kind"], name=d["name"], note=d.get("note", ""),
+        id=d["id"], subject_id=d["subject_id"], kind=d["kind"], name=d["name"],
         refs=[BibleRef(r["book"], r["chapter"], r["verse"], r["chapter_end"], r["verse_end"])
               for r in d.get("refs", [])])
 
@@ -32,9 +33,8 @@ class JsonRegisterRepository(RegisterRepository):
         return {d["id"]: _from_dict(d) for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, entries: dict[str, RegisterEntry]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps([_to_dict(e) for e in entries.values()], ensure_ascii=False, indent=2), "utf-8")
+        daily_backup(self.path)
+        atomic_write_text(self.path, json.dumps([_to_dict(e) for e in entries.values()], ensure_ascii=False, indent=2))
 
     def list(self, subject_id: str | None = None) -> list[RegisterEntry]:
         with self._lock:

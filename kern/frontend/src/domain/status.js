@@ -5,6 +5,9 @@ export const SERVICE_LABELS = {
   register: 'Register',
 }
 
+// Dienste mit eigener, eingebauter Oberfläche. Jeder andere Dienst erscheint über sein Manifest von selbst.
+export const NATIVE_SERVICES = ['karteikarten', 'lesenachweis', 'register']
+
 export const READING_STATUS = {
   overdue: { label: 'Frist überschritten', tone: 'rose' },
   behind: { label: 'Im Rückstand', tone: 'rose' },

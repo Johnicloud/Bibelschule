@@ -1,5 +1,5 @@
 """Eingehender Adapter: HTTP-API des Kerns. Die Oberfläche spricht nur hier.
-Eigene Wege: /api/subjects, /api/services, /api/sync, /api/overview.
+Eigene Wege: /api/subjects, /api/services, /api/registry, /api/sync, /api/overview.
 Alles andere: /api/<dienst>/... wird an den Dienst weitergereicht (z. B. /api/karteikarten/decks).
 Interaktive Doku: /api/docs"""
 from fastapi import APIRouter, FastAPI, Request
@@ -14,6 +14,11 @@ from app.domain.models import Subject
 
 class SubjectIn(BaseModel):
     name: str
+
+
+class RegistryIn(BaseModel):
+    name: str
+    url: str
 
 
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
@@ -62,6 +67,11 @@ def create_app(service: SubjectService) -> FastAPI:
     @api.get("/services")
     def services():
         return service.services_status()
+
+    @api.post("/registry", status_code=201)
+    def register_service(body: RegistryIn):
+        """Ein neuer Dienst meldet sich hier an: {name, url}. Er bekommt sofort alle Fächer (Antwort: synced)."""
+        return service.register_service(body.name, body.url)
 
     @api.post("/sync")
     def sync():

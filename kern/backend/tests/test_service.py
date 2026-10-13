@@ -16,6 +16,19 @@ class FakeGateway(ServiceGateway):
     """Zwei Dienste im Speicher; 'down' simuliert einen ausgefallenen Dienst."""
     def __init__(self, names=("karteikarten", "register")):
         self._names, self.down, self.known, self.deleted = list(names), set(), {n: {} for n in names}, []
+        self.manifests = {n: {"label": n.capitalize(), "panel": None, "status": []} for n in names}
+
+    def register(self, name, url):
+        if name not in self._names:
+            self._names.append(name)
+            self.known[name], self.manifests[name] = {}, {"label": "Neu", "panel": "ui", "status": [{"key": "n", "label": "Einträge"}]}
+
+    def manifest(self, service, live=True): return self.manifests[service]
+
+    def list_subjects(self, service):
+        """karteikarten kennt noch Fächer aus alter Zeit; register bietet keine Liste an."""
+        if service in self.down or service != "karteikarten": return None
+        return [{"id": i, "name": n} for i, n in self.known[service].items()]
 
     def names(self): return self._names
     def online(self, s): return s not in self.down
@@ -86,7 +99,7 @@ def test_overview_skips_offline_services(svc, gw):
     subject, _ = svc.create_subject("Dogmatik")
     gw.down.add("register")
     o = svc.overview()
-    assert o["services"] == [{"name": "karteikarten", "online": True}, {"name": "register", "online": False}]
+    assert [(x["name"], x["online"]) for x in o["services"]] == [("karteikarten", True), ("register", False)]
     assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik",
                               "status": {"karteikarten": {"n": 1}, "register": None}}]
 
@@ -101,3 +114,36 @@ def test_subjects_sorted_by_name(svc):
     for n in ("Zeitgeschichte", "ägyptisch", "Bibelkunde"):
         svc.create_subject(n)
     assert [s.name for s in svc.list_subjects()] == ["ägyptisch", "Bibelkunde", "Zeitgeschichte"]
+
+
+def test_service_registers_itself_and_gets_all_subjects(svc, gw):
+    subject, _ = svc.create_subject("Dogmatik")
+    info = svc.register_service("vokabeln", "http://vokabeln:8000/")
+    assert info["name"] == "vokabeln" and info["label"] == "Neu" and info["panel"] == "ui" and info["synced"] is True
+    assert gw.known["vokabeln"][subject.id] == "Dogmatik"
+    assert [s["name"] for s in svc.services_status()] == ["karteikarten", "register", "vokabeln"]
+
+
+def test_register_service_rejects_bad_names_and_urls(svc):
+    for bad in ("", "A", "Gross", "subjects", "mit leer", "1abc", "x" * 40):
+        with pytest.raises(InvalidInput):
+            svc.register_service(bad, "http://x:8000")
+    with pytest.raises(InvalidInput):
+        svc.register_service("vokabeln", "ftp://x")
+
+
+def test_existing_subjects_of_a_service_are_adopted_not_lost(svc, gw):
+    gw.known["karteikarten"] = {"alt1": "Biologie", "alt2": "Dogmatik"}   # Karten aus der Zeit vor dem Kern
+    svc.create_subject("Dogmatik")                                       # Name schon vergeben im Kern
+    svc.sync()
+    names = sorted(s.name for s in svc.list_subjects())
+    assert names == ["Biologie", "Dogmatik", "Dogmatik (2)"]
+    assert svc.get_subject("alt1").name == "Biologie"                    # gleiche ID wie im Dienst: die Karten hängen dran
+    assert gw.known["register"]["alt1"] == "Biologie"                    # und die anderen Dienste kennen es jetzt auch
+    svc.sync()
+    assert len(svc.list_subjects()) == 3                                 # zweiter Abgleich legt nichts doppelt an
+
+
+def test_overview_services_carry_manifest(svc):
+    first = svc.services_status()[0]
+    assert first == {"name": "karteikarten", "online": True, "label": "Karteikarten", "panel": None, "fields": []}

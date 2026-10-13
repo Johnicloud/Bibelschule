@@ -4,18 +4,18 @@ import CardForm from '../components/cards/CardForm.vue'
 import CardItem from '../components/cards/CardItem.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 
-const props = defineProps({ deckId: String })
+const props = defineProps({ subjectId: String })
 defineEmits(['study'])
 const service = inject('service')
 const deck = ref(null)
 const error = ref('')
 
 async function load() {
-  try { deck.value = await service.openDeck(props.deckId); error.value = '' }
+  try { deck.value = await service.openDeck(props.subjectId); error.value = '' }
   catch (e) { error.value = 'Die Karteikarten kennen dieses Fach noch nicht. Gleiche die Dienste auf der Startseite ab.' }
 }
 async function remove(card) {
-  await service.deleteCard(props.deckId, card.id)
+  await service.deleteCard(props.subjectId, card.id)
   await load()
 }
 onMounted(load)
@@ -32,7 +32,7 @@ onMounted(load)
     </div>
 
     <h2 class="mb-3 mt-6 text-lg font-semibold">Neue Karte</h2>
-    <CardForm :deck-id="deckId" @added="load" />
+    <CardForm :deck-id="subjectId" @added="load" />
 
     <h2 class="mb-3 mt-10 text-lg font-semibold">Karten in diesem Fach</h2>
     <ul v-if="deck.cards.length" class="grid gap-3 md:grid-cols-2">

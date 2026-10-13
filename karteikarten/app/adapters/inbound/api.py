@@ -103,7 +103,18 @@ def create_app(service: FlashcardService) -> FastAPI:
     def review(deck_id: str, card_id: str, body: ReviewIn):
         return card_out(service.review_card(deck_id, card_id, body.correct))
 
+    @api.get("/manifest")
+    def manifest():
+        """Steckbrief für den Kern: so zeigt die Oberfläche diesen Dienst an."""
+        return {"name": "karteikarten", "label": "Karteikarten", "panel": None,
+                "status": [{"key": "due_count", "label": "fällig"}, {"key": "card_count", "label": "Karten"}]}
+
     # Fach-Hooks: so hängt sich dieser Dienst an die zentrale Fächerverwaltung des Kerns.
+    @api.get("/subjects")
+    def list_subjects():
+        """Bestehende Fächer dieses Dienstes. Der Kern übernimmt unbekannte als Fächer (so gehen alte Karten nicht verloren)."""
+        return [{"id": d.id, "name": d.name} for d in service.list_decks()]
+
     @api.put("/subjects/{subject_id}", status_code=204)
     def put_subject(subject_id: str, body: SubjectIn):
         service.ensure_deck(subject_id, body.name)

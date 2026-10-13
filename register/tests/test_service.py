@@ -39,8 +39,8 @@ def test_add_entry_sorts_refs_in_bible_order(svc):
 
 def test_same_name_merges_without_duplicates(svc, events):
     svc.add_entry("f", "person", "Abraham", ["1Mo 12,1"])
-    e = svc.add_entry("f", "person", " abraham ", ["1Mo 12,1", "1Mo 15,6"], note="Vater des Glaubens")
-    assert texts(e) == ["1Mo 12,1", "1Mo 15,6"] and e.name == "Abraham" and e.note == "Vater des Glaubens"
+    e = svc.add_entry("f", "person", " abraham ", ["1Mo 12,1", "1Mo 15,6"])
+    assert texts(e) == ["1Mo 12,1", "1Mo 15,6"] and e.name == "Abraham"
     assert len(svc.list_entries("f")) == 1
     assert events.sent == ["register.entry_added", "register.entry_updated"]
 

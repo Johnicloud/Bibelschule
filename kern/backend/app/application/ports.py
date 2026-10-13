@@ -27,9 +27,23 @@ class ServiceGateway(ABC):
       PUT    /api/subjects/{id}   {name}      Fach anlegen/umbenennen
       DELETE /api/subjects/{id}               Daten des Fachs löschen
       GET    /api/subjects/{id}/status        Kennzahlen des Fachs für die Übersicht
+      GET    /api/manifest                    Steckbrief: name, label, panel, status-Felder
+      GET    /api/subjects                    (optional) vorhandene Fächer, die der Kern übernehmen darf
     """
     @abstractmethod
     def names(self) -> list[str]: ...
+
+    @abstractmethod
+    def register(self, name: str, url: str) -> None:
+        """Nimmt einen Dienst ins Verzeichnis auf (merkt sich ihn dauerhaft)."""
+
+    @abstractmethod
+    def manifest(self, service: str, live: bool = True) -> dict:
+        """Steckbrief des Dienstes (label, panel, status). live=False nimmt nur den gemerkten."""
+
+    @abstractmethod
+    def list_subjects(self, service: str) -> list[dict] | None:
+        """Fächer, die der Dienst schon hat ([{id, name}]); None, wenn er das nicht anbietet oder nicht erreichbar ist."""
 
     @abstractmethod
     def online(self, service: str) -> bool: ...

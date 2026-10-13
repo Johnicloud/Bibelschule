@@ -23,7 +23,7 @@ class RegisterService:
         if self.events:
             self.events.publish(event, payload)
 
-    def add_entry(self, subject_id: str, kind: str, name: str, refs: list[str], note: str = "") -> RegisterEntry:
+    def add_entry(self, subject_id: str, kind: str, name: str, refs: list[str]) -> RegisterEntry:
         """Legt einen Namen/Ort an. Gibt es ihn im Fach schon, kommen die Stellen dazu."""
         if kind not in KINDS:
             raise InvalidInput("Die Art ist Name (person) oder Ort (place).")
@@ -38,8 +38,6 @@ class RegisterService:
         created = entry is None
         entry = entry or probe
         entry.add_refs(parsed)
-        if (note or "").strip():
-            entry.note = note.strip()
         self.repo.save(entry)
         self._emit("register.entry_added" if created else "register.entry_updated",
                    {"subject_id": subject_id, "entry_id": entry.id, "kind": kind, "name": entry.name})

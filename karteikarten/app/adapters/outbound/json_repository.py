@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.application.ports import DeckRepository
+from app.adapters.outbound.storage import atomic_write_text, daily_backup
 from app.domain.models import Card, Deck
 
 
@@ -33,9 +34,8 @@ class JsonDeckRepository(DeckRepository):
         return {d["id"]: _from_dict(d) for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, decks: dict[str, Deck]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps([_to_dict(d) for d in decks.values()], ensure_ascii=False, indent=2), "utf-8")
+        daily_backup(self.path)
+        atomic_write_text(self.path, json.dumps([_to_dict(d) for d in decks.values()], ensure_ascii=False, indent=2))
 
     def list(self) -> list[Deck]:
         with self._lock:

@@ -3,9 +3,10 @@ Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json (auch für übergeord
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
+from app.adapters.inbound.exports import entries_table, passages_table, to_csv, to_text
 from app.application.services import RegisterService
 from app.domain.bible import BOOKS, BibleRef
 from app.domain.errors import InvalidInput, NotFound
@@ -17,7 +18,6 @@ class EntryIn(BaseModel):
     kind: Literal["person", "place"]
     name: str
     refs: list[str] = Field(default_factory=list)   # z. B. ["1Mo 12,1-3", "Hebr 11,8"] oder "Joh 3,16; Joh 4,5"
-    note: str = ""
 
 
 class SubjectIn(BaseModel):
@@ -30,7 +30,7 @@ def ref_out(r: BibleRef) -> dict:
 
 
 def entry_out(e: RegisterEntry) -> dict:
-    return {"id": e.id, "subject_id": e.subject_id, "kind": e.kind, "name": e.name, "note": e.note,
+    return {"id": e.id, "subject_id": e.subject_id, "kind": e.kind, "name": e.name,
             "refs": [ref_out(r) for r in e.refs]}
 
 
@@ -50,6 +50,12 @@ def create_app(service: RegisterService) -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    @api.get("/manifest")
+    def manifest():
+        """Steckbrief für den Kern: so zeigt die Oberfläche diesen Dienst an."""
+        return {"name": "register", "label": "Register", "panel": None,
+                "status": [{"key": "persons", "label": "Namen"}, {"key": "places", "label": "Orte"}]}
+
     @api.get("/books")
     def books():
         return [{"index": b.index, "short": b.short, "name": b.name} for b in BOOKS]
@@ -61,7 +67,7 @@ def create_app(service: RegisterService) -> FastAPI:
 
     @api.post("/entries", status_code=201)
     def add_entry(body: EntryIn):
-        return entry_out(service.add_entry(body.subject_id, body.kind, body.name, body.refs, body.note))
+        return entry_out(service.add_entry(body.subject_id, body.kind, body.name, body.refs))
 
     @api.delete("/entries/{entry_id}", status_code=204)
     def delete_entry(entry_id: str):
@@ -71,6 +77,22 @@ def create_app(service: RegisterService) -> FastAPI:
     def passages(subject_id: str | None = None, kind: Literal["person", "place"] | None = None):
         return [{**ref_out(ref), "entries": [{"id": e.id, "kind": e.kind, "name": e.name} for e in entries]}
                 for ref, entries in service.by_passage(subject_id, kind)]
+
+    @api.get("/export")
+    def export(subject_id: str | None = None, kind: Literal["person", "place"] | None = None,
+               sort: Literal["name", "bibel", "stellen"] = "name", format: Literal["csv", "txt"] = "csv"):
+        """Liste zum Herunterladen. sort=stellen ergibt das Bibelstellenregister (Stelle -> Namen und Orte)."""
+        if sort == "stellen":
+            header, rows = passages_table(service.by_passage(subject_id, kind))
+        else:
+            header, rows = entries_table(service.list_entries(subject_id, kind, sort))
+        if format == "csv":
+            body = to_csv(header, rows).encode("utf-8-sig")   # mit BOM, damit Excel Umlaute richtig liest
+            media = "text/csv; charset=utf-8"
+        else:
+            body, media = to_text(rows).encode("utf-8"), "text/plain; charset=utf-8"
+        return Response(body, media_type=media,
+                        headers={"Content-Disposition": f'attachment; filename="register-{sort}.{format}"'})
 
     # Fach-Hooks: so hängt sich dieser Dienst an die zentrale Fächerverwaltung des Kerns.
     @api.put("/subjects/{subject_id}", status_code=204)

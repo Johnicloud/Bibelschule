@@ -11,5 +11,8 @@ export function createRegisterApi(base = '/api/register') {
     passages: (subjectId, kind = '') => call('GET', '/passages' + query(subjectId, kind ? { kind } : {})),
     addEntry: (entry) => call('POST', '/entries', entry),
     deleteEntry: (id) => call('DELETE', `/entries/${id}`),
+    // Link zum Herunterladen (CSV oder Text), mit denselben Filtern wie die Anzeige
+    exportUrl: (subjectId, { kind = '', sort = 'name', format = 'csv' } = {}) =>
+      base + '/export' + query(subjectId, { sort, format, ...(kind ? { kind } : {}) }),
   }
 }

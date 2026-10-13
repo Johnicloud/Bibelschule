@@ -3,7 +3,7 @@ services:
   kern:
     build: ./kern/backend
     environment:
-      # Dienstverzeichnis (Name=URL). Ein neuer Dienst ist hier ein neuer Eintrag.
+      # Fest eingetragene Dienste (Name=URL). Weitere Dienste melden sich selbst an (siehe ./neuer-dienst.sh).
       SERVICES: karteikarten=http://karteikarten:8000,lesenachweis=http://lesenachweis:8000,register=http://register:8000
     volumes:
       - ./data/kern:/app/data            # Fächer
@@ -16,7 +16,7 @@ services:
       EXTERNAL_SERVICE_URL: ${EXTERNAL_SERVICE_URL:-}
       EXTERNAL_SERVICE_TOKEN: ${EXTERNAL_SERVICE_TOKEN:-}
     volumes:
-      - ./data/karteikarten:/app/data    # Karteikarten bleiben beim Neustart erhalten
+      - ./data:/app/data                 # wie in der alten App: ./data/decks.json bleibt der Speicherort deiner Karten
     restart: unless-stopped
 
   lesenachweis:

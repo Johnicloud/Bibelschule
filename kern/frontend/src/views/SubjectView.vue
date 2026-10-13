@@ -1,23 +1,24 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import DeckPanel from './DeckPanel.vue'
 import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
+import ExternalPanel from '../components/ui/ExternalPanel.vue'
+import { NATIVE_SERVICES } from '../domain/status'
 
-const props = defineProps({ subjectId: String, tab: { type: String, default: 'cards' } })
+const props = defineProps({ subjectId: String, tab: { type: String, default: 'karteikarten' } })
 defineEmits(['back', 'study', 'update:tab'])
 const subjects = inject('subjects')
 const subject = ref(null)
+const services = ref([])
 const error = ref('')
 
-const tabs = [
-  { id: 'cards', label: 'Karteikarten' },
-  { id: 'reading', label: 'Lesenachweis' },
-  { id: 'register', label: 'Register' },
-]
+// Reiter = Dienste: die eingebauten und jeder Dienst, der im Manifest eine eigene Seite (panel) meldet.
+const tabs = computed(() => services.value.filter((s) => NATIVE_SERVICES.includes(s.name) || s.panel))
+const current = computed(() => tabs.value.find((t) => t.name === props.tab) || tabs.value[0])
 
 onMounted(async () => {
-  try { subject.value = await subjects.get(props.subjectId) }
+  try { ;[subject.value, services.value] = await Promise.all([subjects.get(props.subjectId), subjects.services()]) }
   catch (e) { error.value = e.message }
 })
 </script>
@@ -25,24 +26,25 @@ onMounted(async () => {
 <template>
   <button class="btn btn-ghost !px-2" @click="$emit('back')">Zurück zu den Fächern</button>
   <p v-if="error" class="mt-4 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
-  <template v-if="subject">
+  <template v-if="subject && current">
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
 
-    <div class="mt-5 flex gap-1 border-b border-slate-200 dark:border-slate-800" role="tablist">
-      <button v-for="t in tabs" :key="t.id" role="tab" :aria-selected="tab === t.id"
-        class="-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition"
-        :class="tab === t.id
+    <div class="mt-5 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+      <button v-for="t in tabs" :key="t.name" role="tab" :aria-selected="current.name === t.name"
+        class="-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition"
+        :class="current.name === t.name
           ? 'border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-300'
           : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'"
-        @click="$emit('update:tab', t.id)">
+        @click="$emit('update:tab', t.name)">
         {{ t.label }}
       </button>
     </div>
 
     <div class="mt-6" role="tabpanel">
-      <DeckPanel v-if="tab === 'cards'" :deck-id="subjectId" @study="$emit('study')" />
-      <ReadingPanel v-else-if="tab === 'reading'" :subject-id="subjectId" />
-      <RegisterPanel v-else :subject-id="subjectId" />
+      <DeckPanel v-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" />
+      <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" />
+      <RegisterPanel v-else-if="current.name === 'register'" :subject-id="subjectId" />
+      <ExternalPanel v-else :src="`/api/${current.name}/${current.panel}?subject=${encodeURIComponent(subjectId)}`" :title="current.label" />
     </div>
   </template>
 </template>

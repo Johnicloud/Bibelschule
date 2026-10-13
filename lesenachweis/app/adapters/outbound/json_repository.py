@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from app.application.ports import ReadingRepository
+from app.adapters.outbound.storage import atomic_write_text, daily_backup
 from app.domain.models import ReadingEntry, ReadingTask
 
 
@@ -36,9 +37,8 @@ class JsonReadingRepository(ReadingRepository):
         return {d["id"]: _from_dict(d) for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, tasks: dict[str, ReadingTask]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps([_to_dict(t) for t in tasks.values()], ensure_ascii=False, indent=2), "utf-8")
+        daily_backup(self.path)
+        atomic_write_text(self.path, json.dumps([_to_dict(t) for t in tasks.values()], ensure_ascii=False, indent=2))
 
     def list(self, subject_id: str | None = None) -> list[ReadingTask]:
         with self._lock:

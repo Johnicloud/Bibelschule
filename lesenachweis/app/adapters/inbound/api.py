@@ -69,6 +69,12 @@ def create_app(service: ReadingService) -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    @api.get("/manifest")
+    def manifest():
+        """Steckbrief für den Kern: so zeigt die Oberfläche diesen Dienst an."""
+        return {"name": "lesenachweis", "label": "Lesenachweis", "panel": None,
+                "status": [{"key": "percent", "label": "% gelesen"}]}
+
     @api.get("/tasks")
     def list_tasks(subject_id: str | None = None):
         return [task_out(t) for t in service.list_tasks(subject_id)]

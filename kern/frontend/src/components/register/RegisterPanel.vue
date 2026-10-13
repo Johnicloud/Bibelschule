@@ -11,7 +11,7 @@ const kind = ref('') // '' = alle | 'person' | 'place'
 const view = ref('name') // 'name' | 'bibel' | 'stellen'
 const error = ref('')
 const loadError = ref('')
-const blank = () => ({ kind: 'person', name: '', refs: '', note: '' })
+const blank = () => ({ kind: 'person', name: '', refs: '' })
 const form = ref(blank())
 
 const KIND_LABEL = { person: 'Name', place: 'Ort' }
@@ -36,6 +36,7 @@ async function remove(entry) {
   await register.remove(entry.id)
   await load()
 }
+const exportUrl = (format) => register.exportUrl(props.subjectId, { kind: kind.value, sort: view.value, format })
 const empty = computed(() => (view.value === 'stellen' ? !passages.value.length : !entries.value.length))
 
 watch([kind, view], load)
@@ -56,7 +57,6 @@ onMounted(load)
       </span>
       <textarea v-model="form.refs" rows="2" class="input" aria-label="Bibelstellen"></textarea>
     </label>
-    <input v-model="form.note" class="input sm:col-span-6" placeholder="Notiz (optional)" aria-label="Notiz" />
     <div class="sm:col-span-6">
       <button class="btn btn-primary">Eintragen</button>
       <span v-if="error" class="ml-3 text-sm text-rose-600 dark:text-rose-400">{{ error }}</span>
@@ -75,6 +75,10 @@ onMounted(load)
       <option value="bibel">Nach Bibelreihenfolge</option>
       <option value="stellen">Nach Bibelstelle</option>
     </select>
+    <template v-if="!empty">
+      <a class="btn btn-outline !py-2" :href="exportUrl('csv')" :download="`register-${view}.csv`">Export CSV</a>
+      <a class="btn btn-outline !py-2" :href="exportUrl('txt')" :download="`register-${view}.txt`">Export Text</a>
+    </template>
   </div>
 
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
@@ -91,7 +95,6 @@ onMounted(load)
         </div>
         <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="remove(e)">Löschen</button>
       </div>
-      <p v-if="e.note" class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ e.note }}</p>
       <div class="mt-3 flex flex-wrap gap-1.5">
         <span v-for="r in e.refs" :key="r.text" :title="r.book_name"
           class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 dark:bg-teal-500/10 dark:text-teal-300">

@@ -9,6 +9,7 @@ export function createKernApi(base = '/api') {
     createSubject: (name) => call('POST', '/subjects', { name }),
     renameSubject: (id, name) => call('PUT', `/subjects/${id}`, { name }),
     deleteSubject: (id) => call('DELETE', `/subjects/${id}`),
+    services: () => call('GET', '/services'),
     overview: () => call('GET', '/overview'),
     sync: () => call('POST', '/sync'),
   }
