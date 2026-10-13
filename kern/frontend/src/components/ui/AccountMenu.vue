@@ -19,7 +19,7 @@ function go(fn) { open.value = false; fn() }
 
 <template>
   <div class="relative" data-account-menu>
-    <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400"
+    <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25"
       :aria-expanded="open" aria-haspopup="menu" :aria-label="`Konto: ${username}`" @click="open = !open">
       <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <circle cx="12" cy="8" r="4" />
@@ -27,9 +27,9 @@ function go(fn) { open.value = false; fn() }
       </svg>
     </button>
 
-    <div v-if="open" role="menu" class="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg dark:border-slate-800 dark:bg-slate-900">
-      <p class="truncate px-3 py-1.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ username }}</p>
-      <button type="button" role="menuitem" class="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" @click="toggle">
+    <div v-if="open" role="menu" class="absolute right-0 mt-2 w-56 rounded-xl border border-highlight bg-theme py-1.5 text-theme-inv shadow-lg">
+      <p class="truncate px-3 py-1.5 text-sm font-medium">{{ username }}</p>
+      <button type="button" role="menuitem" class="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-backdrop" @click="toggle">
         {{ dark ? 'Dunkles Design' : 'Helles Design' }}
         <svg v-if="dark" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
@@ -38,9 +38,9 @@ function go(fn) { open.value = false; fn() }
           <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
         </svg>
       </button>
-      <button type="button" role="menuitem" class="flex w-full px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800" @click="go(() => emit('profile'))">Konto</button>
-      <hr class="my-1.5 border-slate-200 dark:border-slate-800" />
-      <button type="button" role="menuitem" class="flex w-full px-3 py-2 text-sm text-rose-600 hover:bg-slate-100 dark:text-rose-400 dark:hover:bg-slate-800" @click="go(() => emit('logout'))">Abmelden</button>
+      <button type="button" role="menuitem" class="flex w-full px-3 py-2 text-sm hover:bg-backdrop" @click="go(() => emit('profile'))">Konto</button>
+      <hr class="my-1.5 border-highlight" />
+      <button type="button" role="menuitem" class="flex w-full px-3 py-2 text-sm text-error hover:bg-backdrop" @click="go(() => emit('logout'))">Abmelden</button>
     </div>
   </div>
 </template>

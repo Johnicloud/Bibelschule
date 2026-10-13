@@ -114,6 +114,23 @@ Sprache der Oberfläche und der Texte: Deutsch.
   jetzt je Vers die Leitner-Stufe („neu“, „Stufe n (x Tage)“, „sicher gelernt“ ab Stufe 4) und das Fälligkeitsdatum,
   dazu oben im Fach-Reiter einen Fortschritts-Satz „X von Y Versen dieses Fachs sicher gelernt“.
 
+- [fertig] Oberfläche im Design der Finanzapp (`/Users/admin/finanzapp`, Vorbild begutachtet: `main.css`,
+  `knoepfe.css`, `seiten.css`, `AppRoot.vue`/`HaushaltsbuchNavigation.vue`): Farben als CSS-Variablen
+  (`--color-primary`, `-primary-darker`, `-theme`, `-theme-inv`, `-backdrop`, `-highlight`, `-link`, `-error`,
+  `-success`) in `style.css`, per `.dark`-Klasse umgeschaltet (nicht `prefers-color-scheme`) – `useTheme.js`
+  schaltet weiter nur die Klasse, der Rest folgt automatisch. `tailwind.config.js` bindet sie als Farben ein
+  (`bg-primary`, `text-theme-inv`, …), nur Bibelschule bleibt beim Teal-Markenton statt dem Blau der Finanzapp.
+  `.panel`/`.btn`/`.input` in `style.css` sind jetzt zentral über diese Tokens definiert (wie `seiten-karte`/
+  `schaltflaeche` dort): Knöpfe heben beim Hover leicht ab (`hover:-translate-y-0.5`) statt nur die Farbe zu
+  wechseln, Primär-Knopf mit farbigem Schatten. `AppHeader.vue`: Kopfleiste in Primärfarbe (wie `.app-header`
+  dort) statt neutralem Grau, Navigation als Pillen-Leiste (aktiver Reiter = weiße Pille), „Start“-Logo links.
+  `AccountMenu.vue` entsprechend angepasst (weißes Icon auf der farbigen Leiste). Nur die gemeinsamen
+  Bausteine wurden umgestellt, nicht jede Seite einzeln nachgezogen – Status-Badges u. Ä. mit eigenen Farben
+  (rose/amber/violet) blieben unverändert, das UI-Kit der Plugin-Dienste (`/ui-kit.css`) ebenfalls (eigenes,
+  bewusst minimales System, siehe oben). Tailwind v3 (nicht v4 wie bei der Finanzapp): keine `@theme`-Direktive,
+  Variablen normal in `:root`/`.dark` definiert und über `theme.extend.colors` eingebunden; Opacity-Modifier auf
+  diesen Custom-Properties (`text-theme-inv/70`) schlagen in v3 fehl, stattdessen eine `opacity-*`-Utility nehmen.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

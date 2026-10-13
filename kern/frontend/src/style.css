@@ -2,20 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Farben wie bei der Finanzapp: eine Stelle mit CSS-Variablen, per .dark umgeschaltet (useTheme.js setzt die
+   Klasse), nicht per prefers-color-scheme – so kann der Hell/Dunkel-Umschalter die Systemeinstellung übersteuern.
+   Bibelschule bleibt beim Teal-Markenton, nur die Struktur (primary/theme/backdrop/highlight/…) ist von dort. */
+:root {
+  --color-primary: #0d9488;        /* teal-600 */
+  --color-primary-darker: #0f766e; /* teal-700 */
+  --color-theme: #ffffff;
+  --color-theme-inv: #0f172a;      /* slate-900 */
+  --color-backdrop: #f8fafc;       /* slate-50 */
+  --color-highlight: #e2e8f0;      /* slate-200 */
+  --color-link: #0f766e;           /* teal-700 */
+  --color-error: #e11d48;          /* rose-600 */
+  --color-success: #059669;        /* emerald-600 */
+}
+
+.dark {
+  --color-primary: #0f766e;        /* teal-700: im Dunkeln gedämpfter als teal-600, blendet nicht als Kopfleiste */
+  --color-primary-darker: #115e59; /* teal-800 */
+  --color-theme: #0f172a;          /* slate-900 */
+  --color-theme-inv: #f1f5f9;      /* slate-100 */
+  --color-backdrop: #1e293b;       /* slate-800 */
+  --color-highlight: #334155;      /* slate-700 */
+  --color-link: #5eead4;           /* teal-300 */
+  --color-error: #fb7185;          /* rose-400 */
+  --color-success: #34d399;        /* emerald-400 */
+}
+
 @layer base {
-  body { @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100; }
+  body { @apply bg-backdrop text-theme-inv antialiased; }
 }
 
 @layer components {
-  .panel { @apply rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition
-    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400; }
-  .btn-outline { @apply bg-white ring-1 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-700 dark:hover:bg-slate-800; }
-  .btn-ghost { @apply text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800; }
-  .btn-danger { @apply text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10; }
-  .input { @apply w-full rounded-xl bg-white px-3.5 py-2.5 text-sm ring-1 ring-slate-300 placeholder:text-slate-400
-    focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-900 dark:ring-slate-700 dark:placeholder:text-slate-500; }
+  /* „seiten-karte“ der Finanzapp, hier unter dem schon verbreiteten Namen .panel weitergeführt */
+  .panel { @apply flex flex-col gap-3 rounded-2xl border border-highlight bg-theme p-5 shadow-sm; }
+  .leer { @apply py-2 text-center text-sm opacity-60; }
+  .zeilen { @apply divide-y divide-highlight; }
+
+  /* „schaltflaeche“ der Finanzapp: Form/Höhe/Schrift für alle Knöpfe gleich, Hub beim Hover statt Farbwechsel allein */
+  .btn { @apply inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border
+    border-highlight bg-theme px-4 py-2.5 text-sm font-semibold text-theme-inv shadow-sm transition duration-200
+    hover:-translate-y-0.5 hover:bg-backdrop hover:shadow-md
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
+    disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0; }
+  .btn-primary { @apply border-transparent bg-primary text-white shadow-[0_4px_8px_rgba(13,148,136,0.3)]
+    hover:bg-primary-darker hover:shadow-[0_6px_12px_rgba(13,148,136,0.4)]; }
+  .btn-outline { @apply bg-theme; }
+  .btn-ghost { @apply border-transparent bg-transparent text-theme-inv opacity-70 shadow-none hover:translate-y-0
+    hover:bg-backdrop hover:opacity-100 hover:shadow-none; }
+  .btn-danger { @apply border-transparent bg-transparent text-error shadow-none hover:translate-y-0
+    hover:bg-backdrop hover:shadow-none; }
+
+  .input { @apply w-full rounded-xl border border-highlight bg-theme px-3.5 py-2.5 text-sm text-theme-inv
+    placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary; }
 }
 
 @layer utilities {
