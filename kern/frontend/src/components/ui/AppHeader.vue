@@ -1,13 +1,13 @@
 <script setup>
-import ThemeToggle from './ThemeToggle.vue'
+import AccountMenu from './AccountMenu.vue'
 
 defineProps({ active: String, username: String })
 defineEmits(['nav', 'logout', 'profile'])
 const tabs = [
-  { id: 'home', label: 'Start' },
   { id: 'subjects', label: 'Fächer' },
   { id: 'cards', label: 'Karten' },
   { id: 'study', label: 'Lernen' },
+  { id: 'adressbuch', label: 'Adressbuch' },
 ]
 </script>
 
@@ -26,10 +26,7 @@ const tabs = [
           :aria-current="active === t.id ? 'page' : undefined" @click="$emit('nav', t.id)">
           {{ t.label }}
         </button>
-        <ThemeToggle />
-        <button class="ml-2 hidden rounded-full px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800 sm:inline"
-          :aria-current="active === 'profile' ? 'page' : undefined" @click="$emit('profile')">{{ username }}</button>
-        <button class="btn btn-ghost !px-3" @click="$emit('logout')">Abmelden</button>
+        <AccountMenu :username="username" class="ml-2" @profile="$emit('profile')" @logout="$emit('logout')" />
       </nav>
     </div>
   </header>

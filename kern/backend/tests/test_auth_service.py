@@ -31,6 +31,12 @@ def test_create_account_and_login(svc):
     token = svc.login("johannes", "geheim123")
     found = svc.current_account(token)
     assert found.id == account.id and found.username == "johannes"
+    assert account.is_admin is False
+
+
+def test_create_account_can_be_an_admin(svc):
+    admin = svc.create_account("johannes", "geheim123", is_admin=True)
+    assert admin.is_admin is True
 
 
 def test_create_account_rejects_duplicate_username(svc):

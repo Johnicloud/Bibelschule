@@ -9,7 +9,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.application.auth_service import AuthService
 from app.application.services import SubjectService
-from app.domain.errors import InvalidInput, NotFound, Unauthorized
+from app.domain.errors import Forbidden, InvalidInput, NotFound, Unauthorized
 from app.domain.models import Subject
 
 SESSION_COOKIE = "session"
@@ -53,6 +53,12 @@ class PasswordIn(BaseModel):
     new_password: str
 
 
+class AccountIn(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
@@ -89,6 +95,10 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     async def _unauthorized(_, e):
         return JSONResponse({"detail": str(e)}, status_code=401)
 
+    @app.exception_handler(Forbidden)
+    async def _forbidden(_, e):
+        return JSONResponse({"detail": str(e)}, status_code=403)
+
     @api.get("/health")
     def health():
         return {"status": "ok"}
@@ -97,7 +107,8 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def login(body: LoginIn, response: Response):
         token = auth.login(body.username, body.password)
         response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 30)
-        return {"username": body.username.strip()}
+        account = auth.current_account(token)
+        return {"username": account.username, "is_admin": account.is_admin}
 
     @api.post("/logout", status_code=204)
     def logout(request: Request, response: Response):
@@ -109,22 +120,30 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     @api.get("/me")
     def me(request: Request):
         account = auth.current_account(request.cookies.get(SESSION_COOKIE))
-        return {"username": account.username}
+        return {"username": account.username, "is_admin": account.is_admin}
 
     @api.put("/me/password", status_code=204)
     def change_password(request: Request, body: PasswordIn):
         account = auth.current_account(request.cookies.get(SESSION_COOKIE))
         auth.change_password(account.id, body.old_password, body.new_password)
 
+    def _require_admin(request: Request):
+        account = auth.current_account(request.cookies.get(SESSION_COOKIE))
+        if not account.is_admin:
+            raise Forbidden("Nur Admins dürfen das.")
+
     @api.get("/accounts")
-    def list_accounts():
-        """Nur die Benutzernamen, nie der Passwort-Hash."""
-        return [{"username": a.username} for a in auth.list_accounts()]
+    def list_accounts(request: Request):
+        """Nur Admins; nie der Passwort-Hash."""
+        _require_admin(request)
+        return [{"username": a.username, "is_admin": a.is_admin} for a in auth.list_accounts()]
 
     @api.post("/accounts", status_code=201)
-    def create_account(body: LoginIn):
-        """Ein schon angemeldetes Konto darf weitere Konten anlegen (eingeladene Personen); keine Selbstregistrierung."""
-        return {"username": auth.create_account(body.username, body.password).username}
+    def create_account(request: Request, body: AccountIn):
+        """Nur Admins dürfen neue Konten (auch neue Admins) anlegen; keine Selbstregistrierung."""
+        _require_admin(request)
+        account = auth.create_account(body.username, body.password, body.is_admin)
+        return {"username": account.username, "is_admin": account.is_admin}
 
     @api.get("/subjects")
     def list_subjects():

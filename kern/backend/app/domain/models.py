@@ -29,7 +29,9 @@ class Subject:
 @dataclass
 class Account:
     """Ein Konto. Alle Konten sehen dieselben Fächer (gemeinsames Lernen) – das Konto regelt nur den Zugang,
-    keine Datentrennung. Konten legt man per Skript an, es gibt keine Selbstregistrierung."""
+    keine Datentrennung. Konten legt man per Skript an oder, einmal angemeldet, als Admin über die Oberfläche.
+    is_admin = darf neue Konten (auch neue Admins) anlegen und die Benutzerliste sehen."""
     username: str
     password_hash: str
+    is_admin: bool = False
     id: str = field(default_factory=new_id)

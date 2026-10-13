@@ -1,5 +1,6 @@
-"""Legt ein Konto an. Läuft innerhalb des Containers, Aufruf über ../neues-konto.sh im Projektordner.
-Keine Selbstregistrierung über die API: Konten entstehen nur hier, für eingeladene Personen."""
+"""Legt ein Admin-Konto an. Läuft innerhalb des Containers, Aufruf über ../neues-konto.sh im Projektordner.
+Wer Shell-Zugriff auf den Container hat, hat ohnehin schon vollen Zugriff auf die Daten – darum immer Admin;
+weitere, nicht-Admin-Konten legt ein Admin bequemer über die Oberfläche an."""
 import os
 import sys
 from pathlib import Path
@@ -19,11 +20,11 @@ def main() -> None:
     data_dir = Path(os.getenv("DATA_FILE") or Path(__file__).resolve().parents[1] / "data" / "subjects.json").parent
     auth = AuthService(JsonAccountRepository(data_dir / "accounts.json"), MemorySessionStore())
     try:
-        account = auth.create_account(username, password)
+        account = auth.create_account(username, password, is_admin=True)
     except InvalidInput as e:
         print(f"Fehler: {e}")
         raise SystemExit(1)
-    print(f"Konto „{account.username}“ angelegt.")
+    print(f"Admin-Konto „{account.username}“ angelegt.")
 
 
 if __name__ == "__main__":

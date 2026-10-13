@@ -80,6 +80,21 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Name, SE/Credits (synchron wie beim Anlegen) und Dozenten (Mehrfachauswahl, gleicht beim Speichern per
   Zuordnen/Entfernen mit dem Adressbuch ab). Ersetzt die alten einzelnen `prompt()`-Dialoge für Umbenennen/SE.
   Dozentenauswahl steht jetzt auch beim Anlegen direkt neben SE/Credits, nicht mehr darunter.
+- [fertig] Admin-Konten: `is_admin`-Feld am Konto. Nur Admins dürfen `/api/accounts` (Liste, Anlegen) nutzen,
+  sonst 403. `./neues-konto.sh` legt immer Admins an (wer Shell-Zugriff auf den Container hat, hat ohnehin
+  vollen Zugriff); weitere, auch nicht-Admin-Konten legt ein Admin über die Oberfläche an. Bestehendes
+  erstes Konto wurde einmalig von Hand in `accounts.json` auf `is_admin: true` gesetzt (keine Migration nötig,
+  neue Konten tragen das Feld von Anfang an; alte ohne das Feld gelten als `false`, siehe `.get(..., False)`).
+- [fertig] Automatische Abmeldung nach Inaktivität (wie bei einer Finanz-App), zweistufig:
+  Server (`MemorySessionStore`, `IDLE_TIMEOUT = 15 min`): jede Sitzung hat ein gleitendes Zeitfenster – jeder
+  erfolgreiche Aufruf schiebt die Frist weiter, ohne Aufruf länger als 15 Minuten gilt sie als abgelaufen.
+  Frontend (`App.vue`): eigener 15-Minuten-Inaktivitätstimer (Maus/Tastatur/Touch/Scroll setzt ihn zurück)
+  meldet zusätzlich sofort lokal ab, ohne auf einen fehlgeschlagenen Serveraufruf warten zu müssen.
+- [fertig] Oberfläche im Finanzapp-Stil: ein rundes Benutzer-Symbol (Personen-Silhouette, `AccountMenu.vue`)
+  oben rechts bündelt Hell/Dunkel, „Konto“ (Profilseite) und „Abmelden“ statt einzelner Knöpfe nebeneinander.
+  Navigation: „Start“ ist kein eigener Reiter mehr (nur noch per Logo-Klick erreichbar), „Adressbuch“ ist jetzt
+  ein globaler Reiter (`AdressbuchView.vue`: alle Dozenten anlegen/löschen, unabhängig vom Fach; Zuordnung zu
+  einem Fach bleibt Sache des jeweiligen Fachs). Passwort-Formulare verlangen das neue Passwort zweimal.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

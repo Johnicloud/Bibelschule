@@ -14,7 +14,7 @@ class AuthService:
         self.accounts = accounts
         self.sessions = sessions
 
-    def create_account(self, username: str, password: str) -> Account:
+    def create_account(self, username: str, password: str, is_admin: bool = False) -> Account:
         username = (username or "").strip()
         if not username:
             raise InvalidInput("Der Benutzername darf nicht leer sein.")
@@ -22,7 +22,7 @@ class AuthService:
             raise InvalidInput(f"Das Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen haben.")
         if self.accounts.get_by_username(username):
             raise InvalidInput("Diesen Benutzernamen gibt es schon.")
-        account = Account(username=username, password_hash=hash_password(password))
+        account = Account(username=username, password_hash=hash_password(password), is_admin=is_admin)
         self.accounts.save(account)
         return account
 

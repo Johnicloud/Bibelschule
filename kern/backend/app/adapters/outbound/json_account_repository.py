@@ -17,13 +17,15 @@ class JsonAccountRepository(AccountRepository):
     def _read(self) -> dict[str, Account]:
         if not self.path.exists():
             return {}
-        return {d["id"]: Account(id=d["id"], username=d["username"], password_hash=d["password_hash"])
+        return {d["id"]: Account(id=d["id"], username=d["username"], password_hash=d["password_hash"],
+                                  is_admin=d.get("is_admin", False))
                 for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, accounts: dict[str, Account]) -> None:
         daily_backup(self.path)
         atomic_write_text(self.path, json.dumps(
-            [{"id": a.id, "username": a.username, "password_hash": a.password_hash} for a in accounts.values()],
+            [{"id": a.id, "username": a.username, "password_hash": a.password_hash, "is_admin": a.is_admin}
+             for a in accounts.values()],
             ensure_ascii=False, indent=2))
 
     def list(self) -> list[Account]:
