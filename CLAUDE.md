@@ -96,6 +96,19 @@ Sprache der Oberfläche und der Texte: Deutsch.
   ein globaler Reiter (`AdressbuchView.vue`: alle Dozenten anlegen/löschen, unabhängig vom Fach; Zuordnung zu
   einem Fach bleibt Sache des jeweiligen Fachs). Passwort-Formulare verlangen das neue Passwort zweimal.
 
+- [fertig] PDF-Vorlagen-Dienst (`pdfcreator`): füllt PDF-Formulare serverseitig aus (reportlab-Overlay + pypdf-Merge,
+  keine KI nötig für das Ausfüllen selbst). Mitgeliefert: „Lesenachweis Pflichtlektüre“ (BEE-Formular) mit von Hand
+  vermessenen Feldpositionen (`domain/standard_vorlage.py`), Platz für 6 Bücher (Titel+Seiten je Zeile).
+  Fachübergreifend (kein `panel`, keine Fach-Daten) – trotzdem mit den drei Pflicht-Endpunkten des Fach-Vertrags,
+  damit der Kern beim Abgleich keine Ausnahme braucht.
+  Neue Vorlage hochladen (`POST /api/vorlagen`, multipart): bekommt noch keine Feldpositionen (die trägt man von
+  Hand in `vorlagen.json` ein), aber einen KI-Vorschlag von Ollama, welche Angaben im Formular vorkommen – reiner
+  Lesetext zur Orientierung, keine automatische Positionierung (siehe Entscheidungen: Ergebnisse der KI sind
+  Vorschläge). Ollama läuft nicht in diesem Compose-Stack, sondern lokal auf dem Mac; Adresse über `OLLAMA_URL`
+  (Default `http://host.docker.internal:11434`, siehe `.env.example`), 180 Sekunden Zeitlimit (lokale Modelle
+  brauchen länger als eine Cloud-API). Ohne `OLLAMA_URL` oder bei Netzwerkfehler gibt es einfach keinen Vorschlag
+  (`NullTextKI` bzw. abgefangener Fehler), der Upload selbst schlägt nie deswegen fehl.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

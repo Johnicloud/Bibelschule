@@ -23,3 +23,13 @@ services:
     volumes:
       - ./data/bibelverse:/app/data
     restart: unless-stopped
+  pdfcreator:
+    build: ./pdfcreator
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://pdfcreator:8000
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    volumes:
+      - ./data/pdfcreator:/app/data
+    restart: unless-stopped
