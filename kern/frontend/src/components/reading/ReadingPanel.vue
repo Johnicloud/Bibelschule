@@ -14,6 +14,8 @@ const error = ref('')
 const loadError = ref('')
 const blank = () => ({ title: '', unit: 'Seiten', total: '', passes: 1, start: '', deadline: '' })
 const form = ref(blank())
+const mehrereBuecher = ref(false)
+const buecher = ref([{ title: '', total: '' }])
 
 async function load() {
   try {
@@ -23,10 +25,16 @@ async function load() {
   catch (e) { loadError.value = e.message }
 }
 async function refresh() { await load(); emit('changed') }
+function addBuchFeld() { buecher.value.push({ title: '', total: '' }) }
+function removeBuchFeld(i) { buecher.value.splice(i, 1) }
 async function add() {
   error.value = ''
-  try { await reading.add(props.subjectId, form.value); form.value = blank(); await refresh() }
-  catch (e) { error.value = e.message }
+  try {
+    await reading.add(props.subjectId, form.value, mehrereBuecher.value ? buecher.value : null)
+    form.value = blank()
+    buecher.value = [{ title: '', total: '' }]
+    await refresh()
+  } catch (e) { error.value = e.message }
 }
 onMounted(load)
 </script>
@@ -36,8 +44,31 @@ onMounted(load)
 
   <h2 class="mb-3 text-lg font-semibold">Neues Lesepensum</h2>
   <form class="panel grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
-    <input v-model="form.title" class="input sm:col-span-6" placeholder="Titel, z. B. Grundriss der Dogmatik" aria-label="Titel" />
-    <label class="text-sm sm:col-span-2">
+    <input v-model="form.title" class="input sm:col-span-6" placeholder="Titel, z. B. Grundriss der Dogmatik / Pflicht-Lektüre" aria-label="Titel" />
+
+    <label class="flex items-center gap-1.5 text-sm sm:col-span-6">
+      <input type="checkbox" v-model="mehrereBuecher" class="h-4 w-4 rounded" />
+      Aus mehreren Büchern zusammensetzen (z. B. 600 Seiten aus drei Büchern mit je eigenem Umfang)
+    </label>
+
+    <template v-if="mehrereBuecher">
+      <div class="sm:col-span-6">
+        <div v-for="(b, i) in buecher" :key="i" class="mb-2 flex gap-2">
+          <input v-model="b.title" class="input" placeholder="Buchtitel" :aria-label="`Titel Buch ${i + 1}`" />
+          <input v-model="b.total" type="number" min="1" class="input !w-32" placeholder="Seiten/Kapitel" :aria-label="`Umfang Buch ${i + 1}`" />
+          <button v-if="buecher.length > 1" type="button" class="btn btn-ghost !px-2.5" aria-label="Buch entfernen" @click="removeBuchFeld(i)">✕</button>
+        </div>
+        <button type="button" class="btn btn-outline !py-1.5" @click="addBuchFeld">+ Weiteres Buch</button>
+      </div>
+      <label class="text-sm sm:col-span-2">
+        <span class="mb-1 block text-slate-500 dark:text-slate-400">Einheit</span>
+        <select v-model="form.unit" class="input" aria-label="Einheit">
+          <option>Seiten</option>
+          <option>Kapitel</option>
+        </select>
+      </label>
+    </template>
+    <label v-else class="text-sm sm:col-span-2">
       <span class="mb-1 block text-slate-500 dark:text-slate-400">Umfang</span>
       <span class="flex gap-2">
         <input v-model="form.total" type="number" min="1" class="input" aria-label="Umfang" />

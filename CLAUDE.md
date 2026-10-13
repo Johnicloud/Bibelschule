@@ -62,6 +62,11 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Starttermin beim Lesepensum: `start`-Feld (optional). Daraus berechnet die Prognose `plan_per_day`
   (Umfang gleichmäßig von Start bis Frist verteilt) – zusätzlich zu `needed_per_day` (Rest ab heute) und
   `pace_per_day` (bisheriges Tempo). Zeigt von Tag eins an ein sinnvolles Tagesziel, auch bevor gelesen wurde.
+- [fertig] Tagesziel-Hinweis im Lesenachweis: Banner „Heute noch nicht gelesen – Ziel: X“ (aus `needed_per_day`,
+  sonst `plan_per_day`), solange heute noch kein Eintrag für das Pensum da ist. Reine Anzeige, kein neuer Datensatz.
+- [fertig] Lesepensum aus mehreren Büchern: optionale `buecher`-Liste (Titel + eigener Umfang je Buch), `total`
+  wird dann automatisch als Summe gesetzt (wie „Pflicht-Lektüre 600 Seiten“ aus mehreren Titeln im Aufgabenblatt).
+  Ohne Bücherliste bleibt der einfache einzelne Umfang wie bisher.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

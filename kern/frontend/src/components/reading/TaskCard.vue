@@ -49,6 +49,9 @@ async function removeTask() {
           <template v-if="task.deadline"> · Frist {{ formatDate(task.deadline) }}</template>
           <template v-if="f.plan_per_day"> · Plan {{ num(f.plan_per_day) }} {{ task.unit }}/Tag</template>
         </p>
+        <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          aus: {{ task.buecher.map((b) => `${b.title} (${num(b.total)})`).join(', ') }}
+        </p>
       </div>
       <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
     </div>

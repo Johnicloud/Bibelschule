@@ -6,12 +6,13 @@ from pathlib import Path
 
 from app.application.ports import ReadingRepository
 from app.adapters.outbound.storage import atomic_write_text, daily_backup
-from app.domain.models import ReadingEntry, ReadingTask
+from app.domain.models import Buch, ReadingEntry, ReadingTask
 
 
 def _to_dict(t: ReadingTask) -> dict:
     return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
             "total": t.total, "passes": t.passes,
+            "buecher": [{"id": b.id, "title": b.title, "total": b.total} for b in t.buecher],
             "start": t.start.isoformat() if t.start else None,
             "deadline": t.deadline.isoformat() if t.deadline else None,
             "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note}
@@ -22,6 +23,7 @@ def _from_dict(d: dict) -> ReadingTask:
     return ReadingTask(
         id=d["id"], subject_id=d["subject_id"], title=d["title"], unit=d["unit"],
         total=d["total"], passes=d.get("passes", 1),
+        buecher=[Buch(id=b["id"], title=b["title"], total=b["total"]) for b in d.get("buecher", [])],
         start=date.fromisoformat(d["start"]) if d.get("start") else None,
         deadline=date.fromisoformat(d["deadline"]) if d.get("deadline") else None,
         entries=[ReadingEntry(id=e["id"], day=date.fromisoformat(e["day"]), amount=e["amount"],

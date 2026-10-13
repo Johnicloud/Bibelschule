@@ -13,14 +13,20 @@ from app.domain.forecast import Forecast
 from app.domain.models import ReadingTask
 
 
+class BuchIn(BaseModel):
+    title: str
+    total: int
+
+
 class TaskIn(BaseModel):
     subject_id: str
     title: str
     unit: Literal["Seiten", "Kapitel"] = "Seiten"
-    total: int
+    total: int | None = None   # weglassen, wenn buecher angegeben ist (Summe wird daraus berechnet)
     passes: int = 1
     start: date | None = None
     deadline: date | None = None
+    buecher: list[BuchIn] | None = None
 
 
 class EntryIn(BaseModel):
@@ -53,6 +59,7 @@ def create_app(service: ReadingService) -> FastAPI:
         entries = sorted(t.entries, key=lambda e: (e.day, e.id), reverse=True)
         return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
                 "total": t.total, "passes": t.passes,
+                "buecher": [{"id": b.id, "title": b.title, "total": b.total} for b in t.buecher],
                 "start": t.start.isoformat() if t.start else None,
                 "deadline": t.deadline.isoformat() if t.deadline else None,
                 "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note}
@@ -83,8 +90,9 @@ def create_app(service: ReadingService) -> FastAPI:
 
     @api.post("/tasks", status_code=201)
     def add_task(body: TaskIn):
+        buecher = [b.model_dump() for b in body.buecher] if body.buecher is not None else None
         return task_out(service.add_task(body.subject_id, body.title, body.unit, body.total,
-                                         body.passes, body.start, body.deadline))
+                                         body.passes, body.start, body.deadline, buecher))
 
     @api.get("/tasks/{task_id}")
     def get_task(task_id: str):

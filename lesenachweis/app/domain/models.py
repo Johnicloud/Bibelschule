@@ -20,13 +20,23 @@ class ReadingEntry:
 
 
 @dataclass
+class Buch:
+    """Eines von mehreren Büchern, die zusammen ein Lesepensum ergeben (z. B. Pflicht-Lektüre 600 Seiten
+    aus drei Büchern mit je eigenem Umfang)."""
+    title: str
+    total: int
+    id: str = field(default_factory=new_id)
+
+
+@dataclass
 class ReadingTask:
-    """Ein Lesepensum eines Fachs (z. B. ein Buch). Aggregat: enthält sein Leseprotokoll."""
+    """Ein Lesepensum eines Fachs (z. B. ein Buch, oder mehrere Bücher zusammen). Aggregat: enthält sein Leseprotokoll."""
     subject_id: str
     title: str
     unit: str
-    total: int            # Seiten oder Kapitel je Durchgang
+    total: int            # Seiten oder Kapitel je Durchgang (= Summe der Bücher, falls welche angegeben sind)
     passes: int = 1       # Durchgänge, z. B. 2 = zweimal lesen
+    buecher: list[Buch] = field(default_factory=list)
     start: date | None = None
     deadline: date | None = None
     entries: list[ReadingEntry] = field(default_factory=list)

@@ -73,6 +73,26 @@ def test_delete_entry_and_task(svc):
     assert svc.list_tasks() == []
 
 
+def test_add_task_with_buecher_sums_their_pages_as_total(svc):
+    t = svc.add_task("f", "Pflicht-Lektüre", "Seiten", total=None, buecher=[
+        {"title": "Die Apostelgeschichte", "total": 200},
+        {"title": "Wuppertaler Studienbibel", "total": 250},
+        {"title": "Edition C", "total": 150},
+    ])
+    assert t.total == 600 and [b.title for b in t.buecher] == \
+        ["Die Apostelgeschichte", "Wuppertaler Studienbibel", "Edition C"]
+    assert svc.forecast_for(t).target == 600
+
+
+def test_add_task_rejects_empty_buch_title_or_bad_total(svc):
+    with pytest.raises(InvalidInput):
+        svc.add_task("f", "Lektüre", "Seiten", None, buecher=[{"title": " ", "total": 100}])
+    with pytest.raises(InvalidInput):
+        svc.add_task("f", "Lektüre", "Seiten", None, buecher=[{"title": "Buch", "total": 0}])
+    with pytest.raises(InvalidInput):
+        svc.add_task("f", "Lektüre", "Seiten", None, buecher=[])
+
+
 def test_tasks_sorted_by_deadline(svc):
     svc.add_task("f", "Später", "Seiten", 10, deadline=date(2026, 12, 1))
     svc.add_task("f", "Ohne", "Seiten", 10)
