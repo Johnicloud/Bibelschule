@@ -19,7 +19,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   erscheinen über ihr Manifest (Reiter per `panel`, Kachel per `status`).
 - Daten bleiben erhalten: neue Felder mit `.get(..., Standard)` lesen, alte Felder nie ohne Migration umbenennen oder
   löschen, Speichern nur über `storage.py` (atomar + tägliche Sicherung in `backups/`).
-- Backend: Python + FastAPI. Frontend: Vue 3 + Tailwind (Hell/Dunkel), spricht nur mit dem Kern (`/api`). Start: `docker compose up --build`.
+- Backend: Python + FastAPI. Frontend: Vue 3 + Tailwind (Hell/Dunkel), spricht nur mit dem Kern (`/api`). Start: `docker compose up --build` -> http://localhost:8170.
 
 ## Stand
 - [fertig] Karteikarten-Dienst (Fächer, Karten: Umdrehen, Multiple Choice, Richtig/Falsch, Fälligkeit, Webhook, Fach-Hooks)
@@ -31,9 +31,28 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Lesestatus des Fachs (Kopf des Reiters Lesenachweis) und Gesamtfortschritt je Fach (Kopf der Fachseite und Startseite)
 - [fertig] Plug-in-Mechanismus: Selbstanmeldung `POST /api/registry`, Manifest, Reiter/Kachel automatisch, `dienst-vorlage`, `neuer-dienst.sh`
 - [fertig] Datensicherheit: atomares Schreiben, tägliche Sicherung, Übernahme vorhandener Karten als Fächer
-- [fertig] Oberfläche: Start (Status je Fach), Fächer, Fach mit Reitern Karteikarten/Lesenachweis/Register, Alle Karten, Lernen
-- [ungeprüft] Docker-Build, Oberfläche im Browser und die FastAPI-Schicht der Dienste wurden noch nicht ausgeführt
-  (bisher nur Tests der Domäne und Anwendung, Syntaxprüfung). Erster Schritt beim Weiterarbeiten: `docker compose up --build` und alles durchklicken.
+- [fertig] Oberfläche: Start (Status je Fach), Fächer, Fach mit Reitern Aufgaben/Karteikarten/Lesenachweis/Register, Alle Karten, Lernen
+- [fertig] Docker-Build, Oberfläche im Browser und die FastAPI-Schicht der Dienste geprüft (`docker compose up --build`, durchgeklickt).
+- [fertig] Aufgaben als Umfang eines Fachs: Teil des Kerns (nicht eigener Dienst), Titel + optionale Frist + erledigt.
+  Beim Fach-Anlegen gleich die ersten Aufgaben eintragbar, danach im Reiter „Aufgaben“ verwaltbar (hinzufügen, abhaken, löschen).
+  Zählt wie ein Dienst zum Gesamtfortschritt (Anteil erledigter Aufgaben).
+- [fertig] Frontend-Standard für neue Dienste: `/ui-kit.css` + `/ui-kit.js` (ausgeliefert vom Kern-Frontend unter `kern/frontend/public/`).
+  `dienst-vorlage/app/adapters/inbound/ui.html` bindet beide mit absolutem Pfad ein (funktioniert auch im Reiter-iframe, da alles
+  unter einem Origin läuft). So bringt jeder neue Dienst nur noch Inhalt mit, nicht eigenes CSS/JS für Knopf, Eingabefeld, Liste.
+- [fertig] SE/Credits am Fach: `se` (Studieneinheiten, altes System) ist ein Feld am Fach im Kern; Credits = se * 1.5
+  (neues System) wird live berechnet (`GET /api/subjects/{id}` liefert `se` und `credits`), nicht gespeichert.
+  Eintragbar beim Fach-Anlegen und danach per Klick auf die SE-Anzeige im Fach-Kopf.
+- [fertig] Adressbuch-Dienst: Dozenten (Name, E-Mail, Telefon, Notiz), beliebig vielen Fächern zuordenbar (eigene
+  Zuordnungsliste je Dozent, nicht über die Fach-ID hinaus geteilt). Löscht der Kern ein Fach, verschwindet nur die
+  Zuordnung, der Dozent bleibt. „Mail vorbereiten“ öffnet einen mailto-Link (Betreff = Fachname, geholt per
+  Browser-Fetch direkt vom Kern) – nichts wird automatisch verschickt.
+- [fertig] Skripte-Dienst: Dateien (PDF u. a.) je Fach hochladen (multipart, max. 50 MB), Angaben in `skripte.json`,
+  Inhalt in `data/skripte/dateien/<id>` (beides über `storage.py`, der Inhalt ohne tägliche Sicherung). Direkt im
+  Reiter lesbar (Inline-iframe-Vorschau über `/datei`, `Content-Disposition: inline`) und herunterladbar.
+- [fertig] Bibelverse-Dienst: Verse mit Bibelstelle + Text, `subject_id = null` heißt „allgemein“ (kein Fach).
+  Gleiches Leitner-System wie Karteikarten (Stufen/Logik 1:1 übernommen). Lernen im Fach-Reiter zeigt die fälligen
+  Verse des Fachs UND die allgemeinen zusammen. Zwei Lernmodi: Aufdecken (wie Karteikarten) und „Anfangsbuchstaben“
+  (nur Anfangsbuchstaben jedes Wortes eintippen, sofortiger Abgleich rein im Browser, kein Server-Aufruf nötig).
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
@@ -42,8 +61,11 @@ Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
 ## Später
 Lesenachweis als PDF ausfüllen (Vorlage nötig) · Aufgabenblatt, Skript und Fragen mit Ollama einlesen (Ollama läuft
-direkt auf dem Mac, Container erreichen es über host.docker.internal:11434) ·
-Auswendiglern-Modus.
+direkt auf dem Mac, Container erreichen es über host.docker.internal:11434; Ergebnisse immer nur Vorschlag, siehe
+Entscheidungen) · Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für Aufgaben ·
+Kalender-Dienst (Aufgabe, Soll, Ist) · Bulk-Import der 50 Fächer aus dem Studienablaufplan (SE, Dozent, Semester;
+noch nicht gemacht, Foto kann Lesefehler enthalten – Kontrollliste nötig) · evtl. Fristen-Erinnerung über alle
+Fächer, Volltextsuche, Notizen/Logbuch.
 
 ## Entscheidungen
 - Der Kern ist der einzige Eingang der Oberfläche; er reicht Aufrufe an die Dienste weiter.
@@ -59,3 +81,25 @@ Auswendiglern-Modus.
   Dateien: `register.json` (Einträge, JSON-Feld `kind` bleibt für alte Daten erhalten) und `registers.json` (Register).
 - Leitner-Stufen: 0, 1, 2, 4, 8, 16 Tage. Falsche Karten sind sofort wieder fällig.
 - Ergebnisse der KI sind immer nur Vorschläge, die der Nutzer prüft.
+- Aufgaben (Umfang eines Fachs) liegen bewusst im Kern, nicht in einem eigenen Dienst: sie gehören zum Fach selbst
+  (wie der Name), nicht zu einem bestimmten Lernweg. Das Domänenmodell des Kerns wächst dadurch mit; das ist hier
+  gewollt, abweichend von der sonstigen Regel „Erweitern = Dienst, nie Kern“.
+- Neue Dienste (aus `dienst-vorlage`) binden ihre eigene Oberfläche nicht mehr mit eigenem CSS/JS, sondern über
+  `/ui-kit.css` und `/ui-kit.js` vom Kern-Frontend. Absoluter Pfad genügt, weil Oberfläche und alle Dienste hinter
+  einem Nginx-Origin liegen (auch im Reiter-iframe). Folgt die Seite nicht dem Hell/Dunkel-Umschalter der App
+  (nur `prefers-color-scheme`), weil der iframe ein eigenes Dokument ist.
+- Eigene Oberfläche eines Dienstes (`ui.html`) ruft ihre eigene API immer relativ OHNE führenden Schrägstrich auf
+  (z. B. `call('GET', 'dozenten')`, nicht `/api/dozenten`), weil die Seite selbst unter `/api/<dienst>/ui` hängt und
+  der Kern `/api/<dienst>/<rest>` an den Dienst weiterreicht. Ein führender `/api/...`-Pfad träfe stattdessen den
+  Kern direkt (nur für Kern-eigene Routen wie `/api/subjects/{id}` richtig, nie für die eigenen Routen des Dienstes).
+- Falle beim Schreiben von Ports/Repositories: eine Methode `list(...)` im selben Klassenkörper VOR einer späteren
+  Methode mit Rückgabetyp `list[Etwas]` lässt Python beim Import abstürzen ("'function' object is not subscriptable"),
+  weil der Name `list` in der Klasse da schon die Methode meint, nicht mehr den eingebauten Typ. Abhilfe: ganz oben
+  `from __future__ import annotations`. Tests, die nur mit einem In-Memory-Repo laufen, decken das nicht auf – erst
+  der echte Import (z. B. `app/main.py`, Docker-Start) merkt es.
+- Datei-Uploads (FastAPI `UploadFile`) brauchen `python-multipart` in `requirements.txt`, sonst startet der Dienst
+  nicht; einfache Formularfelder neben `UploadFile` müssen explizit `= Form(...)` sein, sonst hält FastAPI sie für
+  Query-Parameter.
+- Der Kern reicht beim Weiterleiten (`/api/<dienst>/...`) nur `content-type` durch, keine weiteren Antwort-Header
+  (z. B. `Content-Disposition` geht verloren). Für Dateinamen beim Herunterladen das `download`-Attribut des
+  `<a>`-Tags nutzen, nicht auf den Header verlassen.

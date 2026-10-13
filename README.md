@@ -1,7 +1,8 @@
 # Bibelschule
 
 Studienplaner für viele Fächer. Eine Obersoftware (der **Kern**) verwaltet die Fächer, kleine **Dienste**
-liefern ihre Funktionen dazu. Jedes Fach bekommt automatisch Karteikarten, Lesenachweis und Register.
+liefern ihre Funktionen dazu. Jedes Fach bekommt automatisch Karteikarten, Lesenachweis, Register, Adressbuch,
+Skripte und Bibelverse, dazu Aufgaben (Umfang des Fachs, Teil des Kerns) und SE/Credits.
 
 | Ordner | Aufgabe |
 |---|---|
@@ -10,19 +11,23 @@ liefern ihre Funktionen dazu. Jedes Fach bekommt automatisch Karteikarten, Lesen
 | `karteikarten` | Karteikarten: Umdrehen, Multiple Choice, Richtig/Falsch, Leitner-System |
 | `lesenachweis` | Lesepensen mit Leseprotokoll, Durchgängen, Frist und **Prognose** |
 | `register` | beliebig viele Register pro Fach (Namen, Orte, …) mit Bibelstellen, sortiert nach Alphabet, Bibelreihenfolge oder Stelle, exportierbar |
+| `adressbuch` | Dozenten (Name, E-Mail, Telefon), beliebig vielen Fächern zuordenbar, Mail vorbereiten (mailto) |
+| `skripte` | Dateien (PDF u. a.) je Fach hochladen, direkt im Reiter lesen, herunterladen |
+| `bibelverse` | Bibelverse auswendig lernen, fachbezogen oder allgemein, Leitner-System, Lernmodus „Anfangsbuchstaben“ |
 | `dienst-vorlage` | Vorlage für neue Dienste, benutzt von `./neuer-dienst.sh` |
 
 ## Start
 
     docker compose up --build
 
-Dann http://localhost:8080 öffnen. Im Hintergrund: `docker compose up -d --build`, beenden: `docker compose down`.
+Dann http://localhost:8170 öffnen. Im Hintergrund: `docker compose up -d --build`, beenden: `docker compose down`.
 
 ## Deine Daten
 
 - Alles liegt in `./data/` und überlebt Neustarts, Neubauen und Updates (`docker compose down` löscht nichts).
   Die Karteikarten bleiben wie in der alten App in `./data/decks.json`, der Rest in `./data/kern`, `./data/lesenachweis`,
-  `./data/register` und `./data/<neuer dienst>`.
+  `./data/register`, `./data/adressbuch`, `./data/skripte` (Angaben + hochgeladene Dateien), `./data/bibelverse`
+  und `./data/<neuer dienst>`.
 - Geschrieben wird atomar (erst Nebendatei, dann ersetzen), ein Absturz mitten im Speichern zerstört die Datei nicht.
 - Vor dem ersten Speichern eines Tages kopiert jeder Dienst seine Datei nach `backups/` neben der Datei
   (Stand vom Vortag, die letzten 14 Tage bleiben). Zurückspielen = Datei aus `backups/` an die Stelle der Datei kopieren.
@@ -102,7 +107,7 @@ Optional meldet jeder Dienst Ereignisse (`card.reviewed`, `reading.logged`, `reg
 
 Jeder Dienst (auch `dienst-vorlage`): `cd <dienst> && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`,
 Tests mit `pytest`, Start mit `uvicorn app.main:app --reload --port <port>`. Der Kern braucht
-`SERVICES=karteikarten=http://localhost:8001,lesenachweis=http://localhost:8002,register=http://localhost:8003`
+`SERVICES=karteikarten=http://localhost:8001,lesenachweis=http://localhost:8002,register=http://localhost:8003,adressbuch=http://localhost:8004,skripte=http://localhost:8005,bibelverse=http://localhost:8006`
 und läuft auf Port 8000. Oberfläche: `cd kern/frontend && npm install && npm run dev` (Port 5173).
 
 ## Hexagonale Struktur (jeder Dienst gleich)

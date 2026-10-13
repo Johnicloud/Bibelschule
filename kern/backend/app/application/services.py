@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.application.ports import ServiceGateway, SubjectRepository
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Subject
+from app.domain.models import Aufgabe, Subject
 
 
 # Diese Namen gehören dem Kern selbst und dürfen kein Dienst sein.
@@ -53,10 +53,11 @@ class SubjectService:
     def get_subject(self, subject_id: str) -> Subject:
         return self._subject(subject_id)
 
-    def create_subject(self, name: str) -> tuple[Subject, dict[str, bool]]:
+    def create_subject(self, name: str, aufgaben: list[str] = (), se: float | None = None) -> tuple[Subject, dict[str, bool]]:
         name = _clean(name)
         self._check_unique(name)
-        subject = Subject(name=name)
+        titel = [_clean(t) for t in aufgaben if (t or "").strip()]
+        subject = Subject(name=name, aufgaben=[Aufgabe(titel=t) for t in titel], se=se)
         self.subjects.save(subject)
         return subject, self._fan_out(lambda s: self.gateway.put_subject(s, subject.id, subject.name))
 
@@ -68,10 +69,44 @@ class SubjectService:
         self.subjects.save(subject)
         return subject, self._fan_out(lambda s: self.gateway.put_subject(s, subject.id, subject.name))
 
+    def set_se(self, subject_id: str, se: float | None) -> Subject:
+        """Studieneinheiten (SE) des Fachs; Credits = se * 1.5 (neues System) werden nur angezeigt, nicht gespeichert."""
+        subject = self._subject(subject_id)
+        subject.se = se
+        self.subjects.save(subject)
+        return subject
+
     def delete_subject(self, subject_id: str) -> dict[str, bool]:
         subject = self._subject(subject_id)
         self.subjects.delete(subject.id)
         return self._fan_out(lambda s: self.gateway.delete_subject(s, subject.id))
+
+    # Aufgaben: der Umfang eines Fachs (z. B. aus dem Aufgabenblatt)
+    def _aufgabe(self, subject: Subject, aufgabe_id: str) -> Aufgabe:
+        for a in subject.aufgaben:
+            if a.id == aufgabe_id:
+                return a
+        raise NotFound("Aufgabe nicht gefunden.")
+
+    def add_aufgabe(self, subject_id: str, titel: str, frist: str | None = None,
+                     gewichtung: float | None = None) -> Subject:
+        subject = self._subject(subject_id)
+        subject.aufgaben.append(Aufgabe(titel=_clean(titel), frist=frist or None, gewichtung=gewichtung))
+        self.subjects.save(subject)
+        return subject
+
+    def set_aufgabe_erledigt(self, subject_id: str, aufgabe_id: str, erledigt: bool) -> Subject:
+        subject = self._subject(subject_id)
+        self._aufgabe(subject, aufgabe_id).erledigt = erledigt
+        self.subjects.save(subject)
+        return subject
+
+    def delete_aufgabe(self, subject_id: str, aufgabe_id: str) -> Subject:
+        subject = self._subject(subject_id)
+        self._aufgabe(subject, aufgabe_id)
+        subject.aufgaben = [a for a in subject.aufgaben if a.id != aufgabe_id]
+        self.subjects.save(subject)
+        return subject
 
     # Dienstverzeichnis
     def register_service(self, name: str, url: str) -> dict:
@@ -144,9 +179,32 @@ class SubjectService:
         values = [p["progress"] for p in parts if p["progress"] is not None]
         return (int(sum(values) / len(values) + 0.5) if values else None), parts
 
+    @staticmethod
+    def _aufgaben_part(subject: Subject) -> tuple[dict, dict]:
+        """Umfang des Fachs als eigener Teil des Fortschritts: Anteil erledigter Aufgaben.
+        Hat eine Aufgabe eine Gewichtung (wie die „Anteilige Bewertung“ im Aufgabenblatt), zählt sie entsprechend
+        mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel."""
+        total = len(subject.aufgaben)
+        done = sum(1 for a in subject.aufgaben if a.erledigt)
+        weight = sum(a.gewichtung for a in subject.aufgaben if a.gewichtung)
+        if weight:
+            done_weight = sum(a.gewichtung for a in subject.aufgaben if a.erledigt and a.gewichtung)
+            progress = max(0, min(100, int(done_weight / weight * 100 + 0.5)))
+        elif total:
+            progress = int(done / total * 100 + 0.5)
+        else:
+            progress = None
+        return ({"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": progress},
+                {"count": total, "done": done})
+
     def _row(self, sub: Subject, status: dict, services: list[dict]) -> dict:
-        progress, parts = self._progress(status, services)
-        return {"id": sub.id, "name": sub.name, "status": status, "progress": progress, "parts": parts}
+        aufgaben_part, aufgaben_status = self._aufgaben_part(sub)
+        _, service_parts = self._progress(status, services)
+        parts = [aufgaben_part, *service_parts]
+        values = [p["progress"] for p in parts if p["progress"] is not None]
+        progress = int(sum(values) / len(values) + 0.5) if values else None
+        return {"id": sub.id, "name": sub.name, "status": {**status, "aufgaben": aufgaben_status},
+                "progress": progress, "parts": parts}
 
     def overview(self) -> dict:
         services = self.services_status()

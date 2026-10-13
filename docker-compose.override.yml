@@ -1,0 +1,25 @@
+services:
+  adressbuch:
+    build: ./adressbuch
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://adressbuch:8000
+    volumes:
+      - ./data/adressbuch:/app/data
+    restart: unless-stopped
+  skripte:
+    build: ./skripte
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://skripte:8000
+    volumes:
+      - ./data/skripte:/app/data
+    restart: unless-stopped
+  bibelverse:
+    build: ./bibelverse
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibelverse:8000
+    volumes:
+      - ./data/bibelverse:/app/data
+    restart: unless-stopped

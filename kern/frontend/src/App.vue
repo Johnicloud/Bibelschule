@@ -9,7 +9,7 @@ import StudyView from './views/StudyView.vue'
 
 const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study'
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
-const tab = ref('karteikarten') // Reiter im Fach = Name des Dienstes
+const tab = ref('aufgaben') // Reiter im Fach = Name des Dienstes (oder 'aufgaben' für den Umfang)
 
 function go(next, id = null, nextTab = null) {
   view.value = next
@@ -24,7 +24,7 @@ const active = computed(() => (view.value === 'subject' ? 'subjects' : view.valu
   <AppHeader :active="active" @nav="nav" />
   <main class="mx-auto max-w-5xl px-4 pb-24 pt-8">
     <HomeView v-if="view === 'home'" @open-subject="(id, t) => go('subject', id, t)" @study="go('study')" @nav="nav" />
-    <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'karteikarten')" />
+    <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'aufgaben')" />
     <SubjectView v-else-if="view === 'subject'" :key="subjectId" :subject-id="subjectId" v-model:tab="tab"
       @back="go('subjects')" @study="go('study', subjectId)" />
     <CardsView v-else-if="view === 'cards'" />

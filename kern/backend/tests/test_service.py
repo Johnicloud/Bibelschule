@@ -101,8 +101,9 @@ def test_overview_skips_offline_services(svc, gw):
     o = svc.overview()
     assert [(x["name"], x["online"]) for x in o["services"]] == [("karteikarten", True), ("register", False)]
     assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik", "progress": None,
-                              "status": {"karteikarten": {"n": 1}, "register": None},
-                              "parts": [{"service": "karteikarten", "label": "Karteikarten", "online": True, "progress": None},
+                              "status": {"karteikarten": {"n": 1}, "register": None, "aufgaben": {"count": 0, "done": 0}},
+                              "parts": [{"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": None},
+                                        {"service": "karteikarten", "label": "Karteikarten", "online": True, "progress": None},
                                         {"service": "register", "label": "Register", "online": False, "progress": None}]}]
 
 
@@ -155,7 +156,7 @@ def test_overall_progress_is_mean_of_services_that_report_one(svc, gw):
     subject, _ = svc.create_subject("Dogmatik")
     gw.status = lambda s, i: {"progress": {"karteikarten": 50, "register": None}[s]}
     row = svc.subject_overview(subject.id)
-    assert row["progress"] == 50 and [p["progress"] for p in row["parts"]] == [50, None]
+    assert row["progress"] == 50 and [p["progress"] for p in row["parts"]] == [None, 50, None]
     gw.status = lambda s, i: {"progress": {"karteikarten": 50, "register": 100}[s]}
     assert svc.overview()["subjects"][0]["progress"] == 75
     gw.down.add("register")                                        # ein Dienst fällt aus: es zählen nur die erreichbaren
@@ -167,3 +168,70 @@ def test_subject_overview_unknown_subject(svc):
     from app.domain.errors import NotFound
     with pytest.raises(NotFound):
         svc.subject_overview("gibt-es-nicht")
+
+
+def test_create_subject_with_initial_aufgaben(svc):
+    """Beim Anlegen kann man gleich den Umfang als Aufgaben mitgeben; leere Titel werden übersprungen."""
+    subject, _ = svc.create_subject("Dogmatik", ["Exegese Kapitel 3", "  ", "Essay einreichen"])
+    assert [a.titel for a in subject.aufgaben] == ["Exegese Kapitel 3", "Essay einreichen"]
+    assert all(not a.erledigt for a in subject.aufgaben)
+
+
+def test_add_set_and_delete_aufgabe(svc):
+    subject, _ = svc.create_subject("Dogmatik")
+    subject = svc.add_aufgabe(subject.id, "Exegese Kapitel 3", "2026-11-20")
+    aufgabe = subject.aufgaben[0]
+    assert aufgabe.titel == "Exegese Kapitel 3" and aufgabe.frist == "2026-11-20" and not aufgabe.erledigt
+
+    subject = svc.set_aufgabe_erledigt(subject.id, aufgabe.id, True)
+    assert subject.aufgaben[0].erledigt is True
+
+    subject = svc.delete_aufgabe(subject.id, aufgabe.id)
+    assert subject.aufgaben == []
+    with pytest.raises(NotFound):
+        svc.delete_aufgabe(subject.id, aufgabe.id)
+    with pytest.raises(NotFound):
+        svc.set_aufgabe_erledigt(subject.id, "gibt-es-nicht", True)
+
+
+def test_aufgaben_progress_counts_towards_overall_progress(svc, gw):
+    """Der Umfang eines Fachs zählt wie jeder Dienst zum Gesamtfortschritt mit (Anteil erledigter Aufgaben)."""
+    subject, _ = svc.create_subject("Dogmatik")
+    svc.add_aufgabe(subject.id, "Eins")
+    zwei = svc.add_aufgabe(subject.id, "Zwei").aufgaben[1]
+    svc.set_aufgabe_erledigt(subject.id, zwei.id, True)
+    gw.status = lambda s, i: {"progress": None}
+
+    row = svc.subject_overview(subject.id)
+    assert row["status"]["aufgaben"] == {"count": 2, "done": 1}
+    aufgaben_part = next(p for p in row["parts"] if p["service"] == "aufgaben")
+    assert aufgaben_part == {"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": 50}
+    assert row["progress"] == 50
+
+
+def test_aufgaben_progress_uses_gewichtung_like_the_aufgabenblatt(svc, gw):
+    """Wie im echten Aufgabenblatt: Aufgaben zählen nach ihrer anteiligen Bewertung, nicht nach Stückzahl."""
+    subject, _ = svc.create_subject("Apostelgeschichte")
+    svc.add_aufgabe(subject.id, "Anwesenheit", gewichtung=10)
+    klausur = svc.add_aufgabe(subject.id, "Klausur", gewichtung=50).aufgaben[-1]
+    svc.add_aufgabe(subject.id, "Register", gewichtung=10)
+    svc.add_aufgabe(subject.id, "Lesen", gewichtung=30)
+    subject = svc.set_aufgabe_erledigt(subject.id, klausur.id, True)
+
+    aufgaben_part, _ = svc._aufgaben_part(subject)
+    assert aufgaben_part["progress"] == 50   # 50 von 100 Gewichtungspunkten (10+50+10+30) erledigt
+
+
+def test_se_is_stored_on_the_subject(svc):
+    subject, _ = svc.create_subject("Pädagogik I", se=2)
+    assert subject.se == 2
+    subject = svc.set_se(subject.id, 3.5)
+    assert subject.se == 3.5 and svc.get_subject(subject.id).se == 3.5
+
+
+def test_aufgaben_progress_falls_back_to_count_without_gewichtung(svc):
+    subject, _ = svc.create_subject("Dogmatik", ["Eins", "Zwei", "Drei", "Vier"])
+    for a in subject.aufgaben[:1]:
+        subject = svc.set_aufgabe_erledigt(subject.id, a.id, True)
+    aufgaben_part, _ = svc._aufgaben_part(subject)
+    assert aufgaben_part["progress"] == 25

@@ -1,4 +1,4 @@
-# Bibelschule: Kern + drei Dienste + Oberfläche. Start: docker compose up --build  ->  http://localhost:8080
+# Bibelschule: Kern + drei Dienste + Oberfläche. Start: docker compose up --build  ->  http://localhost:8170
 services:
   kern:
     build: ./kern/backend
@@ -41,6 +41,6 @@ services:
   frontend:
     build: ./kern/frontend
     ports:
-      - "8080:80"
+      - "8170:80"
     depends_on: [kern]
     restart: unless-stopped

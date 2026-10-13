@@ -11,7 +11,9 @@ const rows = computed(() => props.overview.parts.map((p) => {
   const st = props.overview.status[p.service]
   const row = { key: p.service, label: p.label, progress: p.progress, text: '', chip: null }
   if (!p.online || !st) { row.text = 'nicht erreichbar'; return row }
-  if (p.service === 'lesenachweis') {
+  if (p.service === 'aufgaben') {
+    row.text = st.count ? `${st.done} von ${st.count} Aufgaben erledigt` : 'Noch keine Aufgabe'
+  } else if (p.service === 'lesenachweis') {
     row.text = st.task_count ? `${st.done_count} von ${st.task_count} Pensen fertig` : 'Noch kein Pensum'
     row.chip = READING_STATUS[st.status] || null
   } else if (p.service === 'karteikarten') {

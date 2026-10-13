@@ -1,0 +1,38 @@
+/* Gemeinsame Bausteine für die eigene Oberfläche eines Dienstes (siehe dienst-vorlage/app/adapters/inbound/ui.html).
+   Diese Datei liegt beim Kern-Frontend und wird unter /ui-kit.css ausgeliefert: jeder Dienst bindet sie mit einem
+   absoluten Pfad ein, auch wenn seine Seite über /api/<dienst>/ui im Reiter des Fachs geladen wird. So gibt es nur
+   eine Stelle für Knopf, Eingabefeld, Liste & Co. – neue Dienste erfinden keine eigenen Komponenten. */
+:root {
+  color-scheme: light dark;
+  --bg: #f8fafc; --panel: #fff; --text: #0f172a; --muted: #64748b;
+  --border: #e2e8f0; --accent: #0d9488; --accent-text: #fff; --danger: #e11d48; --danger-bg: #fff1f2;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #020617; --panel: #0f172a; --text: #f1f5f9; --muted: #94a3b8;
+    --border: #1e293b; --accent: #2dd4bf; --accent-text: #022c22; --danger: #fb7185; --danger-bg: rgba(225,29,72,.12); }
+}
+* { box-sizing: border-box; }
+body.ui-kit { margin: 1rem; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+
+.uk-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; }
+.uk-form { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; }
+
+.uk-input { flex: 1; min-width: 8rem; padding: .6rem .8rem; font: inherit; color: inherit;
+  border-radius: .7rem; border: 1px solid var(--border); background: var(--panel); }
+.uk-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.uk-btn { padding: .6rem 1rem; font: inherit; font-weight: 500; border-radius: .7rem; border: 0;
+  background: var(--accent); color: var(--accent-text); cursor: pointer; }
+.uk-btn:disabled { opacity: .5; cursor: not-allowed; }
+.uk-btn-ghost { background: transparent; color: var(--muted); }
+.uk-btn-danger { background: var(--danger-bg); color: var(--danger); padding: .3rem .7rem; }
+
+.uk-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .6rem; }
+.uk-list-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding: .8rem 1rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--panel); }
+
+.uk-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: .15rem .6rem;
+  font-size: .75rem; font-weight: 500; background: var(--border); color: var(--muted); }
+
+.uk-empty { border: 1px dashed var(--border); border-radius: 1rem; padding: 2rem 1rem; text-align: center; color: var(--muted); }
+.uk-error { color: var(--danger); min-height: 1.2em; font-size: .9rem; }

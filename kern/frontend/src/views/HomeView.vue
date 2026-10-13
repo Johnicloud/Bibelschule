@@ -73,7 +73,17 @@ onMounted(load)
           <div class="h-full rounded-full bg-teal-500" :style="{ width: s.progress + '%' }"></div>
         </div>
 
-        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+        <div class="mt-4 grid gap-4 sm:grid-cols-4">
+          <div>
+            <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Aufgaben</div>
+            <button class="mt-1 text-left text-sm hover:underline" @click="$emit('open-subject', s.id, 'aufgaben')">
+              <template v-if="s.status.aufgaben.count">
+                <span class="text-lg font-semibold tabular-nums">{{ s.status.aufgaben.done }}</span> von {{ s.status.aufgaben.count }} erledigt
+              </template>
+              <span v-else class="text-slate-500 dark:text-slate-400">noch keine Aufgabe</span>
+            </button>
+          </div>
+
           <div>
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Karteikarten</div>
             <button v-if="s.status.karteikarten" class="mt-1 text-left text-sm hover:underline"

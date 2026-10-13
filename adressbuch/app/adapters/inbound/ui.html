@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adressbuch</title>
+<link rel="stylesheet" href="/ui-kit.css">
+<style>
+  h2 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
+  h2:first-child { margin-top: 0; }
+  .uk-grid { display: grid; gap: .6rem; grid-template-columns: 1fr 1fr 1fr auto; }
+  .uk-list-item { flex-wrap: wrap; }
+  .uk-sub { color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body class="ui-kit">
+<!-- Dozenten dieses Fachs: Mail vorbereiten (mailto, du prüfst/schickst selbst), aus dem Fach entfernen. -->
+<h2>Dozenten dieses Fachs</h2>
+<ul id="zugeordnet" class="uk-list"></ul>
+<p id="leer-zugeordnet" class="uk-empty" hidden>Noch kein Dozent zugeordnet. Lege unten einen an oder ordne einen vorhandenen zu.</p>
+
+<h2>Neuen Dozenten anlegen (wird gleich diesem Fach zugeordnet)</h2>
+<form id="form-neu" class="uk-grid">
+  <input id="n-name" class="uk-input" placeholder="Name" aria-label="Name" required>
+  <input id="n-email" class="uk-input" type="email" placeholder="E-Mail" aria-label="E-Mail">
+  <input id="n-telefon" class="uk-input" placeholder="Telefon" aria-label="Telefon">
+  <button class="uk-btn">Anlegen</button>
+</form>
+<p id="fehler-neu" class="uk-error" role="alert"></p>
+
+<h2>Weitere Dozenten diesem Fach zuordnen</h2>
+<ul id="unzugeordnet" class="uk-list"></ul>
+<p id="leer-unzugeordnet" class="uk-empty" hidden>Alle vorhandenen Dozenten sind diesem Fach schon zugeordnet.</p>
+
+<script src="/ui-kit.js"></script>
+<script>
+  const { call, el, subjectId } = UIKit
+  const subject = subjectId()
+  let fachName = subject
+
+  call('GET', '/api/subjects/' + encodeURIComponent(subject)).then((s) => { fachName = s.name }).catch(() => {})
+
+  function mailtoUrl(dozent) {
+    const betreff = fachName
+    const text = `Hallo ${dozent.name},\n\n\n\nViele Grüße`
+    return `mailto:${encodeURIComponent(dozent.email)}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(text)}`
+  }
+
+  function zeileZugeordnet(d) {
+    const kontakt = [d.email, d.telefon].filter(Boolean).join(' · ')
+    return el('li', { class: 'uk-list-item' }, [
+      el('div', {}, [el('div', {}, d.name), kontakt ? el('div', { class: 'uk-sub' }, kontakt) : '']),
+      el('div', { style: 'display:flex;gap:.4rem' }, [
+        d.email ? el('a', { class: 'uk-btn', href: mailtoUrl(d) }, 'Mail vorbereiten') : '',
+        el('button', { class: 'uk-btn-ghost', onclick: async () => { await call('DELETE', `dozenten/${d.id}/faecher/${subject}`); laden() } }, 'Aus Fach entfernen'),
+      ]),
+    ])
+  }
+  function zeileUnzugeordnet(d) {
+    return el('li', { class: 'uk-list-item' }, [
+      d.name,
+      el('div', { style: 'display:flex;gap:.4rem' }, [
+        el('button', { class: 'uk-btn', onclick: async () => { await call('POST', `dozenten/${d.id}/faecher/${subject}`); laden() } }, 'Diesem Fach zuordnen'),
+        el('button', { class: 'uk-btn-danger', onclick: async () => {
+          if (!confirm(`„${d.name}“ ganz aus dem Adressbuch löschen?`)) return
+          await call('DELETE', `dozenten/${d.id}`); laden()
+        } }, 'Löschen'),
+      ]),
+    ])
+  }
+
+  async function laden() {
+    const alle = await call('GET', 'dozenten')
+    const zugeordnet = alle.filter((d) => d.faecher.includes(subject))
+    const unzugeordnet = alle.filter((d) => !d.faecher.includes(subject))
+    document.getElementById('zugeordnet').replaceChildren(...zugeordnet.map(zeileZugeordnet))
+    document.getElementById('leer-zugeordnet').hidden = zugeordnet.length > 0
+    document.getElementById('unzugeordnet').replaceChildren(...unzugeordnet.map(zeileUnzugeordnet))
+    document.getElementById('leer-unzugeordnet').hidden = unzugeordnet.length > 0 || alle.length === 0
+  }
+
+  document.getElementById('form-neu').onsubmit = async (e) => {
+    e.preventDefault()
+    const fehler = document.getElementById('fehler-neu')
+    fehler.textContent = ''
+    const name = document.getElementById('n-name'), email = document.getElementById('n-email'), telefon = document.getElementById('n-telefon')
+    try {
+      const d = await call('POST', 'dozenten', { name: name.value, email: email.value, telefon: telefon.value })
+      await call('POST', `dozenten/${d.id}/faecher/${subject}`)
+      name.value = ''; email.value = ''; telefon.value = ''
+      await laden()
+    } catch (err) { fehler.textContent = err.message }
+  }
+
+  laden().catch((err) => { document.getElementById('fehler-neu').textContent = err.message })
+</script>
+</body>
+</html>

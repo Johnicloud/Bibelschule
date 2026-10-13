@@ -14,6 +14,22 @@ from app.domain.models import Subject
 
 class SubjectIn(BaseModel):
     name: str
+    aufgaben: list[str] = []   # Umfang des Fachs, gleich bei der Anlage: Titel der ersten Aufgaben
+    se: float | None = None    # Studieneinheiten (alt); Credits = se * 1.5 (neues System)
+
+
+class SeIn(BaseModel):
+    se: float | None = None
+
+
+class AufgabeIn(BaseModel):
+    titel: str
+    frist: str | None = None
+    gewichtung: float | None = None   # anteilige Bewertung in Prozent, wie im Aufgabenblatt
+
+
+class AufgabeStatusIn(BaseModel):
+    erledigt: bool
 
 
 class RegistryIn(BaseModel):
@@ -22,7 +38,9 @@ class RegistryIn(BaseModel):
 
 
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
-    out = {"id": s.id, "name": s.name}
+    out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
+           "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
+                         "erledigt": a.erledigt} for a in s.aufgaben]}
     if synced is not None:
         out["synced"] = synced   # welcher Dienst das Fach übernommen hat (false = nicht erreichbar, später /api/sync)
     return out
@@ -50,7 +68,7 @@ def create_app(service: SubjectService) -> FastAPI:
 
     @api.post("/subjects", status_code=201)
     def create_subject(body: SubjectIn):
-        return subject_out(*service.create_subject(body.name))
+        return subject_out(*service.create_subject(body.name, body.aufgaben, body.se))
 
     @api.get("/subjects/{subject_id}")
     def get_subject(subject_id: str):
@@ -68,6 +86,22 @@ def create_app(service: SubjectService) -> FastAPI:
     @api.delete("/subjects/{subject_id}", status_code=204)
     def delete_subject(subject_id: str):
         service.delete_subject(subject_id)
+
+    @api.post("/subjects/{subject_id}/aufgaben", status_code=201)
+    def add_aufgabe(subject_id: str, body: AufgabeIn):
+        return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung))
+
+    @api.put("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
+    def set_aufgabe_erledigt(subject_id: str, aufgabe_id: str, body: AufgabeStatusIn):
+        return subject_out(service.set_aufgabe_erledigt(subject_id, aufgabe_id, body.erledigt))
+
+    @api.delete("/subjects/{subject_id}/aufgaben/{aufgabe_id}", status_code=204)
+    def delete_aufgabe(subject_id: str, aufgabe_id: str):
+        service.delete_aufgabe(subject_id, aufgabe_id)
+
+    @api.put("/subjects/{subject_id}/se")
+    def set_se(subject_id: str, body: SeIn):
+        return subject_out(service.set_se(subject_id, body.se))
 
     @api.get("/services")
     def services():

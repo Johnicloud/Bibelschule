@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bibelverse</title>
+<link rel="stylesheet" href="/ui-kit.css">
+<style>
+  h2 { font-size: 1.05rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
+  h2:first-child { margin-top: 0; }
+  .uk-lern { text-align: center; }
+  .uk-ref { font-size: 1.3rem; font-weight: 600; margin-bottom: 1rem; }
+  .uk-text { font-size: 1.1rem; line-height: 1.5; margin: 1rem 0; }
+  .uk-modus { display: flex; gap: .5rem; justify-content: center; margin-bottom: 1rem; }
+  .uk-modus button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .uk-richtig { color: #16a34a; font-weight: 600; }
+  .uk-falsch { color: var(--danger); font-weight: 600; }
+  .uk-sub { color: var(--muted); font-size: .85rem; }
+  .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+</style>
+</head>
+<body class="ui-kit">
+<h2>Fällig zum Lernen</h2>
+<div id="lern-leer" class="uk-empty" hidden>Nichts fällig. Alle Verse dieses Fachs und die allgemeinen sind aktuell gelernt.</div>
+<div id="lern" class="uk-panel uk-lern" hidden>
+  <div class="uk-modus">
+    <button id="modus-aufdecken" type="button" aria-pressed="true">Aufdecken</button>
+    <button id="modus-buchstaben" type="button" aria-pressed="false">Anfangsbuchstaben</button>
+  </div>
+  <div id="rest" class="uk-sub"></div>
+  <div class="uk-ref" id="ref"></div>
+
+  <div id="block-aufdecken">
+    <button id="zeigen" class="uk-btn">Text zeigen</button>
+    <p id="text-aufdecken" class="uk-text" hidden></p>
+    <div id="bewertung" class="uk-modus" hidden>
+      <button id="btn-falsch" class="uk-btn-danger">Falsch</button>
+      <button id="btn-richtig" class="uk-btn">Richtig</button>
+    </div>
+  </div>
+
+  <div id="block-buchstaben" hidden>
+    <p class="uk-sub">Tipp nur die Anfangsbuchstaben jedes Wortes, z. B. „DahGdWg...“</p>
+    <input id="eingabe-buchstaben" class="uk-input" autocomplete="off" aria-label="Anfangsbuchstaben">
+    <button id="pruefen" class="uk-btn" style="margin-top:.6rem">Prüfen</button>
+    <p id="ergebnis-buchstaben" style="margin-top:.6rem"></p>
+    <p id="text-buchstaben" class="uk-text" hidden></p>
+    <button id="weiter-buchstaben" class="uk-btn" hidden>Weiter</button>
+  </div>
+</div>
+
+<h2>Neuen Vers anlegen</h2>
+<form id="form-neu" class="uk-panel" style="display:grid;gap:.6rem">
+  <input id="n-ref" class="uk-input" placeholder="Bibelstelle, z. B. Joh 3,16" aria-label="Bibelstelle" required>
+  <textarea id="n-text" class="uk-input" placeholder="Text des Verses" aria-label="Text des Verses" rows="3" required></textarea>
+  <label style="display:flex;align-items:center;gap:.5rem">
+    <input id="n-allgemein" type="checkbox"> allgemein (nicht nur für dieses Fach)
+  </label>
+  <button class="uk-btn" style="justify-self:start">Anlegen</button>
+  <p id="fehler-neu" class="uk-error" role="alert"></p>
+</form>
+
+<h2>Verse dieses Fachs</h2>
+<ul id="liste-fach" class="uk-list"></ul>
+
+<h2>Allgemeine Verse</h2>
+<ul id="liste-allgemein" class="uk-list"></ul>
+
+<script src="/ui-kit.js"></script>
+<script>
+  const { call, el, subjectId } = UIKit
+  const subject = subjectId()
+  let warteschlange = []
+  let modus = 'aufdecken'
+
+  function initialen(text) {
+    return (text.match(/[\p{L}\p{N}]+/gu) || []).map((w) => w[0].toUpperCase()).join('')
+  }
+
+  function zeileVers(v, erlaubtLoeschen) {
+    return el('li', { class: 'uk-list-item' }, [
+      el('div', { class: 'uk-row', style: 'width:100%' }, [
+        el('div', {}, [el('div', {}, v.referenz), el('div', { class: 'uk-sub' }, v.text)]),
+        erlaubtLoeschen ? el('button', { class: 'uk-btn-danger', onclick: async () => {
+          if (!confirm(`Vers „${v.referenz}“ löschen?`)) return
+          await call('DELETE', `verse/${v.id}`); ladenAlles()
+        } }, 'Löschen') : '',
+      ]),
+    ])
+  }
+
+  async function ladenListen() {
+    document.getElementById('liste-fach').replaceChildren(...(await call('GET', 'verse?subject_id=' + encodeURIComponent(subject))).map((v) => zeileVers(v, true)))
+    document.getElementById('liste-allgemein').replaceChildren(...(await call('GET', 'verse?allgemein=true')).map((v) => zeileVers(v, true)))
+  }
+
+  function zeigeLernkarte() {
+    const leer = document.getElementById('lern-leer'), karte = document.getElementById('lern')
+    if (!warteschlange.length) { leer.hidden = false; karte.hidden = true; return }
+    leer.hidden = true; karte.hidden = false
+    const v = warteschlange[0]
+    document.getElementById('rest').textContent = `noch ${warteschlange.length} fällig`
+    document.getElementById('ref').textContent = v.referenz
+
+    document.getElementById('text-aufdecken').hidden = true
+    document.getElementById('text-aufdecken').textContent = v.text
+    document.getElementById('bewertung').hidden = true
+
+    document.getElementById('eingabe-buchstaben').value = ''
+    document.getElementById('ergebnis-buchstaben').textContent = ''
+    document.getElementById('text-buchstaben').hidden = true
+    document.getElementById('weiter-buchstaben').hidden = true
+  }
+
+  async function bewerten(correct) {
+    const v = warteschlange.shift()
+    await call('POST', `verse/${v.id}/review`, { correct })
+    zeigeLernkarte()
+  }
+
+  function setzeModus(neu) {
+    modus = neu
+    document.getElementById('modus-aufdecken').setAttribute('aria-pressed', String(neu === 'aufdecken'))
+    document.getElementById('modus-buchstaben').setAttribute('aria-pressed', String(neu === 'buchstaben'))
+    document.getElementById('block-aufdecken').hidden = neu !== 'aufdecken'
+    document.getElementById('block-buchstaben').hidden = neu !== 'buchstaben'
+  }
+  document.getElementById('modus-aufdecken').onclick = () => setzeModus('aufdecken')
+  document.getElementById('modus-buchstaben').onclick = () => setzeModus('buchstaben')
+
+  document.getElementById('zeigen').onclick = () => {
+    document.getElementById('text-aufdecken').hidden = false
+    document.getElementById('bewertung').hidden = false
+  }
+  document.getElementById('btn-richtig').onclick = () => bewerten(true)
+  document.getElementById('btn-falsch').onclick = () => bewerten(false)
+
+  document.getElementById('pruefen').onclick = async () => {
+    const v = warteschlange[0]
+    const richtig = initialen(document.getElementById('eingabe-buchstaben').value) === initialen(v.text)
+    const ergebnis = document.getElementById('ergebnis-buchstaben')
+    ergebnis.textContent = richtig ? 'Richtig!' : 'Leider falsch.'
+    ergebnis.className = richtig ? 'uk-richtig' : 'uk-falsch'
+    document.getElementById('text-buchstaben').hidden = false
+    document.getElementById('text-buchstaben').textContent = v.text
+    document.getElementById('weiter-buchstaben').hidden = false
+    document.getElementById('pruefen').disabled = true
+    await call('POST', `verse/${v.id}/review`, { correct: richtig })
+  }
+  document.getElementById('weiter-buchstaben').onclick = () => {
+    warteschlange.shift()
+    document.getElementById('pruefen').disabled = false
+    zeigeLernkarte()
+  }
+
+  document.getElementById('form-neu').onsubmit = async (e) => {
+    e.preventDefault()
+    const fehler = document.getElementById('fehler-neu')
+    fehler.textContent = ''
+    const ref = document.getElementById('n-ref'), text = document.getElementById('n-text'), allgemein = document.getElementById('n-allgemein')
+    try {
+      await call('POST', 'verse', { referenz: ref.value, text: text.value, subject_id: allgemein.checked ? null : subject })
+      ref.value = ''; text.value = ''; allgemein.checked = false
+      await ladenAlles()
+    } catch (err) { fehler.textContent = err.message }
+  }
+
+  async function ladenAlles() {
+    warteschlange = await call('GET', 'verse/faellig?subject_id=' + encodeURIComponent(subject))
+    zeigeLernkarte()
+    await ladenListen()
+  }
+
+  ladenAlles().catch((err) => { document.getElementById('fehler-neu').textContent = err.message })
+</script>
+</body>
+</html>
