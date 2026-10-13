@@ -6,7 +6,11 @@ import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
 import ExternalPanel from '../components/ui/ExternalPanel.vue'
 import ProgressPanel from '../components/ui/ProgressPanel.vue'
-import { NATIVE_SERVICES } from '../domain/status'
+import AppIcon from '../components/ui/AppIcon.vue'
+import DozentenAuswahl from '../components/ui/DozentenAuswahl.vue'
+import { FACH_STATUS, NATIVE_SERVICES, TONE_CLASSES } from '../domain/status'
+
+const TAB_ICONS = { aufgaben: 'aufgaben', karteikarten: 'karten', lesenachweis: 'lesenachweis', register: 'register' }
 
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'aufgaben' } })
 defineEmits(['back', 'study', 'update:tab'])
@@ -83,8 +87,13 @@ onMounted(async () => {
   <template v-if="subject && current">
     <div v-if="!bearbeiten" class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <h1 class="text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
-      <span v-if="subject.se != null" class="text-sm text-slate-500 dark:text-slate-400">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
-      <button class="btn btn-ghost !px-2.5 !py-1 text-sm" @click="openEdit">Bearbeiten</button>
+      <span v-if="overview && FACH_STATUS[overview.stufe]" class="rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[overview.stufe].tone]">
+        {{ FACH_STATUS[overview.stufe].label }}
+      </span>
+      <span v-if="subject.se != null" class="text-sm opacity-70">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
+      <button class="btn btn-ghost !p-2" aria-label="Fach bearbeiten" @click="openEdit">
+        <AppIcon name="stift" class="h-4 w-4" />
+      </button>
     </div>
 
     <form v-else class="panel mt-2 grid gap-3 p-4" @submit.prevent="saveEdit">
@@ -94,15 +103,7 @@ onMounted(async () => {
           <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
           <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
         </div>
-        <div v-if="alleDozenten.length" class="flex-1">
-          <span class="mb-1.5 block text-sm text-slate-500 dark:text-slate-400">Dozenten</span>
-          <div class="flex flex-wrap gap-x-4 gap-y-1.5">
-            <label v-for="d in alleDozenten" :key="d.id" class="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" :value="d.id" v-model="ausgewaehlteDozenten" class="h-4 w-4 rounded" />
-              {{ d.name }}
-            </label>
-          </div>
-        </div>
+        <DozentenAuswahl v-model="ausgewaehlteDozenten" :dozenten="alleDozenten" class="flex-1" />
       </div>
       <div class="flex gap-2">
         <button class="btn btn-primary" :disabled="speichert">{{ speichert ? 'Speichert …' : 'Speichern' }}</button>
@@ -113,13 +114,14 @@ onMounted(async () => {
 
     <ProgressPanel v-if="overview" :overview="overview" :services="services" class="mt-4" />
 
-    <div class="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+    <div class="mt-6 flex gap-1 overflow-x-auto border-b border-highlight" role="tablist">
       <button v-for="t in tabs" :key="t.name" role="tab" :aria-selected="current.name === t.name"
-        class="-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition"
+        class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition"
         :class="current.name === t.name
-          ? 'border-teal-600 text-teal-700 dark:border-teal-400 dark:text-teal-300'
-          : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'"
+          ? 'border-primary text-primary'
+          : 'border-transparent opacity-60 hover:opacity-100'"
         @click="$emit('update:tab', t.name)">
+        <AppIcon :name="TAB_ICONS[t.name] || 'baustein'" class="h-4 w-4" />
         {{ t.label }}
       </button>
     </div>

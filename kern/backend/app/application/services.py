@@ -197,6 +197,24 @@ class SubjectService:
         return ({"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": progress},
                 {"count": total, "done": done})
 
+    @staticmethod
+    def _fach_status(subject: Subject, progress: int | None) -> str:
+        """Fünf Stufen, aus dem Gesamtfortschritt und den Aufgaben hergeleitet – keine eigene Pflege nötig.
+        Ist nur noch eine Aufgabe offen, deren Titel „Klausur“ enthält, bekommt das Fach eine eigene Stufe
+        dafür (wie im Aufgabenblatt: die Klausur steht meist am Ende, mit eigenem Termin)."""
+        offene = [a for a in subject.aufgaben if not a.erledigt]
+        klausur_offen = [a for a in offene if "klausur" in a.titel.casefold()]
+        sonst_offen = [a for a in offene if a not in klausur_offen]
+        if klausur_offen and not sonst_offen and progress is not None and progress < 100:
+            return "klausur_offen"
+        if progress is None or progress == 0:
+            return "angelegt"
+        if progress < 50:
+            return "begonnen"
+        if progress < 100:
+            return "in_arbeit"
+        return "abgeschlossen"
+
     def _row(self, sub: Subject, status: dict, services: list[dict]) -> dict:
         aufgaben_part, aufgaben_status = self._aufgaben_part(sub)
         _, service_parts = self._progress(status, services)
@@ -204,7 +222,7 @@ class SubjectService:
         values = [p["progress"] for p in parts if p["progress"] is not None]
         progress = int(sum(values) / len(values) + 0.5) if values else None
         return {"id": sub.id, "name": sub.name, "status": {**status, "aufgaben": aufgaben_status},
-                "progress": progress, "parts": parts}
+                "progress": progress, "stufe": self._fach_status(sub, progress), "parts": parts}
 
     def overview(self) -> dict:
         services = self.services_status()

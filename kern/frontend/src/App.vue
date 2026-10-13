@@ -1,6 +1,8 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppHeader from './components/ui/AppHeader.vue'
+import AppNav from './components/ui/AppNav.vue'
+import StudyFab from './components/ui/StudyFab.vue'
 import HomeView from './views/HomeView.vue'
 import SubjectsView from './views/SubjectsView.vue'
 import SubjectView from './views/SubjectView.vue'
@@ -58,8 +60,11 @@ onMounted(async () => {
 <template>
   <LoginView v-if="loggedIn === false" />
   <template v-else-if="loggedIn">
-    <AppHeader :active="active" :username="username" @nav="nav" @logout="logout" @profile="go('profile')" />
-    <main class="mx-auto max-w-5xl px-4 pb-24 pt-8">
+    <AppHeader :username="username" @nav="nav" @logout="logout" @profile="go('profile')" />
+    <div class="mx-auto max-w-5xl px-4 pt-4">
+      <AppNav :active="active" @nav="nav" />
+    </div>
+    <main class="mx-auto max-w-5xl px-4 pb-24 pt-6">
       <HomeView v-if="view === 'home'" @open-subject="(id, t) => go('subject', id, t)" @study="go('study')" @nav="nav" />
       <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'aufgaben')" />
       <SubjectView v-else-if="view === 'subject'" :key="subjectId" :subject-id="subjectId" v-model:tab="tab"
@@ -69,5 +74,6 @@ onMounted(async () => {
       <AdressbuchView v-else-if="view === 'adressbuch'" />
       <StudyView v-else :deck-id="subjectId" @back="subjectId ? go('subject', subjectId) : go('home')" />
     </main>
+    <StudyFab @study="go('study')" />
   </template>
 </template>

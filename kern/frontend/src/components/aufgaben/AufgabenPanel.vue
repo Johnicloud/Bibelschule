@@ -6,6 +6,7 @@ import { formatDate } from '../../domain/status'
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const subjects = inject('subjects')
+const aufgabenleser = inject('aufgabenleser')
 
 const aufgaben = ref([])
 const loadError = ref('')
@@ -13,6 +14,15 @@ const error = ref('')
 const titel = ref('')
 const frist = ref('')
 const gewichtung = ref('')
+
+// Aufgabenblatt (PDF) von Ollama lesen lassen: liefert nur Vorschläge, der Nutzer wählt aus, nichts wird
+// automatisch angelegt (siehe Projektnotizen, Entscheidungen: Ergebnisse der KI sind immer nur Vorschläge).
+const dateiInput = ref(null)
+const liestEin = ref(false)
+const leseFehler = ref('')
+const rohtextKi = ref('')
+const vorschlaege = ref([])        // [{ titel, frist, gewichtung, ausgewaehlt }]
+const legtAn = ref(false)
 
 async function load() {
   try { aufgaben.value = (await subjects.get(props.subjectId)).aufgaben; loadError.value = '' }
@@ -36,6 +46,37 @@ async function remove(a) {
   await subjects.removeAufgabe(props.subjectId, a.id)
   await refresh()
 }
+
+async function dateiGewaehlt(e) {
+  const datei = e.target.files[0]
+  e.target.value = ''
+  if (!datei) return
+  leseFehler.value = ''
+  vorschlaege.value = []
+  rohtextKi.value = ''
+  liestEin.value = true
+  try {
+    const ergebnis = await aufgabenleser.lesen(datei)
+    vorschlaege.value = ergebnis.vorschlaege.map((v) => ({ ...v, ausgewaehlt: true }))
+    rohtextKi.value = ergebnis.rohtext_ki || ''
+    if (!vorschlaege.value.length) leseFehler.value = 'Daraus ließ sich kein Vorschlag lesen. Antwort der KI unten, Aufgaben ggf. von Hand anlegen.'
+  } catch (e) { leseFehler.value = e.message }
+  finally { liestEin.value = false }
+}
+async function vorschlaegeUebernehmen() {
+  const ausgewaehlt = vorschlaege.value.filter((v) => v.ausgewaehlt)
+  if (!ausgewaehlt.length) return
+  legtAn.value = true
+  try {
+    for (const v of ausgewaehlt) await subjects.addAufgabe(props.subjectId, v.titel, v.frist, v.gewichtung)
+    vorschlaege.value = []
+    rohtextKi.value = ''
+    await refresh()
+  } catch (e) { leseFehler.value = e.message }
+  finally { legtAn.value = false }
+}
+function vorschlaegeVerwerfen() { vorschlaege.value = []; rohtextKi.value = ''; leseFehler.value = '' }
+
 onMounted(load)
 </script>
 
@@ -51,6 +92,44 @@ onMounted(load)
       Gewichtung = anteilige Bewertung wie im Aufgabenblatt (z. B. Klausur 50 %). Ohne Gewichtung zählt jede Aufgabe gleich viel.
     </p>
   </form>
+
+  <h2 class="mb-3 mt-10 text-lg font-semibold">Aufgabenblatt einlesen</h2>
+  <div class="panel p-4">
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+      Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor. Nur ein Vorschlag –
+      geprüft wird unten, angelegt werden nur die ausgewählten.
+    </p>
+    <label class="btn btn-outline mt-3 inline-flex cursor-pointer">
+      {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
+      <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
+    </label>
+    <p v-if="leseFehler" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ leseFehler }}</p>
+
+    <ul v-if="vorschlaege.length" class="mt-4 grid gap-2">
+      <li v-for="(v, i) in vorschlaege" :key="i" class="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <input type="checkbox" v-model="v.ausgewaehlt" class="h-5 w-5 shrink-0 rounded-md" :aria-label="`${v.titel} übernehmen`" />
+        <div class="min-w-0 flex-1">
+          <p>{{ v.titel }}</p>
+          <p v-if="v.frist || v.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">
+            <template v-if="v.frist">Frist {{ formatDate(v.frist) }}</template>
+            <template v-if="v.frist && v.gewichtung != null"> · </template>
+            <template v-if="v.gewichtung != null">{{ v.gewichtung }} % der Bewertung</template>
+          </p>
+        </div>
+      </li>
+    </ul>
+    <div v-if="vorschlaege.length" class="mt-3 flex gap-2">
+      <button class="btn btn-primary" :disabled="legtAn || !vorschlaege.some((v) => v.ausgewaehlt)" @click="vorschlaegeUebernehmen">
+        {{ legtAn ? 'Legt an …' : 'Ausgewählte Aufgaben anlegen' }}
+      </button>
+      <button class="btn btn-ghost" @click="vorschlaegeVerwerfen">Verwerfen</button>
+    </div>
+
+    <details v-if="rohtextKi" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
+      <summary class="cursor-pointer">Antwort der KI im Wortlaut</summary>
+      <pre class="mt-2 whitespace-pre-wrap">{{ rohtextKi }}</pre>
+    </details>
+  </div>
 
   <h2 class="mb-3 mt-10 text-lg font-semibold">Umfang dieses Fachs</h2>
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>

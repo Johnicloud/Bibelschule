@@ -18,11 +18,22 @@ export const READING_STATUS = {
   done: { label: 'Fertig', tone: 'teal' },
 }
 
+// Fünf Stufen des Fachs, vom Kern automatisch aus Fortschritt und Aufgaben hergeleitet (kein eigenes Pflegen).
+export const FACH_STATUS = {
+  angelegt: { label: 'Angelegt', tone: 'slate' },
+  begonnen: { label: 'Begonnen', tone: 'amber' },
+  in_arbeit: { label: 'In Arbeit', tone: 'sky' },
+  klausur_offen: { label: 'Nur Klausur fehlt', tone: 'violet' },
+  abgeschlossen: { label: 'Abgeschlossen', tone: 'teal' },
+}
+
 export const TONE_CLASSES = {
   rose: 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300',
   amber: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
   teal: 'bg-teal-100 text-teal-800 dark:bg-teal-500/15 dark:text-teal-300',
   slate: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  sky: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
+  violet: 'bg-violet-100 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300',
 }
 
 export const BAR_CLASSES = {
@@ -30,6 +41,8 @@ export const BAR_CLASSES = {
   amber: 'bg-amber-500',
   teal: 'bg-teal-500',
   slate: 'bg-slate-400',
+  sky: 'bg-sky-500',
+  violet: 'bg-violet-500',
 }
 
 export function formatDate(iso) {

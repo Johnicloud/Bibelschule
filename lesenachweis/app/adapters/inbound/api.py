@@ -29,6 +29,16 @@ class TaskIn(BaseModel):
     buecher: list[BuchIn] | None = None
 
 
+class TaskUpdateIn(BaseModel):
+    title: str
+    unit: Literal["Seiten", "Kapitel"] = "Seiten"
+    total: int | None = None
+    passes: int = 1
+    start: date | None = None
+    deadline: date | None = None
+    buecher: list[BuchIn] | None = None
+
+
 class EntryIn(BaseModel):
     amount: int
     day: date | None = None   # leer = heute
@@ -97,6 +107,12 @@ def create_app(service: ReadingService) -> FastAPI:
     @api.get("/tasks/{task_id}")
     def get_task(task_id: str):
         return task_out(service.get_task(task_id))
+
+    @api.put("/tasks/{task_id}")
+    def update_task(task_id: str, body: TaskUpdateIn):
+        buecher = [b.model_dump() for b in body.buecher] if body.buecher is not None else None
+        return task_out(service.update_task(task_id, body.title, body.unit, body.total,
+                                            body.passes, body.start, body.deadline, buecher))
 
     @api.delete("/tasks/{task_id}", status_code=204)
     def delete_task(task_id: str):

@@ -131,15 +131,58 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Variablen normal in `:root`/`.dark` definiert und über `theme.extend.colors` eingebunden; Opacity-Modifier auf
   diesen Custom-Properties (`text-theme-inv/70`) schlagen in v3 fehl, stattdessen eine `opacity-*`-Utility nehmen.
 
+- [fertig] Fach-Status (5 Stufen): `angelegt` · `begonnen` · `in_arbeit` · `klausur_offen` („Nur Klausur fehlt“) ·
+  `abgeschlossen`. Automatisch aus dem Gesamtfortschritt hergeleitet (`SubjectService._fach_status`, Kern),
+  keine eigene Pflege nötig. Sonderfall: ist nur noch eine Aufgabe offen, deren Titel „Klausur“ enthält, zeigt
+  das Fach `klausur_offen` statt der reinen Prozent-Stufe. Der Schlüssel kommt als `stufe` in `/overview` und
+  `/subjects/{id}/overview` mit; Anzeige/Label/Farbe stehen im Frontend (`domain/status.js`, `FACH_STATUS`),
+  wie beim Lesestatus des Lesenachweis-Dienstes.
+- [fertig] Dienst `aufgabenleser`: liest ein hochgeladenes Aufgabenblatt (PDF, `POST /api/lesen`) und lässt
+  Ollama daraus eine Liste von Aufgaben vorschlagen (`titel`, `frist`, `gewichtung`) – reiner Lesetext-zu-JSON-
+  Vorschlag, legt nie selbst etwas an (siehe Entscheidungen: Ergebnisse der KI sind immer nur Vorschläge).
+  Fachübergreifend wie `pdfcreator` (kein `panel`, keine eigenen Fach-Daten, nur die drei Pflicht-Endpunkte).
+  PDF-Text über `pypdf` (wie bei `pdfcreator`), gleicher `OLLAMA_URL`/`OLLAMA_MODEL`-Mechanismus. Ohne
+  `OLLAMA_URL` liefert `/api/lesen` 422 (anders als bei `pdfcreator`: hier ist die KI der ganze Zweck des
+  Diensts, kein optionaler Zusatz). Oberfläche: im Fach-Reiter „Aufgaben“ lädt man die PDF hoch, bekommt eine
+  Liste mit Kontrollkästchen (alle vorausgewählt), wählt ab/zu und legt die ausgewählten per Klick als echte
+  Aufgaben über die bestehende Aufgaben-API des Kerns an; die rohe KI-Antwort bleibt in einem Klapptext
+  sichtbar, auch wenn sich daraus kein gültiges JSON gewinnen ließ. `pdfcreator` bleibt für den umgekehrten Weg
+  (Vorlage ausfüllen/exportieren) zuständig – zwei getrennte Dienste für Lesen und Schreiben von PDFs.
+
+- [fertig] Oberfläche weiter an die Finanzapp angeglichen und mit durchgängigen Symbolen versehen:
+  - Aktiver Reiter hatte bisher einen weißen Hintergrund auf der farbigen Kopfleiste (kaum lesbar). Die Reiter
+    stehen jetzt in `AppNav.vue`, einer eigenen Pillen-Leiste unterhalb der Kopfleiste (wie Übersicht/Planung bei
+    der Finanzapp auf dem Desktop), aktiver Reiter mit `bg-primary text-white`. `AppHeader.vue` zeigt nur noch
+    Logo und Benutzer-Symbol.
+  - Alle Symbole zentral in `components/ui/AppIcon.vue` (ein `name`, ein Satz Strichpfade) statt verstreuter
+    Inline-SVGs – neue Symbole kommen nur noch dort hinzu.
+  - Hell/Dunkel als Kippschalter (`ThemeSwitch.vue`, Sonne/Mond im Knopf) im Benutzermenü statt Textzeile, wie
+    `ThemeToggle.vue` der Finanzapp.
+  - „Lernen“ ist kein eigener Reiter mehr, sondern ein Schnellzugriff unten rechts (`StudyFab.vue`, rund, fest),
+    wie die Schnellerfassung der Finanzapp.
+  - Dienste-Übersicht (online/offline, „Dienste abgleichen“) zog von der Startseite in die Konto-Seite
+    (`ProfileView.vue`, Abschnitt „Dienste“) – dort, wo auch die Benutzerverwaltung ist.
+  - Fach-Kacheln auf der Startseite zeigen nur noch Name, Status-Badge (siehe unten) und Gesamtfortschritt;
+    das Aufschlüsseln nach Dienst gehört in die Reiter der Fach-Seite (dafür sind sie da), nicht in die Kachel.
+    Eine „+ Neues Fach“-Kachel öffnet das Anlage-Formular inline, genau wie „Neuen Benutzer anlegen“ auf der
+    Konto-Seite ein Formular öffnet – das Formular selbst (`SubjectCreateForm.vue`) ist jetzt eine gemeinsame
+    Komponente für Startseite und Fächer-Seite, keine doppelte Logik mehr.
+  - Fach umbenennen/bearbeiten hat jetzt ein Stift-Symbol statt eines Text-Knopfes (Fächer-Liste und Fach-Kopf).
+  - Dozenten-Auswahl (beim Fach anlegen und beim Fach bearbeiten) ist ein Dropdown (`DozentenAuswahl.vue`,
+    Knopf mit Auswahl-Text, Häkchen-Liste darunter) statt einer offenen Checkbox-Reihe.
+  - Reiter innerhalb eines Fachs (`SubjectView.vue`) zeigen jetzt auch Symbole, aktive Markierung über
+    `border-primary text-primary` (Token-Farbe) statt hartem `teal-600`.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
 Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
 ## Später
-Lesenachweis als PDF ausfüllen (Vorlage nötig) · Aufgabenblatt, Skript und Fragen mit Ollama einlesen (Ollama läuft
-direkt auf dem Mac, Container erreichen es über host.docker.internal:11434; Ergebnisse immer nur Vorschlag, siehe
-Entscheidungen) · Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für Aufgaben ·
+Lesenachweis als PDF ausfüllen (Vorlage nötig) · Skript und Fragen mit Ollama einlesen (Aufgabenblatt selbst
+macht das schon der `aufgabenleser`-Dienst; Ollama läuft direkt auf dem Mac, Container erreichen es über
+host.docker.internal:11434; Ergebnisse immer nur Vorschlag, siehe Entscheidungen) ·
+Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für Aufgaben ·
 Kalender-Dienst (Aufgabe, Soll, Ist) · Bulk-Import der 50 Fächer aus dem Studienablaufplan (SE, Dozent, Semester;
 noch nicht gemacht, Foto kann Lesefehler enthalten – Kontrollliste nötig) · evtl. Fristen-Erinnerung über alle
 Fächer, Volltextsuche, Notizen/Logbuch.

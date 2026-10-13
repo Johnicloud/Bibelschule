@@ -35,9 +35,8 @@ class ReadingService:
         return task
 
     # Pensen
-    def add_task(self, subject_id: str, title: str, unit: str, total: int | None, passes: int = 1,
-                 start: date | None = None, deadline: date | None = None,
-                 buecher: list[dict] | None = None) -> ReadingTask:
+    def _validate_task(self, unit: str, total: int | None, passes: int, start: date | None,
+                        deadline: date | None, buecher: list[dict] | None) -> tuple[int, list[Buch]]:
         if unit not in UNITS:
             raise InvalidInput("Die Einheit ist Seiten oder Kapitel.")
         if not isinstance(passes, int) or not 1 <= passes <= MAX_PASSES:
@@ -56,11 +55,32 @@ class ReadingService:
             raise InvalidInput("Gib mindestens ein Buch an, oder lass die Bücherliste ganz weg.")
         if not isinstance(total, int) or total < 1:
             raise InvalidInput(f"Der Umfang muss mindestens 1 sein ({unit}).")
+        return total, buch_objekte
+
+    def add_task(self, subject_id: str, title: str, unit: str, total: int | None, passes: int = 1,
+                 start: date | None = None, deadline: date | None = None,
+                 buecher: list[dict] | None = None) -> ReadingTask:
+        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher)
         task = ReadingTask(subject_id=_clean(subject_id, "Das Fach"), title=_clean(title, "Der Titel"),
                            unit=unit, total=total, passes=passes, buecher=buch_objekte,
                            start=start, deadline=deadline)
         self.repo.save(task)
         self._emit("reading.task_created", {"subject_id": task.subject_id, "task_id": task.id})
+        return task
+
+    def update_task(self, task_id: str, title: str, unit: str, total: int | None, passes: int = 1,
+                    start: date | None = None, deadline: date | None = None,
+                    buecher: list[dict] | None = None) -> ReadingTask:
+        task = self._task(task_id)
+        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher)
+        task.title = _clean(title, "Der Titel")
+        task.unit = unit
+        task.total = total
+        task.passes = passes
+        task.buecher = buch_objekte
+        task.start = start
+        task.deadline = deadline
+        self.repo.save(task)
         return task
 
     def list_tasks(self, subject_id: str | None = None) -> list[ReadingTask]:

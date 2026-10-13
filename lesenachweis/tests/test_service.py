@@ -93,6 +93,26 @@ def test_add_task_rejects_empty_buch_title_or_bad_total(svc):
         svc.add_task("f", "Lektüre", "Seiten", None, buecher=[])
 
 
+def test_update_task_changes_fields_without_touching_entries(svc):
+    t = svc.add_task("f", "Buch", "Seiten", 100, deadline=date(2026, 11, 1))
+    svc.log_reading(t.id, 10)
+    updated = svc.update_task(t.id, "Neuer Titel", "Kapitel", 50, passes=2, deadline=date(2026, 12, 1))
+    assert updated.title == "Neuer Titel" and updated.unit == "Kapitel" and updated.total == 50
+    assert updated.passes == 2 and updated.deadline == date(2026, 12, 1) and updated.done == 10
+    with pytest.raises(InvalidInput):
+        svc.update_task(t.id, " ", "Seiten", 10)
+    with pytest.raises(NotFound):
+        svc.update_task("gibt-es-nicht", "Buch", "Seiten", 10)
+
+
+def test_update_task_can_switch_to_buecher(svc):
+    t = svc.add_task("f", "Lektüre", "Seiten", 100)
+    updated = svc.update_task(t.id, "Lektüre", "Seiten", None, buecher=[
+        {"title": "Buch A", "total": 60}, {"title": "Buch B", "total": 40},
+    ])
+    assert updated.total == 100 and [b.title for b in updated.buecher] == ["Buch A", "Buch B"]
+
+
 def test_tasks_sorted_by_deadline(svc):
     svc.add_task("f", "Später", "Seiten", 10, deadline=date(2026, 12, 1))
     svc.add_task("f", "Ohne", "Seiten", 10)

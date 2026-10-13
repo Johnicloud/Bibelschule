@@ -12,6 +12,7 @@ const tasks = ref([])
 const status = ref(null)
 const error = ref('')
 const loadError = ref('')
+const anlegen = ref(false)
 const blank = () => ({ title: '', unit: 'Seiten', total: '', passes: 1, start: '', deadline: '' })
 const form = ref(blank())
 const mehrereBuecher = ref(false)
@@ -27,12 +28,18 @@ async function load() {
 async function refresh() { await load(); emit('changed') }
 function addBuchFeld() { buecher.value.push({ title: '', total: '' }) }
 function removeBuchFeld(i) { buecher.value.splice(i, 1) }
+function abbrechen() {
+  anlegen.value = false
+  error.value = ''
+  form.value = blank()
+  mehrereBuecher.value = false
+  buecher.value = [{ title: '', total: '' }]
+}
 async function add() {
   error.value = ''
   try {
     await reading.add(props.subjectId, form.value, mehrereBuecher.value ? buecher.value : null)
-    form.value = blank()
-    buecher.value = [{ title: '', total: '' }]
+    abbrechen()
     await refresh()
   } catch (e) { error.value = e.message }
 }
@@ -42,8 +49,11 @@ onMounted(load)
 <template>
   <ReadingSummary v-if="status && status.task_count" :status="status" class="mb-8" />
 
-  <h2 class="mb-3 text-lg font-semibold">Neues Lesepensum</h2>
-  <form class="panel grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Neues Lesepensum</h2>
+    <button v-if="!anlegen" type="button" class="btn btn-primary" @click="anlegen = true">+ Neues Pensum</button>
+  </div>
+  <form v-if="anlegen" class="panel grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
     <input v-model="form.title" class="input sm:col-span-6" placeholder="Titel, z. B. Grundriss der Dogmatik / Pflicht-Lektüre" aria-label="Titel" />
 
     <label class="flex items-center gap-1.5 text-sm sm:col-span-6">
@@ -90,9 +100,10 @@ onMounted(load)
       <span class="mb-1 block text-slate-500 dark:text-slate-400">Frist (optional)</span>
       <input v-model="form.deadline" type="date" class="input" />
     </label>
-    <div class="sm:col-span-6">
+    <div class="flex gap-2 sm:col-span-6">
       <button class="btn btn-primary">Pensum anlegen</button>
-      <span v-if="error" class="ml-3 text-sm text-rose-600 dark:text-rose-400">{{ error }}</span>
+      <button type="button" class="btn btn-ghost" @click="abbrechen">Abbrechen</button>
+      <span v-if="error" class="ml-1 text-sm text-rose-600 dark:text-rose-400">{{ error }}</span>
     </div>
   </form>
 

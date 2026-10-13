@@ -100,7 +100,7 @@ def test_overview_skips_offline_services(svc, gw):
     gw.down.add("register")
     o = svc.overview()
     assert [(x["name"], x["online"]) for x in o["services"]] == [("karteikarten", True), ("register", False)]
-    assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik", "progress": None,
+    assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik", "progress": None, "stufe": "angelegt",
                               "status": {"karteikarten": {"n": 1}, "register": None, "aufgaben": {"count": 0, "done": 0}},
                               "parts": [{"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": None},
                                         {"service": "karteikarten", "label": "Karteikarten", "online": True, "progress": None},
@@ -235,3 +235,30 @@ def test_aufgaben_progress_falls_back_to_count_without_gewichtung(svc):
         subject = svc.set_aufgabe_erledigt(subject.id, a.id, True)
     aufgaben_part, _ = svc._aufgaben_part(subject)
     assert aufgaben_part["progress"] == 25
+
+
+def test_fach_status_five_stages(svc, gw):
+    """Die fünf Stufen ergeben sich von selbst aus dem Fortschritt, ohne eigene Pflege."""
+    gw.status = lambda s, i: {"progress": None}   # Dienste melden hier nichts: nur die Aufgaben zählen
+    subject, _ = svc.create_subject("Dogmatik")
+    assert svc.subject_overview(subject.id)["stufe"] == "angelegt"   # frisch angelegt, keine Aufgabe
+
+    eins = svc.add_aufgabe(subject.id, "Eins", gewichtung=25).aufgaben[-1]
+    svc.add_aufgabe(subject.id, "Zwei", gewichtung=25)
+    svc.add_aufgabe(subject.id, "Drei", gewichtung=25)
+    klausur = svc.add_aufgabe(subject.id, "Klausur", gewichtung=25).aufgaben[-1]
+    assert svc.subject_overview(subject.id)["stufe"] == "angelegt"   # 0 % erledigt
+
+    svc.set_aufgabe_erledigt(subject.id, eins.id, True)
+    assert svc.subject_overview(subject.id)["stufe"] == "begonnen"   # 25 %
+
+    zwei = subject.aufgaben[1]
+    svc.set_aufgabe_erledigt(subject.id, zwei.id, True)
+    assert svc.subject_overview(subject.id)["stufe"] == "in_arbeit"   # 50 %
+
+    drei = subject.aufgaben[2]
+    svc.set_aufgabe_erledigt(subject.id, drei.id, True)
+    assert svc.subject_overview(subject.id)["stufe"] == "klausur_offen"   # 75 %, nur noch die Klausur offen
+
+    svc.set_aufgabe_erledigt(subject.id, klausur.id, True)
+    assert svc.subject_overview(subject.id)["stufe"] == "abgeschlossen"   # 100 %

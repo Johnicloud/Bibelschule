@@ -1,12 +1,28 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import { isAdmin, username as currentUsername } from '../state/auth'
 
 defineEmits(['back'])
 const auth = inject('auth')
+const subjects = inject('subjects')
 
 const accounts = ref([])
 const loadError = ref('')
+
+const services = ref([])
+const servicesError = ref('')
+const syncing = ref(false)
+const offline = computed(() => services.value.filter((s) => !s.online))
+async function loadServices() {
+  try { services.value = await subjects.services(); servicesError.value = '' }
+  catch (e) { servicesError.value = e.message }
+}
+async function sync() {
+  syncing.value = true
+  try { await subjects.sync() } catch (e) { servicesError.value = e.message }
+  syncing.value = false
+  await loadServices()
+}
 
 const oldPassword = ref('')
 const newPassword = ref('')
@@ -52,7 +68,7 @@ async function createAccount() {
   } catch (e) { userError.value = e.message }
 }
 
-onMounted(load)
+onMounted(() => { load(); loadServices() })
 </script>
 
 <template>
@@ -94,5 +110,25 @@ onMounted(load)
       <button class="btn btn-primary justify-self-start">Anlegen</button>
       <p v-if="userError" class="text-sm text-rose-600 dark:text-rose-400">{{ userError }}</p>
     </form>
+  </section>
+
+  <section class="panel mt-6 p-5">
+    <h2 class="text-lg font-semibold">Dienste</h2>
+    <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <span v-for="s in services" :key="s.name" class="flex items-center gap-2">
+        <span class="h-2.5 w-2.5 rounded-full" :class="s.online ? 'bg-success' : 'bg-error'" aria-hidden="true"></span>
+        {{ s.label }}
+        <span class="sr-only">{{ s.online ? 'erreichbar' : 'nicht erreichbar' }}</span>
+      </span>
+      <span v-if="!services.length" class="opacity-70">Keine Dienste eingetragen.</span>
+      <button class="btn btn-outline ml-auto !py-1.5" :disabled="syncing" @click="sync">
+        {{ syncing ? 'Gleiche ab …' : 'Dienste abgleichen' }}
+      </button>
+    </div>
+    <p v-if="servicesError" class="mt-2 text-sm text-error">{{ servicesError }}</p>
+    <p v-if="offline.length" class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+      Nicht erreichbar: {{ offline.map((s) => s.label).join(', ') }}.
+      Sobald der Dienst läuft, übernimmt „Dienste abgleichen“ alle Fächer.
+    </p>
   </section>
 </template>
