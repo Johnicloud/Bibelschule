@@ -25,7 +25,10 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Karteikarten-Dienst (Fächer, Karten: Umdrehen, Multiple Choice, Richtig/Falsch, Fälligkeit, Webhook, Fach-Hooks)
 - [fertig] Kern: zentrale Fächerverwaltung, Dienstverzeichnis (`SERVICES`), Weiterleitung `/api/<dienst>/…`, Statusübersicht, Abgleich
 - [fertig] Lesenachweis-Dienst mit Prognose (Seiten/Kapitel, Durchgänge, Frist, Tempo der letzten 14 Tage)
-- [fertig] Register-Dienst (Namen und Orte mit Bibelstellen, alphabetisch / Bibelreihenfolge / nach Stelle, Export CSV/Text, keine Notizen)
+- [fertig] Register-Dienst: beliebig viele Register pro Fach (z. B. Namen, Orte, Völker), Einträge mit Bibelstellen, alphabetisch / Bibelreihenfolge / nach Stelle,
+  Export CSV/Text je Register. Alte Namen/Orte wandern beim Start automatisch in die Register „Namen“ und „Orte“ (`migrate_legacy`).
+  Oberfläche: alle Register als Reiter nebeneinander, Klick springt hin, Eintragsformular sofort darunter (Fokus bleibt im Namensfeld)
+- [fertig] Lesestatus des Fachs (Kopf des Reiters Lesenachweis) und Gesamtfortschritt je Fach (Kopf der Fachseite und Startseite)
 - [fertig] Plug-in-Mechanismus: Selbstanmeldung `POST /api/registry`, Manifest, Reiter/Kachel automatisch, `dienst-vorlage`, `neuer-dienst.sh`
 - [fertig] Datensicherheit: atomares Schreiben, tägliche Sicherung, Übernahme vorhandener Karten als Fächer
 - [fertig] Oberfläche: Start (Status je Fach), Fächer, Fach mit Reitern Karteikarten/Lesenachweis/Register, Alle Karten, Lernen
@@ -33,7 +36,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (bisher nur Tests der Domäne und Anwendung, Syntaxprüfung). Erster Schritt beim Weiterarbeiten: `docker compose up --build` und alles durchklicken.
 
 ## Fach-Vertrag (jeder Dienst)
-`GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` ·
+`GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
 Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
@@ -48,5 +51,11 @@ Auswendiglern-Modus.
 - Bibelbücher: 66, evangelische Reihenfolge, Kurznamen nach Lutherbibel; Bücher mit einem Kapitel (Obd, Phlm, 2Joh, 3Joh, Jud): „Jud 5“ = Vers 5.
 - Löscht der Kern ein Fach, während ein Dienst offline ist, bleibt dessen Datenrest liegen und wird beim nächsten Abgleich als Fach zurückgeholt (lieber nichts verlieren).
 - Fachnamen führt nur der Kern; Lesenachweis und Register kennen nur die Fach-ID.
+- Gesamtfortschritt eines Fachs = Mittel der `progress`-Werte aller erreichbaren Dienste, die einen melden (`GET /api/subjects/{id}/overview`, `parts` zeigt die Teile).
+  Neue Dienste zählen automatisch mit. Das Register meldet keinen (es hat kein Ziel), zeigt nur Zahlen.
+- Lesen: Prozent des Fachs = Mittel der Prozentwerte der Pensen (jedes Pensum gleich viel, Seiten und Kapitel lassen sich nicht addieren).
+- Karteikarten: Fortschritt = Anteil der Karten auf Lernstufe 4 oder höher („sicher gelernt“, Wiederholung nach 8 Tagen oder mehr).
+- Register: Name im Register eindeutig (Groß/Klein egal), gleicher Name in einem anderen Register bleibt getrennt; gleicher Name im selben Register ergänzt die Stellen.
+  Dateien: `register.json` (Einträge, JSON-Feld `kind` bleibt für alte Daten erhalten) und `registers.json` (Register).
 - Leitner-Stufen: 0, 1, 2, 4, 8, 16 Tage. Falsche Karten sind sofort wieder fällig.
 - Ergebnisse der KI sind immer nur Vorschläge, die der Nutzer prüft.

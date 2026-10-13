@@ -1,10 +1,8 @@
-"""Domäne: Register der Namen und Orte mit ihren Bibelstellen. Reine Python-Objekte."""
+"""Domäne: Register eines Fachs mit Einträgen und ihren Bibelstellen. Reine Python-Objekte."""
 from dataclasses import dataclass, field
 from uuid import uuid4
 
 from app.domain.bible import BibleRef, name_sort_key
-
-KINDS = ("person", "place")   # Namen und Orte
 
 
 def new_id() -> str:
@@ -12,13 +10,22 @@ def new_id() -> str:
 
 
 @dataclass
-class RegisterEntry:
-    """Ein Name oder Ort eines Fachs mit allen Bibelstellen, in denen er vorkommt."""
+class Register:
+    """Ein Register eines Fachs, z. B. „Namen“, „Orte“ oder „Völker“. Pro Fach beliebig viele."""
     subject_id: str
-    kind: str
+    name: str
+    id: str = field(default_factory=new_id)
+
+
+@dataclass
+class RegisterEntry:
+    """Ein Eintrag eines Registers mit allen Bibelstellen, in denen er vorkommt."""
+    subject_id: str
+    register_id: str
     name: str
     refs: list[BibleRef] = field(default_factory=list)
     id: str = field(default_factory=new_id)
+    legacy_kind: str = ""   # alte Daten: "person" oder "place"; nur noch für die Übernahme in Register (JSON-Feld "kind")
 
     @property
     def name_key(self) -> str:

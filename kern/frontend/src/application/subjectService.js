@@ -8,6 +8,7 @@ export function createSubjectService(api) {
     remove: (id) => api.deleteSubject(id),
     services: () => api.services(),
     overview: () => api.overview(),
+    overviewOf: (id) => api.subjectOverview(id), // Stand und Gesamtfortschritt eines Fachs
     sync: () => api.sync(),
   }
 }

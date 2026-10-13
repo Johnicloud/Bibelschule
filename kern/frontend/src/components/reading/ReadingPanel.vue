@@ -1,30 +1,39 @@
 <script setup>
 import { inject, onMounted, ref } from 'vue'
 import TaskCard from './TaskCard.vue'
+import ReadingSummary from './ReadingSummary.vue'
 import EmptyState from '../ui/EmptyState.vue'
 
 const props = defineProps({ subjectId: String })
+const emit = defineEmits(['changed'])
 const reading = inject('reading')
 
 const tasks = ref([])
+const status = ref(null)
 const error = ref('')
 const loadError = ref('')
 const blank = () => ({ title: '', unit: 'Seiten', total: '', passes: 1, deadline: '' })
 const form = ref(blank())
 
 async function load() {
-  try { tasks.value = await reading.list(props.subjectId); loadError.value = '' }
+  try {
+    ;[tasks.value, status.value] = await Promise.all([reading.list(props.subjectId), reading.status(props.subjectId)])
+    loadError.value = ''
+  }
   catch (e) { loadError.value = e.message }
 }
+async function refresh() { await load(); emit('changed') }
 async function add() {
   error.value = ''
-  try { await reading.add(props.subjectId, form.value); form.value = blank(); await load() }
+  try { await reading.add(props.subjectId, form.value); form.value = blank(); await refresh() }
   catch (e) { error.value = e.message }
 }
 onMounted(load)
 </script>
 
 <template>
+  <ReadingSummary v-if="status && status.task_count" :status="status" class="mb-8" />
+
   <h2 class="mb-3 text-lg font-semibold">Neues Lesepensum</h2>
   <form class="panel grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
     <input v-model="form.title" class="input sm:col-span-6" placeholder="Titel, z. B. Grundriss der Dogmatik" aria-label="Titel" />
@@ -55,7 +64,7 @@ onMounted(load)
   <h2 class="mb-3 mt-10 text-lg font-semibold">Pensen in diesem Fach</h2>
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
   <ul v-else-if="tasks.length" class="grid gap-4">
-    <TaskCard v-for="t in tasks" :key="t.id" :task="t" @changed="load" />
+    <TaskCard v-for="t in tasks" :key="t.id" :task="t" @changed="refresh" />
   </ul>
   <EmptyState v-else title="Noch kein Pensum" text="Lege oben ein Buch oder Skript mit Umfang und Frist an." />
 </template>

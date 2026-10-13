@@ -4,6 +4,7 @@ import DeckPanel from './DeckPanel.vue'
 import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
 import ExternalPanel from '../components/ui/ExternalPanel.vue'
+import ProgressPanel from '../components/ui/ProgressPanel.vue'
 import { NATIVE_SERVICES } from '../domain/status'
 
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'karteikarten' } })
@@ -11,15 +12,23 @@ defineEmits(['back', 'study', 'update:tab'])
 const subjects = inject('subjects')
 const subject = ref(null)
 const services = ref([])
+const overview = ref(null)
 const error = ref('')
 
 // Reiter = Dienste: die eingebauten und jeder Dienst, der im Manifest eine eigene Seite (panel) meldet.
 const tabs = computed(() => services.value.filter((s) => NATIVE_SERVICES.includes(s.name) || s.panel))
 const current = computed(() => tabs.value.find((t) => t.name === props.tab) || tabs.value[0])
 
+// Der Gesamtfortschritt wird neu geholt, wenn ein Reiter etwas geändert hat (Karte, Lesen, Register).
+async function loadOverview() {
+  try { overview.value = await subjects.overviewOf(props.subjectId) } catch { /* Anzeige bleibt wie sie war */ }
+}
+
 onMounted(async () => {
-  try { ;[subject.value, services.value] = await Promise.all([subjects.get(props.subjectId), subjects.services()]) }
-  catch (e) { error.value = e.message }
+  try {
+    ;[subject.value, services.value] = await Promise.all([subjects.get(props.subjectId), subjects.services()])
+    loadOverview()
+  } catch (e) { error.value = e.message }
 })
 </script>
 
@@ -29,7 +38,9 @@ onMounted(async () => {
   <template v-if="subject && current">
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
 
-    <div class="mt-5 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+    <ProgressPanel v-if="overview" :overview="overview" :services="services" class="mt-4" />
+
+    <div class="mt-6 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
       <button v-for="t in tabs" :key="t.name" role="tab" :aria-selected="current.name === t.name"
         class="-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition"
         :class="current.name === t.name
@@ -41,9 +52,9 @@ onMounted(async () => {
     </div>
 
     <div class="mt-6" role="tabpanel">
-      <DeckPanel v-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" />
-      <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" />
-      <RegisterPanel v-else-if="current.name === 'register'" :subject-id="subjectId" />
+      <DeckPanel v-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
+      <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />
+      <RegisterPanel v-else-if="current.name === 'register'" :subject-id="subjectId" @changed="loadOverview" />
       <ExternalPanel v-else :src="`/api/${current.name}/${current.panel}?subject=${encodeURIComponent(subjectId)}`" :title="current.label" />
     </div>
   </template>

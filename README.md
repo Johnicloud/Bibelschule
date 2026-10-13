@@ -9,7 +9,7 @@ liefern ihre Funktionen dazu. Jedes Fach bekommt automatisch Karteikarten, Lesen
 | `kern/frontend` | Die Oberfläche (Vue 3 + Tailwind, Hell/Dunkel) |
 | `karteikarten` | Karteikarten: Umdrehen, Multiple Choice, Richtig/Falsch, Leitner-System |
 | `lesenachweis` | Lesepensen mit Leseprotokoll, Durchgängen, Frist und **Prognose** |
-| `register` | Namen und Orte mit Bibelstellen, sortiert nach Alphabet, Bibelreihenfolge oder Stelle, exportierbar |
+| `register` | beliebig viele Register pro Fach (Namen, Orte, …) mit Bibelstellen, sortiert nach Alphabet, Bibelreihenfolge oder Stelle, exportierbar |
 | `dienst-vorlage` | Vorlage für neue Dienste, benutzt von `./neuer-dienst.sh` |
 
 ## Start
@@ -59,11 +59,25 @@ Seite `ui.html` durch deine Fachlogik. Einen bestehenden Dienst erweiterst du in
 
 Erkannt werden Kurzformen und ausgeschriebene Namen: `Joh 3,16`, `1. Mose 12,1-3`, `Ps 23`, `Mt 5-7`,
 `Röm 8,28-9,5`, `1Kor 13,4f`, `Jud 5` (Bücher mit einem Kapitel). Mehrere Stellen trennst du mit Semikolon oder
-Zeilenumbruch. 66 Bücher in evangelischer Reihenfolge, ohne Apokryphen. Gibt es den Namen im Fach schon, kommen
+Zeilenumbruch. 66 Bücher in evangelischer Reihenfolge, ohne Apokryphen. Gibt es den Namen im Register schon, kommen
 die Stellen dazu. Es gibt keine Notizen.
 
+**Mehrere Register:** Im Reiter Register stehen alle Register des Fachs nebeneinander (mit der Zahl ihrer Einträge).
+Ein Klick springt hin, darunter trägst du sofort ein (Name, Stellen, Enter). „+ Neues Register“ legt ein weiteres an,
+beliebig viele pro Fach. Umbenennen und Löschen stehen über dem Eintragsformular. Einträge aus der Zeit mit den
+zwei festen Listen landen beim Start automatisch in den Registern „Namen“ und „Orte“.
+
 **Export:** im Reiter Register die Knöpfe „Export CSV“ (Semikolon, öffnet in deutschem Excel mit Umlauten) und
-„Export Text“. Exportiert wird, was gerade angezeigt wird (Filter und Sortierung). API: `GET /api/register/export?subject_id=…&kind=…&sort=name|bibel|stellen&format=csv|txt`.
+„Export Text“. Exportiert wird das gewählte Register in der gewählten Sortierung. API: `GET /api/register/export?register_id=…&sort=name|bibel|stellen&format=csv|txt`.
+
+## Fortschritt
+
+**Lesestatus des Fachs:** oben im Reiter Lesenachweis. Prozent gelesen (jedes Pensum zählt gleich viel), fertige Pensen,
+das dringendste offene Pensum und die nächste Frist.
+
+**Gesamtfortschritt:** oben auf der Fachseite und auf der Startseite. Mittel aus allen Diensten, die einen Fortschritt melden:
+Lesen (Prozent gelesen) und Karteikarten (Anteil „sicher gelernt“, Lernstufe 4 oder höher). Das Register zeigt nur Zahlen.
+Ein neuer Dienst zählt mit, sobald sein Status ein `progress` (0 bis 100) enthält. API: `GET /api/subjects/{id}/overview`.
 
 ## Wie ein Dienst sich einhängt
 

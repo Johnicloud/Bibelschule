@@ -11,6 +11,7 @@ export function createKernApi(base = '/api') {
     deleteSubject: (id) => call('DELETE', `/subjects/${id}`),
     services: () => call('GET', '/services'),
     overview: () => call('GET', '/overview'),
+    subjectOverview: (id) => call('GET', `/subjects/${id}/overview`),
     sync: () => call('POST', '/sync'),
   }
 }

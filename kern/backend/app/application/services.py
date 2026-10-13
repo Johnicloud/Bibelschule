@@ -119,18 +119,46 @@ class SubjectService:
         return self._fan_out(lambda s: all([self.gateway.put_subject(s, sub.id, sub.name) for sub in subjects]))
 
     # Übersicht
-    def overview(self) -> dict:
-        services = self.services_status()
+    def _collect(self, subjects: list[Subject], services: list[dict]) -> dict[str, dict]:
+        """Fragt jeden erreichbaren Dienst nach dem Stand jedes Fachs (parallel)."""
         up = [s["name"] for s in services if s["online"]]
-        subjects = self.list_subjects()
         jobs = [(sub, s) for sub in subjects for s in up]
         with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(lambda job: self.gateway.status(job[1], job[0].id), jobs))
         status = {sub.id: {s["name"]: None for s in services} for sub in subjects}
         for (sub, service), result in zip(jobs, results):
             status[sub.id][service] = result
-        return {"services": services,
-                "subjects": [{"id": sub.id, "name": sub.name, "status": status[sub.id]} for sub in subjects]}
+        return status
+
+    @staticmethod
+    def _progress(status: dict, services: list[dict]) -> tuple[int | None, list[dict]]:
+        """Gesamtfortschritt eines Fachs: Mittel aller Dienste, die im Status ein `progress` (0 bis 100) melden.
+        Neue Dienste zählen automatisch mit, sobald sie `progress` liefern."""
+        parts = []
+        for s in services:
+            st = status.get(s["name"])
+            value = st.get("progress") if isinstance(st, dict) else None
+            ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+            parts.append({"service": s["name"], "label": s["label"], "online": s["online"],
+                          "progress": value if ok else None})
+        values = [p["progress"] for p in parts if p["progress"] is not None]
+        return (int(sum(values) / len(values) + 0.5) if values else None), parts
+
+    def _row(self, sub: Subject, status: dict, services: list[dict]) -> dict:
+        progress, parts = self._progress(status, services)
+        return {"id": sub.id, "name": sub.name, "status": status, "progress": progress, "parts": parts}
+
+    def overview(self) -> dict:
+        services = self.services_status()
+        subjects = self.list_subjects()
+        status = self._collect(subjects, services)
+        return {"services": services, "subjects": [self._row(sub, status[sub.id], services) for sub in subjects]}
+
+    def subject_overview(self, subject_id: str) -> dict:
+        """Stand eines einzelnen Fachs inklusive Gesamtfortschritt."""
+        subject = self._subject(subject_id)
+        services = self.services_status()
+        return self._row(subject, self._collect([subject], services)[subject.id], services)
 
     # Weiterleitung: die Oberfläche spricht nur mit dem Kern, der Kern mit den Diensten
     def forward(self, service: str, method: str, path: str, query: str, body: bytes,

@@ -77,8 +77,8 @@ def test_subject_hooks(svc, events):
     assert svc.ensure_deck("fach1", "Dogmatik II").name == "Dogmatik II"
     assert events.sent == ["deck.created"]  # Umbenennen ist kein neues Fach
     svc.add_card("fach1", "classic", "a", "b")
-    assert svc.deck_status("fach1") == {"card_count": 1, "due_count": 1, "mastered": 0}
-    assert svc.deck_status("unbekannt") == {"card_count": 0, "due_count": 0, "mastered": 0}
+    assert svc.deck_status("fach1") == {"card_count": 1, "due_count": 1, "mastered": 0, "progress": 0}
+    assert svc.deck_status("unbekannt") == {"card_count": 0, "due_count": 0, "mastered": 0, "progress": None}
     svc.discard_deck("fach1")
     svc.discard_deck("fach1")  # zweites Mal tut nichts
     assert svc.list_decks() == []

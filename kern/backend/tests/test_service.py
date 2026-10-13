@@ -100,8 +100,10 @@ def test_overview_skips_offline_services(svc, gw):
     gw.down.add("register")
     o = svc.overview()
     assert [(x["name"], x["online"]) for x in o["services"]] == [("karteikarten", True), ("register", False)]
-    assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik",
-                              "status": {"karteikarten": {"n": 1}, "register": None}}]
+    assert o["subjects"] == [{"id": subject.id, "name": "Dogmatik", "progress": None,
+                              "status": {"karteikarten": {"n": 1}, "register": None},
+                              "parts": [{"service": "karteikarten", "label": "Karteikarten", "online": True, "progress": None},
+                                        {"service": "register", "label": "Register", "online": False, "progress": None}]}]
 
 
 def test_forward_only_known_services(svc):
@@ -147,3 +149,21 @@ def test_existing_subjects_of_a_service_are_adopted_not_lost(svc, gw):
 def test_overview_services_carry_manifest(svc):
     first = svc.services_status()[0]
     assert first == {"name": "karteikarten", "online": True, "label": "Karteikarten", "panel": None, "fields": []}
+
+
+def test_overall_progress_is_mean_of_services_that_report_one(svc, gw):
+    subject, _ = svc.create_subject("Dogmatik")
+    gw.status = lambda s, i: {"progress": {"karteikarten": 50, "register": None}[s]}
+    row = svc.subject_overview(subject.id)
+    assert row["progress"] == 50 and [p["progress"] for p in row["parts"]] == [50, None]
+    gw.status = lambda s, i: {"progress": {"karteikarten": 50, "register": 100}[s]}
+    assert svc.overview()["subjects"][0]["progress"] == 75
+    gw.down.add("register")                                        # ein Dienst fällt aus: es zählen nur die erreichbaren
+    assert svc.subject_overview(subject.id)["progress"] == 50
+
+
+def test_subject_overview_unknown_subject(svc):
+    import pytest
+    from app.domain.errors import NotFound
+    with pytest.raises(NotFound):
+        svc.subject_overview("gibt-es-nicht")

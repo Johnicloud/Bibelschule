@@ -30,7 +30,7 @@ const extras = computed(() => services.value.filter((x) => !NATIVE_SERVICES.incl
 const sum = (pick) => rows.value.reduce((n, s) => n + (pick(s.status) ?? 0), 0)
 const cardCount = computed(() => sum((s) => s.karteikarten?.card_count))
 const dueCount = computed(() => sum((s) => s.karteikarten?.due_count))
-const entryCount = computed(() => sum((s) => (s.register ? s.register.persons + s.register.places : 0)))
+const entryCount = computed(() => sum((s) => s.register?.entries))
 const readingStatus = (r) => (r ? READING_STATUS[r.status] : null)
 
 onMounted(load)
@@ -53,15 +53,25 @@ onMounted(load)
     <StatCard label="Fächer" :value="rows.length" />
     <StatCard label="Karten" :value="cardCount" tone="violet" />
     <StatCard label="Heute fällig" :value="dueCount" tone="amber" />
-    <StatCard label="Namen und Orte" :value="entryCount" tone="teal" />
+    <StatCard label="Register-Einträge" :value="entryCount" tone="teal" />
   </section>
 
   <section class="mt-10">
     <h2 class="mb-3 text-lg font-semibold">Fächer</h2>
     <ul v-if="rows.length" class="grid gap-4">
       <li v-for="s in rows" :key="s.id" class="panel p-5">
-        <button class="text-left text-xl font-semibold hover:text-teal-600 dark:hover:text-teal-400"
-          @click="$emit('open-subject', s.id, 'karteikarten')">{{ s.name }}</button>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+          <button class="text-left text-xl font-semibold hover:text-teal-600 dark:hover:text-teal-400"
+            @click="$emit('open-subject', s.id, 'karteikarten')">{{ s.name }}</button>
+          <span v-if="s.progress != null" class="text-sm text-slate-500 dark:text-slate-400">
+            Gesamtfortschritt
+            <span class="text-lg font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ s.progress }} %</span>
+          </span>
+        </div>
+        <div v-if="s.progress != null" class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          role="progressbar" :aria-valuenow="s.progress" aria-valuemin="0" aria-valuemax="100">
+          <div class="h-full rounded-full bg-teal-500" :style="{ width: s.progress + '%' }"></div>
+        </div>
 
         <div class="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
@@ -100,8 +110,8 @@ onMounted(load)
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Register</div>
             <button v-if="s.status.register" class="mt-1 text-left text-sm hover:underline"
               @click="$emit('open-subject', s.id, 'register')">
-              <span class="text-lg font-semibold tabular-nums">{{ s.status.register.persons }}</span> Namen,
-              <span class="text-lg font-semibold tabular-nums">{{ s.status.register.places }}</span> Orte
+              <span class="text-lg font-semibold tabular-nums">{{ s.status.register.entries }}</span> Einträge
+              <span class="text-slate-500 dark:text-slate-400">in {{ s.status.register.registers }} {{ s.status.register.registers === 1 ? 'Register' : 'Registern' }}</span>
             </button>
             <p v-else class="mt-1 text-sm text-slate-400">nicht erreichbar</p>
           </div>

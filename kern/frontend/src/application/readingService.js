@@ -2,6 +2,7 @@
 export function createReadingService(api) {
   return {
     list: (subjectId) => api.tasks(subjectId),
+    status: (subjectId) => api.status(subjectId), // Lesestatus des ganzen Fachs
     add: (subjectId, t) => api.addTask({
       subject_id: subjectId,
       title: t.title.trim(),

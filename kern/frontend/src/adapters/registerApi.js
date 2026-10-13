@@ -3,16 +3,18 @@ import { createCall } from './http'
 
 export function createRegisterApi(base = '/api/register') {
   const call = createCall(base)
-  const query = (subjectId, params) =>
-    '?' + new URLSearchParams({ subject_id: subjectId, ...params }).toString()
+  const query = (params) => '?' + new URLSearchParams(params).toString()
   return {
-    entries: (subjectId, { kind = '', sort = 'name' } = {}) =>
-      call('GET', '/entries' + query(subjectId, { sort, ...(kind ? { kind } : {}) })),
-    passages: (subjectId, kind = '') => call('GET', '/passages' + query(subjectId, kind ? { kind } : {})),
+    registers: (subjectId) => call('GET', '/registers' + query({ subject_id: subjectId })),
+    createRegister: (subjectId, name) => call('POST', '/registers', { subject_id: subjectId, name }),
+    renameRegister: (id, name) => call('PUT', `/registers/${id}`, { name }),
+    deleteRegister: (id) => call('DELETE', `/registers/${id}`),
+    entries: (registerId, sort = 'name') => call('GET', '/entries' + query({ register_id: registerId, sort })),
+    passages: (registerId) => call('GET', '/passages' + query({ register_id: registerId })),
     addEntry: (entry) => call('POST', '/entries', entry),
     deleteEntry: (id) => call('DELETE', `/entries/${id}`),
-    // Link zum Herunterladen (CSV oder Text), mit denselben Filtern wie die Anzeige
-    exportUrl: (subjectId, { kind = '', sort = 'name', format = 'csv' } = {}) =>
-      base + '/export' + query(subjectId, { sort, format, ...(kind ? { kind } : {}) }),
+    // Link zum Herunterladen (CSV oder Text) eines Registers, mit derselben Sortierung wie die Anzeige
+    exportUrl: (registerId, { sort = 'name', format = 'csv' } = {}) =>
+      base + '/export' + query({ register_id: registerId, sort, format }),
   }
 }

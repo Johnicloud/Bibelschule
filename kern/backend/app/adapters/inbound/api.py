@@ -56,6 +56,11 @@ def create_app(service: SubjectService) -> FastAPI:
     def get_subject(subject_id: str):
         return subject_out(service.get_subject(subject_id))
 
+    @api.get("/subjects/{subject_id}/overview")
+    def subject_overview(subject_id: str):
+        """Stand eines Fachs: Status je Dienst, Gesamtfortschritt (progress) und seine Teile (parts)."""
+        return service.subject_overview(subject_id)
+
     @api.put("/subjects/{subject_id}")
     def rename_subject(subject_id: str, body: SubjectIn):
         return subject_out(*service.rename_subject(subject_id, body.name))

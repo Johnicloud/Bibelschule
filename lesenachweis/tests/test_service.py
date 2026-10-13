@@ -88,6 +88,18 @@ def test_subject_status_and_hooks(svc):
     s = svc.subject_status("f")
     assert s["task_count"] == 2 and s["percent"] == 25.0
     assert s["status"] == "not_started" and s["next_deadline"] == "2026-10-20"
-    assert svc.subject_status("leer") == {"task_count": 0, "percent": 0.0, "status": None, "next_deadline": None}
+    assert s["done_count"] == 0 and s["progress"] == 25 and s["urgent_title"] == "B"
+    assert svc.subject_status("leer") == {"task_count": 0, "done_count": 0, "percent": 0.0, "progress": None,
+                                          "status": None, "urgent_title": None, "next_deadline": None}
     svc.discard_subject("f")
     assert [t.title for t in svc.list_tasks()] == ["C"]
+
+
+def test_subject_progress_counts_every_task_equally(svc):
+    gross = svc.add_task("g", "Dickes Buch", "Seiten", 600)
+    klein = svc.add_task("g", "Apostelgeschichte", "Kapitel", 28, passes=4)
+    svc.log_reading(gross.id, 600)                       # 100 %
+    svc.log_reading(klein.id, 28)                        # 25 % von 4 Durchgängen
+    s = svc.subject_status("g")
+    assert s["percent"] == 62.5 and s["progress"] == 63 and s["done_count"] == 1
+    assert s["urgent_title"] == "Apostelgeschichte"

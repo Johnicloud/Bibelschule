@@ -4,7 +4,7 @@ from typing import Callable
 
 from app.application.ports import EventPublisher, ReadingRepository
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.forecast import Forecast, forecast, worst_status
+from app.domain.forecast import STATUS_ORDER, Forecast, forecast, worst_status
 from app.domain.models import UNITS, ReadingEntry, ReadingTask
 
 MAX_PASSES = 20
@@ -95,10 +95,15 @@ class ReadingService:
     def subject_status(self, subject_id: str) -> dict:
         tasks = self.repo.list(subject_id)
         forecasts = [(t, self.forecast_for(t)) for t in tasks]
-        target = sum(f.target for _, f in forecasts)
-        done = sum(min(f.done, f.target) for _, f in forecasts)
-        open_deadlines = [t.deadline for t, f in forecasts if t.deadline and f.status != "done"]
+        # Jedes Pensum zählt gleich viel (Seiten und Kapitel lassen sich nicht addieren): Mittel der Prozentwerte.
+        percent = round(sum(f.percent for _, f in forecasts) / len(forecasts), 1) if forecasts else 0.0
+        open_tasks = [(t, f) for t, f in forecasts if f.status != "done"]
+        urgent = min(open_tasks, key=lambda tf: (STATUS_ORDER.index(tf[1].status), tf[0].deadline or date.max), default=None)
+        open_deadlines = [t.deadline for t, f in open_tasks if t.deadline]
         return {"task_count": len(tasks),
-                "percent": round(done / target * 100, 1) if target else 0.0,
+                "done_count": len(tasks) - len(open_tasks),
+                "percent": percent,
+                "progress": int(percent + 0.5) if forecasts else None,   # Gesamtfortschritt des Kerns (0 bis 100)
                 "status": worst_status([f.status for _, f in forecasts]),
+                "urgent_title": urgent[0].title if urgent else None,     # dringendstes offenes Pensum
                 "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None}

@@ -80,7 +80,9 @@ class FlashcardService:
         cards = deck.cards if deck else []
         return {"card_count": len(cards),
                 "due_count": len(deck.due_cards()) if deck else 0,
-                "mastered": sum(1 for c in cards if c.box >= 4)}
+                "mastered": sum(1 for c in cards if c.box >= 4),
+                # Fortschritt dieses Fachs in Prozent: Anteil der Karten auf Lernstufe 4 oder höher ("sicher gelernt")
+                "progress": int(100 * sum(1 for c in cards if c.box >= 4) / len(cards) + 0.5) if cards else None}
 
     def get_deck(self, deck_id: str) -> Deck:
         return self._deck(deck_id)

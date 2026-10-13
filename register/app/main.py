@@ -12,4 +12,6 @@ service_url = os.getenv("EXTERNAL_SERVICE_URL")
 
 repo = JsonRegisterRepository(data_file)
 events = WebhookPublisher(service_url, os.getenv("EXTERNAL_SERVICE_TOKEN")) if service_url else NullPublisher()
-app = create_app(RegisterService(repo, events))
+service = RegisterService(repo, events)
+service.migrate_legacy()   # alte Namen/Orte wandern in die Register „Namen“ und „Orte“
+app = create_app(service)

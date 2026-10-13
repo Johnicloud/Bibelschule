@@ -37,5 +37,7 @@ class ItemService:
         self.repo.delete_subject(subject_id)
 
     def subject_status(self, subject_id: str) -> dict:
-        """Kennzahlen für die Startseite. Die Schlüssel stehen im Manifest (api.py), die Oberfläche zeigt sie von selbst."""
+        """Kennzahlen für die Startseite. Die Schlüssel stehen im Manifest (api.py), die Oberfläche zeigt sie von selbst.
+        Optional: ein Schlüssel "progress" (ganze Zahl 0 bis 100, oder None, wenn es nichts zu messen gibt) zählt
+        automatisch in den Gesamtfortschritt des Fachs, den der Kern als Mittel aller Dienste berechnet."""
         return {"count": len(self.repo.list(subject_id))}
