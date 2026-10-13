@@ -1,18 +1,28 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { inject, onMounted, ref, watch } from 'vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 import { SERVICE_LABELS } from '../domain/status'
 
 defineEmits(['open-subject'])
 const subjects = inject('subjects')
+const adressbuch = inject('adressbuch')
 const list = ref([])
 const name = ref('')
 const se = ref('')
+const credits = ref('')
 const aufgaben = ref([''])
+const dozenten = ref([])
+const ausgewaehlteDozenten = ref([])
 const error = ref('')
 const warning = ref('')
 
+// SE und Credits bleiben im Eingabeformular synchron (Credits = SE * 1,5); gespeichert wird nur SE.
+let sync = false
+watch(se, (v) => { if (sync) return; sync = true; credits.value = v === '' ? '' : (Number(v) * 1.5).toFixed(1); sync = false })
+watch(credits, (v) => { if (sync) return; sync = true; se.value = v === '' ? '' : (Number(v) / 1.5).toFixed(1); sync = false })
+
 async function load() { list.value = await subjects.list() }
+async function loadDozenten() { try { dozenten.value = await adressbuch.dozenten() } catch { /* Adressbuch gerade nicht erreichbar */ } }
 
 function warn(synced) {
   const missed = Object.entries(synced || {}).filter(([, ok]) => !ok).map(([n]) => SERVICE_LABELS[n] || n)
@@ -27,9 +37,12 @@ async function create() {
   warning.value = ''
   try {
     const subject = await subjects.create(name.value, aufgaben.value, se.value)
+    await Promise.all(ausgewaehlteDozenten.value.map((id) => adressbuch.assign(id, subject.id).catch(() => {})))
     name.value = ''
     se.value = ''
+    credits.value = ''
     aufgaben.value = ['']
+    ausgewaehlteDozenten.value = []
     warn(subject.synced)
     await load()
   } catch (e) { error.value = e.message }
@@ -46,7 +59,7 @@ async function remove(subject) {
   await subjects.remove(subject.id)
   await load()
 }
-onMounted(load)
+onMounted(() => { load(); loadDozenten() })
 </script>
 
 <template>
@@ -56,7 +69,18 @@ onMounted(load)
   <form class="panel mt-6 grid gap-3 p-4" @submit.prevent="create">
     <div class="flex gap-2">
       <input v-model="name" class="input" placeholder="Neues Fach, z. B. Bibelkunde" aria-label="Name des Fachs" />
-      <input v-model="se" type="number" min="0" step="0.5" class="input !w-28" placeholder="SE" aria-label="Studieneinheiten (optional)" />
+      <input v-model="se" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten (optional)" />
+      <input v-model="credits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits (optional)" />
+    </div>
+
+    <div v-if="dozenten.length">
+      <span class="mb-1.5 block text-sm text-slate-500 dark:text-slate-400">Dozenten (optional)</span>
+      <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+        <label v-for="d in dozenten" :key="d.id" class="flex items-center gap-1.5 text-sm">
+          <input type="checkbox" :value="d.id" v-model="ausgewaehlteDozenten" class="h-4 w-4 rounded" />
+          {{ d.name }}
+        </label>
+      </div>
     </div>
 
     <div>

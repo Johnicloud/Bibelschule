@@ -21,6 +21,7 @@ class Forecast:
     days_left: int | None            # bis zur Frist (negativ = überschritten)
     needed_per_day: float | None     # so viel muss ab morgen täglich gelesen werden
     pace_per_day: float | None       # so viel wird zurzeit täglich gelesen
+    plan_per_day: float | None       # ursprünglicher Plan: Umfang gleichmäßig von Start bis Frist verteilt
     projected_finish: date | None    # voraussichtlich fertig am (bei gleichbleibendem Tempo, ab morgen)
     status: str                      # done | overdue | not_started | open | behind | tight | on_track
 
@@ -54,6 +55,10 @@ def forecast(task: ReadingTask, today: date) -> Forecast:
     if remaining and pace:
         projected = today + timedelta(days=ceil(remaining / pace))
 
+    plan = None
+    if task.start and task.deadline and task.deadline > task.start:
+        plan = target / (task.deadline - task.start).days
+
     if remaining == 0:
         status = "done"
     elif days_left is not None and days_left < 0:
@@ -69,7 +74,7 @@ def forecast(task: ReadingTask, today: date) -> Forecast:
     else:
         status = "on_track"
 
-    return Forecast(target, done, remaining, percent, days_left, needed, pace, projected, status)
+    return Forecast(target, done, remaining, percent, days_left, needed, pace, plan, projected, status)
 
 
 def worst_status(statuses: list[str]) -> str | None:

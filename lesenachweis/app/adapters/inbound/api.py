@@ -19,6 +19,7 @@ class TaskIn(BaseModel):
     unit: Literal["Seiten", "Kapitel"] = "Seiten"
     total: int
     passes: int = 1
+    start: date | None = None
     deadline: date | None = None
 
 
@@ -39,7 +40,7 @@ def _round(x: float | None) -> float | None:
 def forecast_out(f: Forecast) -> dict:
     return {"target": f.target, "done": f.done, "remaining": f.remaining, "percent": round(f.percent, 1),
             "days_left": f.days_left, "needed_per_day": _round(f.needed_per_day),
-            "pace_per_day": _round(f.pace_per_day),
+            "pace_per_day": _round(f.pace_per_day), "plan_per_day": _round(f.plan_per_day),
             "projected_finish": f.projected_finish.isoformat() if f.projected_finish else None,
             "status": f.status}
 
@@ -52,6 +53,7 @@ def create_app(service: ReadingService) -> FastAPI:
         entries = sorted(t.entries, key=lambda e: (e.day, e.id), reverse=True)
         return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
                 "total": t.total, "passes": t.passes,
+                "start": t.start.isoformat() if t.start else None,
                 "deadline": t.deadline.isoformat() if t.deadline else None,
                 "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note}
                             for e in entries],
@@ -82,7 +84,7 @@ def create_app(service: ReadingService) -> FastAPI:
     @api.post("/tasks", status_code=201)
     def add_task(body: TaskIn):
         return task_out(service.add_task(body.subject_id, body.title, body.unit, body.total,
-                                         body.passes, body.deadline))
+                                         body.passes, body.start, body.deadline))
 
     @api.get("/tasks/{task_id}")
     def get_task(task_id: str):

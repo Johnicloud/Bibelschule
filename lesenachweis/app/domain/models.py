@@ -27,6 +27,7 @@ class ReadingTask:
     unit: str
     total: int            # Seiten oder Kapitel je Durchgang
     passes: int = 1       # Durchgänge, z. B. 2 = zweimal lesen
+    start: date | None = None
     deadline: date | None = None
     entries: list[ReadingEntry] = field(default_factory=list)
     id: str = field(default_factory=new_id)

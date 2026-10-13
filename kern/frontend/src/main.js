@@ -2,10 +2,12 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import './style.css'
+import { createAdressbuchApi } from './adapters/adressbuchApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
 import { createReadingApi } from './adapters/readingApi'
 import { createRegisterApi } from './adapters/registerApi'
+import { createAdressbuchService } from './application/adressbuchService'
 import { createFlashcardService } from './application/flashcardService'
 import { createSubjectService } from './application/subjectService'
 import { createReadingService } from './application/readingService'
@@ -16,4 +18,5 @@ createApp(App)
   .provide('service', createFlashcardService(createHttpApi('/api/karteikarten')))
   .provide('reading', createReadingService(createReadingApi('/api/lesenachweis')))
   .provide('register', createRegisterService(createRegisterApi('/api/register')))
+  .provide('adressbuch', createAdressbuchService(createAdressbuchApi('/api/adressbuch')))
   .mount('#app')

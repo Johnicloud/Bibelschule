@@ -42,7 +42,9 @@ async function removeTask() {
         <h3 class="text-lg font-semibold">{{ task.title }}</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400">
           {{ num(task.total) }} {{ task.unit }}<template v-if="task.passes > 1">, {{ task.passes }} Durchgänge</template>
+          <template v-if="task.start"> · Start {{ formatDate(task.start) }}</template>
           <template v-if="task.deadline"> · Frist {{ formatDate(task.deadline) }}</template>
+          <template v-if="f.plan_per_day"> · Plan {{ num(f.plan_per_day) }} {{ task.unit }}/Tag</template>
         </p>
       </div>
       <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>

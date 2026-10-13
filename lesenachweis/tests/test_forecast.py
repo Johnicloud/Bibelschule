@@ -6,8 +6,8 @@ from app.domain.models import ReadingEntry, ReadingTask
 TODAY = date(2026, 10, 12)
 
 
-def task(total=100, passes=1, deadline=None, entries=()):
-    return ReadingTask(subject_id="f", title="Buch", unit="Seiten", total=total, passes=passes,
+def task(total=100, passes=1, start=None, deadline=None, entries=()):
+    return ReadingTask(subject_id="f", title="Buch", unit="Seiten", total=total, passes=passes, start=start,
                        deadline=deadline, entries=[ReadingEntry(day=d, amount=a) for d, a in entries])
 
 
@@ -54,6 +54,17 @@ def test_deadline_today_needs_everything_today():
 def test_passes_multiply_target():
     f = forecast(task(total=50, passes=2, entries=[(TODAY, 25)]), TODAY)
     assert f.target == 100 and f.percent == 25
+
+
+def test_plan_per_day_spreads_target_evenly_from_start_to_deadline():
+    # 100 Seiten vom 12.10. bis 22.10. (10 Tage) = 10/Tag, unabhängig vom bisherigen Lesetempo
+    f = forecast(task(start=TODAY, deadline=date(2026, 10, 22)), TODAY)
+    assert f.plan_per_day == 10
+
+
+def test_plan_per_day_is_none_without_start_or_deadline():
+    assert forecast(task(deadline=date(2026, 10, 22)), TODAY).plan_per_day is None
+    assert forecast(task(start=TODAY), TODAY).plan_per_day is None
 
 
 def test_worst_status():

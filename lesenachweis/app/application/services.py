@@ -35,16 +35,18 @@ class ReadingService:
         return task
 
     # Pensen
-    def add_task(self, subject_id: str, title: str, unit: str, total: int,
-                 passes: int = 1, deadline: date | None = None) -> ReadingTask:
+    def add_task(self, subject_id: str, title: str, unit: str, total: int, passes: int = 1,
+                 start: date | None = None, deadline: date | None = None) -> ReadingTask:
         if unit not in UNITS:
             raise InvalidInput("Die Einheit ist Seiten oder Kapitel.")
         if not isinstance(total, int) or total < 1:
             raise InvalidInput(f"Der Umfang muss mindestens 1 sein ({unit}).")
         if not isinstance(passes, int) or not 1 <= passes <= MAX_PASSES:
             raise InvalidInput(f"Die Zahl der Durchgänge liegt zwischen 1 und {MAX_PASSES}.")
+        if start and deadline and start >= deadline:
+            raise InvalidInput("Der Starttermin muss vor der Frist liegen.")
         task = ReadingTask(subject_id=_clean(subject_id, "Das Fach"), title=_clean(title, "Der Titel"),
-                           unit=unit, total=total, passes=passes, deadline=deadline)
+                           unit=unit, total=total, passes=passes, start=start, deadline=deadline)
         self.repo.save(task)
         self._emit("reading.task_created", {"subject_id": task.subject_id, "task_id": task.id})
         return task

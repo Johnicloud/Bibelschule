@@ -53,6 +53,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Gleiches Leitner-System wie Karteikarten (Stufen/Logik 1:1 übernommen). Lernen im Fach-Reiter zeigt die fälligen
   Verse des Fachs UND die allgemeinen zusammen. Zwei Lernmodi: Aufdecken (wie Karteikarten) und „Anfangsbuchstaben“
   (nur Anfangsbuchstaben jedes Wortes eintippen, sofortiger Abgleich rein im Browser, kein Server-Aufruf nötig).
+- [fertig] Adresse-Feld für Dozenten (Adressbuch), nützlich für die Brief-Option im echten Aufgabenblatt.
+- [fertig] Dozenten direkt beim Fach-Anlegen auswählbar: die Oberfläche lädt die Dozentenliste vom Adressbuch-Dienst
+  und ordnet die gewählten nach dem Anlegen zu (`POST /api/adressbuch/dozenten/{id}/faecher/{subjectId}`). Reine
+  Frontend-Orchestrierung über die bestehende `/api/<dienst>/…`-Weiterleitung, der Kern weiß nichts von Dozenten.
+- [fertig] Credits direkt am Fach eingebbar: zweites Eingabefeld neben SE im Anlege-Formular, beide halten sich im
+  Formular gegenseitig synchron (Credits = SE × 1,5); gespeichert wird weiterhin nur `se` im Kern (eine Quelle der Wahrheit).
+- [fertig] Starttermin beim Lesepensum: `start`-Feld (optional). Daraus berechnet die Prognose `plan_per_day`
+  (Umfang gleichmäßig von Start bis Frist verteilt) – zusätzlich zu `needed_per_day` (Rest ab heute) und
+  `pace_per_day` (bisheriges Tempo). Zeigt von Tag eins an ein sinnvolles Tagesziel, auch bevor gelesen wurde.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

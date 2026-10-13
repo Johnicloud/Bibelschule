@@ -12,7 +12,7 @@ const tasks = ref([])
 const status = ref(null)
 const error = ref('')
 const loadError = ref('')
-const blank = () => ({ title: '', unit: 'Seiten', total: '', passes: 1, deadline: '' })
+const blank = () => ({ title: '', unit: 'Seiten', total: '', passes: 1, start: '', deadline: '' })
 const form = ref(blank())
 
 async function load() {
@@ -50,6 +50,10 @@ onMounted(load)
     <label class="text-sm sm:col-span-2">
       <span class="mb-1 block text-slate-500 dark:text-slate-400">Durchgänge</span>
       <input v-model="form.passes" type="number" min="1" max="20" class="input" />
+    </label>
+    <label class="text-sm sm:col-span-2">
+      <span class="mb-1 block text-slate-500 dark:text-slate-400">Start (optional)</span>
+      <input v-model="form.start" type="date" class="input" />
     </label>
     <label class="text-sm sm:col-span-2">
       <span class="mb-1 block text-slate-500 dark:text-slate-400">Frist (optional)</span>

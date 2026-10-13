@@ -9,6 +9,7 @@ export function createReadingService(api) {
       unit: t.unit,
       total: Number(t.total),
       passes: Number(t.passes) || 1,
+      start: t.start || null,
       deadline: t.deadline || null,
     }),
     remove: (id) => api.deleteTask(id),
