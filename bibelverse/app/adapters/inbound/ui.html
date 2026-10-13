@@ -45,12 +45,10 @@
   </div>
 
   <div id="block-buchstaben" hidden>
-    <p class="uk-sub">Tipp nur die Anfangsbuchstaben jedes Wortes, z. B. „DahGdWg...“</p>
-    <input id="eingabe-buchstaben" class="uk-input" autocomplete="off" aria-label="Anfangsbuchstaben">
-    <button id="pruefen" class="uk-btn" style="margin-top:.6rem">Prüfen</button>
+    <p class="uk-sub">Tipp die Anfangsbuchstaben jedes Wortes nacheinander, z. B. „DahGdWg...“ – wird sofort beim Tippen geprüft.</p>
+    <input id="eingabe-buchstaben" class="uk-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Anfangsbuchstaben">
     <p id="ergebnis-buchstaben" style="margin-top:.6rem"></p>
     <p id="text-buchstaben" class="uk-text" hidden></p>
-    <button id="weiter-buchstaben" class="uk-btn" hidden>Weiter</button>
   </div>
 </div>
 
@@ -79,11 +77,18 @@
   const subject = subjectId()
   let warteschlange = []
   let modus = 'aufdecken'
+  let zielBuchstaben = ''
+  let buchstabenFalschGemeldet = false
 
   const INTERVALLE = [0, 1, 2, 4, 8, 16]
 
   function initialen(text) {
     return (text.match(/[\p{L}\p{N}]+/gu) || []).map((w) => w[0].toUpperCase()).join('')
+  }
+  // Eingabe ist schon eine Kette aus Anfangsbuchstaben (kein Leerzeichen zwischen den Wörtern) –
+  // hier nur auf Buchstaben/Ziffern reduzieren und großschreiben, nicht wie initialen() wortweise gruppieren.
+  function normiert(text) {
+    return (text.match(/[\p{L}\p{N}]/gu) || []).join('').toUpperCase()
   }
   function formatDatum(iso) {
     return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -170,10 +175,16 @@
     document.getElementById('text-aufdecken').textContent = v.text
     document.getElementById('bewertung').hidden = true
 
-    document.getElementById('eingabe-buchstaben').value = ''
+    zielBuchstaben = initialen(v.text)
+    buchstabenFalschGemeldet = false
+    const eingabeFeld = document.getElementById('eingabe-buchstaben')
+    eingabeFeld.value = ''
+    eingabeFeld.disabled = false
+    eingabeFeld.className = 'uk-input'
     document.getElementById('ergebnis-buchstaben').textContent = ''
+    document.getElementById('ergebnis-buchstaben').className = ''
     document.getElementById('text-buchstaben').hidden = true
-    document.getElementById('weiter-buchstaben').hidden = true
+    if (modus === 'buchstaben') eingabeFeld.focus()
   }
 
   async function bewerten(correct) {
@@ -188,6 +199,7 @@
     document.getElementById('modus-buchstaben').setAttribute('aria-pressed', String(neu === 'buchstaben'))
     document.getElementById('block-aufdecken').hidden = neu !== 'aufdecken'
     document.getElementById('block-buchstaben').hidden = neu !== 'buchstaben'
+    if (neu === 'buchstaben') document.getElementById('eingabe-buchstaben').focus()
   }
   document.getElementById('modus-aufdecken').onclick = () => setzeModus('aufdecken')
   document.getElementById('modus-buchstaben').onclick = () => setzeModus('buchstaben')
@@ -199,22 +211,49 @@
   document.getElementById('btn-richtig').onclick = () => bewerten(true)
   document.getElementById('btn-falsch').onclick = () => bewerten(false)
 
-  document.getElementById('pruefen').onclick = async () => {
+  // Prüft bei jedem Tastendruck, ob die bisherige Eingabe noch zum Vers passt (Anfangsbuchstaben-Modus).
+  // Richtig und vollständig -> sofort bewertet, kurze Bestätigung, automatisch weiter zum nächsten Vers.
+  // Falsch -> sofort als falsch bewertet (einmal), Text zur Kontrolle gezeigt, Eingabe geleert zum Wiederholen;
+  // erst wenn der Vers danach richtig getippt wird, geht es weiter (ohne erneute Bewertung).
+  document.getElementById('eingabe-buchstaben').oninput = async (e) => {
+    if (!warteschlange.length) return
     const v = warteschlange[0]
-    const richtig = initialen(document.getElementById('eingabe-buchstaben').value) === initialen(v.text)
+    const feld = e.target
+    const eingabe = normiert(feld.value)
     const ergebnis = document.getElementById('ergebnis-buchstaben')
-    ergebnis.textContent = richtig ? 'Richtig!' : 'Leider falsch.'
-    ergebnis.className = richtig ? 'uk-richtig' : 'uk-falsch'
-    document.getElementById('text-buchstaben').hidden = false
-    document.getElementById('text-buchstaben').textContent = v.text
-    document.getElementById('weiter-buchstaben').hidden = false
-    document.getElementById('pruefen').disabled = true
-    await call('POST', `verse/${v.id}/review`, { correct: richtig })
-  }
-  document.getElementById('weiter-buchstaben').onclick = () => {
+
+    let abweichungAb = -1
+    for (let i = 0; i < eingabe.length; i++) {
+      if (i >= zielBuchstaben.length || eingabe[i] !== zielBuchstaben[i]) { abweichungAb = i; break }
+    }
+
+    if (abweichungAb !== -1) {
+      feld.className = 'uk-input uk-falsch'
+      if (!buchstabenFalschGemeldet) {
+        buchstabenFalschGemeldet = true
+        ergebnis.textContent = 'Falsch – noch einmal versuchen.'
+        ergebnis.className = 'uk-falsch'
+        document.getElementById('text-buchstaben').hidden = false
+        document.getElementById('text-buchstaben').textContent = v.text
+        await call('POST', `verse/${v.id}/review`, { correct: false })
+      }
+      feld.value = ''
+      return
+    }
+
+    feld.className = 'uk-input'
+    if (eingabe.length < zielBuchstaben.length) {
+      if (!buchstabenFalschGemeldet) { ergebnis.textContent = ''; ergebnis.className = '' }
+      return
+    }
+
+    // vollständig und richtig
+    ergebnis.textContent = buchstabenFalschGemeldet ? 'Jetzt richtig – weiter.' : 'Richtig!'
+    ergebnis.className = 'uk-richtig'
+    feld.disabled = true
+    if (!buchstabenFalschGemeldet) await call('POST', `verse/${v.id}/review`, { correct: true })
     warteschlange.shift()
-    document.getElementById('pruefen').disabled = false
-    zeigeLernkarte()
+    setTimeout(zeigeLernkarte, 700)
   }
 
   document.getElementById('form-neu').onsubmit = async (e) => {

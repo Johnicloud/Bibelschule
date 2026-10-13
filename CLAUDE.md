@@ -173,6 +173,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   - Reiter innerhalb eines Fachs (`SubjectView.vue`) zeigen jetzt auch Symbole, aktive Markierung über
     `border-primary text-primary` (Token-Farbe) statt hartem `teal-600`.
 
+- [fertig] Lesenachweis weiter ausgearbeitet: Leseeintrag ohne Notiz-Feld (Angabe war unnötig, Backend-Feld
+  `note` bleibt für alte Daten erhalten, wird nur nicht mehr befüllt). „Neues Lesepensum“ steht jetzt hinter
+  einem Knopf („+ Neues Pensum“) statt dauerhaft offen zu sein. Pensum bearbeiten (`PUT /api/lesenachweis/
+  tasks/{id}`, `ReadingService.update_task`): Stift-Symbol wie beim Fach öffnet ein Formular mit denselben
+  Feldern wie beim Anlegen (Titel, Umfang/Einheit oder Bücherliste, Durchgänge, Start, Frist); Leseprotokoll
+  bleibt beim Bearbeiten unangetastet.
+
+- [fertig] Anfangsbuchstaben-Modus bei Bibelverse: Prüfung läuft jetzt bei jedem Tastendruck (kein „Prüfen“-Knopf
+  mehr). Erster falscher Buchstabe -> sofort als falsch bewertet (`POST .../review {correct:false}`, einmalig),
+  Verstext zur Kontrolle gezeigt, Eingabe geleert zum Wiederholen; erst wenn der Vers danach richtig getippt
+  wird, geht es automatisch zum nächsten fälligen Vers weiter (ohne erneute Bewertung). Vollständig richtig beim
+  ersten Versuch -> sofort als richtig bewertet, kurze Bestätigung, automatisch weiter. Vorher musste man extra
+  auf „Prüfen“ und danach auf „Weiter“ klicken.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
