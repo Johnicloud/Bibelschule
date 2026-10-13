@@ -3,6 +3,8 @@ from app.application.ports import VersRepository
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import Vers
 
+_UNVERAENDERT = object()   # Zuordnung beim Bearbeiten weglassen = Fach/allgemein bleibt, wie es war
+
 
 def _clean(text: str, feld: str) -> str:
     text = (text or "").strip()
@@ -39,6 +41,17 @@ class VersService:
         """Fällige Verse zum Lernen: die eigenen des Fachs zusammen mit den allgemeinen."""
         pool = [v for v in self.repo.list() if v.subject_id == subject_id or v.subject_id is None]
         return sorted((v for v in pool if v.is_due()), key=lambda v: v.due)
+
+    def update_vers(self, vers_id: str, referenz: str, text: str, subject_id=_UNVERAENDERT) -> Vers:
+        """Ändert Bibelstelle/Text (und wahlweise die Zuordnung zu Fach/allgemein), lässt Lernfortschritt
+        (Stufe, Fälligkeit) unangetastet – Bearbeiten ist kein Lernerfolg."""
+        vers = self._vers(vers_id)
+        vers.referenz = _clean(referenz, "Die Bibelstelle")
+        vers.text = _clean(text, "Der Text")
+        if subject_id is not _UNVERAENDERT:
+            vers.subject_id = subject_id
+        self.repo.save(vers)
+        return vers
 
     def review(self, vers_id: str, correct: bool) -> Vers:
         vers = self._vers(vers_id)

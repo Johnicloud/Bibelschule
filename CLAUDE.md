@@ -109,6 +109,11 @@ Sprache der Oberfläche und der Texte: Deutsch.
   brauchen länger als eine Cloud-API). Ohne `OLLAMA_URL` oder bei Netzwerkfehler gibt es einfach keinen Vorschlag
   (`NullTextKI` bzw. abgefangener Fehler), der Upload selbst schlägt nie deswegen fehl.
 
+- [fertig] Bibelverse ausgearbeitet: Vers bearbeiten (`PUT /api/verse/{id}`, ändert Bibelstelle/Text/Zuordnung
+  Fach↔allgemein, lässt Lernstufe und Fälligkeit unangetastet – Bearbeiten ist kein Lernerfolg). Oberfläche zeigt
+  jetzt je Vers die Leitner-Stufe („neu“, „Stufe n (x Tage)“, „sicher gelernt“ ab Stufe 4) und das Fälligkeitsdatum,
+  dazu oben im Fach-Reiter einen Fortschritts-Satz „X von Y Versen dieses Fachs sicher gelernt“.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

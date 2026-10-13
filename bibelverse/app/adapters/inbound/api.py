@@ -67,6 +67,10 @@ def create_app(service: VersService) -> FastAPI:
     def add_vers(body: VersIn):
         return vers_out(service.add_vers(body.referenz, body.text, body.subject_id))
 
+    @api.put("/verse/{vers_id}")
+    def update_vers(vers_id: str, body: VersIn):
+        return vers_out(service.update_vers(vers_id, body.referenz, body.text, body.subject_id))
+
     @api.post("/verse/{vers_id}/review")
     def review(vers_id: str, body: ReviewIn):
         return vers_out(service.review(vers_id, body.correct))

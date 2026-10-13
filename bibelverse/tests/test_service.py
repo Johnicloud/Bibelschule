@@ -76,6 +76,28 @@ def test_discard_subject_removes_its_own_verse_but_not_allgemein(svc):
     assert len(svc.list_verse(allgemein=True)) == 1
 
 
+def test_update_vers_changes_referenz_text_and_zuordnung(svc):
+    v = svc.add_vers("Joh 3,16", "alter Text", subject_id="fach-1")
+    updated = svc.update_vers(v.id, "Joh 3,17", "neuer Text", subject_id=None)
+    assert updated.referenz == "Joh 3,17" and updated.text == "neuer Text" and updated.subject_id is None
+    assert updated.box == 0   # Bearbeiten ändert nichts am Lernfortschritt
+
+
+def test_update_vers_keeps_box_and_due(svc):
+    v = svc.add_vers("Joh 3,16", "Text", subject_id="fach-1")
+    v = svc.review(v.id, True)
+    updated = svc.update_vers(v.id, "Joh 3,16", "korrigierter Text")
+    assert updated.box == 1 and updated.due == v.due
+
+
+def test_update_vers_requires_referenz_and_text(svc):
+    v = svc.add_vers("Joh 3,16", "Text")
+    with pytest.raises(InvalidInput):
+        svc.update_vers(v.id, " ", "Text")
+    with pytest.raises(NotFound):
+        svc.update_vers("gibt-es-nicht", "Joh 3,16", "Text")
+
+
 def test_subject_status_counts_and_progress(svc):
     assert svc.subject_status("fach-1") == {"count": 0, "faellig": 0, "progress": None}
     v1 = svc.add_vers("Joh 3,16", "a", subject_id="fach-1")

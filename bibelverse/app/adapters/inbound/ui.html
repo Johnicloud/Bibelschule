@@ -17,6 +17,11 @@
   .uk-falsch { color: var(--danger); font-weight: 600; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .uk-stufe { display: inline-flex; align-items: center; border-radius: 999px; padding: .1rem .55rem;
+    font-size: .72rem; font-weight: 600; background: var(--border); color: var(--muted); }
+  .uk-stufe.uk-gelernt { background: rgba(22,163,74,.15); color: #16a34a; }
+  .uk-fortschritt { margin-bottom: 1.25rem; }
+  .uk-bearbeiten-form { display: grid; gap: .5rem; width: 100%; }
 </style>
 </head>
 <body class="ui-kit">
@@ -49,6 +54,8 @@
   </div>
 </div>
 
+<div id="fortschritt" class="uk-sub uk-fortschritt"></div>
+
 <h2>Neuen Vers anlegen</h2>
 <form id="form-neu" class="uk-panel" style="display:grid;gap:.6rem">
   <input id="n-ref" class="uk-input" placeholder="Bibelstelle, z. B. Joh 3,16" aria-label="Bibelstelle" required>
@@ -73,25 +80,82 @@
   let warteschlange = []
   let modus = 'aufdecken'
 
+  const INTERVALLE = [0, 1, 2, 4, 8, 16]
+
   function initialen(text) {
     return (text.match(/[\p{L}\p{N}]+/gu) || []).map((w) => w[0].toUpperCase()).join('')
   }
+  function formatDatum(iso) {
+    return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+  function stufenBadge(v) {
+    const gelernt = v.box >= 4
+    const label = v.box === 0 ? 'neu' : `Stufe ${v.box} (${INTERVALLE[v.box]} Tage)`
+    return el('span', { class: 'uk-stufe' + (gelernt ? ' uk-gelernt' : '') }, gelernt ? 'sicher gelernt' : label)
+  }
 
-  function zeileVers(v, erlaubtLoeschen) {
-    return el('li', { class: 'uk-list-item' }, [
-      el('div', { class: 'uk-row', style: 'width:100%' }, [
-        el('div', {}, [el('div', {}, v.referenz), el('div', { class: 'uk-sub' }, v.text)]),
-        erlaubtLoeschen ? el('button', { class: 'uk-btn-danger', onclick: async () => {
+  function ansicht(v, zeile, erneutLaden) {
+    const kontakt = el('div', { class: 'uk-row', style: 'width:100%' }, [
+      el('div', {}, [
+        el('div', {}, v.referenz),
+        el('div', { class: 'uk-sub' }, v.text),
+        el('div', { class: 'uk-sub', style: 'margin-top:.3rem;display:flex;gap:.5rem;align-items:center' }, [
+          stufenBadge(v),
+          v.faellig ? el('span', {}, 'fällig') : el('span', {}, `fällig am ${formatDatum(v.due)}`),
+        ]),
+      ]),
+      el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
+        el('button', { class: 'uk-btn-ghost', onclick: () => zeigeBearbeiten(zeile, v, erneutLaden) }, 'Bearbeiten'),
+        el('button', { class: 'uk-btn-danger', onclick: async () => {
           if (!confirm(`Vers „${v.referenz}“ löschen?`)) return
-          await call('DELETE', `verse/${v.id}`); ladenAlles()
-        } }, 'Löschen') : '',
+          await call('DELETE', `verse/${v.id}`); erneutLaden()
+        } }, 'Löschen'),
       ]),
     ])
+    zeile.replaceChildren(kontakt)
+  }
+
+  function zeigeBearbeiten(zeile, v, erneutLaden) {
+    const refFeld = el('input', { class: 'uk-input', value: v.referenz, 'aria-label': 'Bibelstelle' })
+    const textFeld = el('textarea', { class: 'uk-input', rows: '2', 'aria-label': 'Text des Verses' }, v.text)
+    const allgemeinFeld = el('input', { type: 'checkbox', ...(v.subject_id === null ? { checked: 'true' } : {}) })
+    const fehler = el('p', { class: 'uk-error' })
+    const form = el('div', { class: 'uk-bearbeiten-form' }, [
+      refFeld, textFeld,
+      el('label', { style: 'display:flex;align-items:center;gap:.4rem;font-size:.85rem' }, [allgemeinFeld, 'allgemein (nicht nur für dieses Fach)']),
+      el('div', { style: 'display:flex;gap:.4rem' }, [
+        el('button', { class: 'uk-btn', onclick: async () => {
+          fehler.textContent = ''
+          try {
+            await call('PUT', `verse/${v.id}`, { referenz: refFeld.value, text: textFeld.value, subject_id: allgemeinFeld.checked ? null : subject })
+            erneutLaden()
+          } catch (err) { fehler.textContent = err.message }
+        } }, 'Speichern'),
+        el('button', { class: 'uk-btn-ghost', onclick: () => ansicht(v, zeile, erneutLaden) }, 'Abbrechen'),
+      ]),
+      fehler,
+    ])
+    zeile.replaceChildren(form)
+  }
+
+  function zeileVers(v, erneutLaden) {
+    const zeile = el('li', { class: 'uk-list-item' })
+    ansicht(v, zeile, erneutLaden)
+    return zeile
   }
 
   async function ladenListen() {
-    document.getElementById('liste-fach').replaceChildren(...(await call('GET', 'verse?subject_id=' + encodeURIComponent(subject))).map((v) => zeileVers(v, true)))
-    document.getElementById('liste-allgemein').replaceChildren(...(await call('GET', 'verse?allgemein=true')).map((v) => zeileVers(v, true)))
+    await ladenFortschritt()
+    document.getElementById('liste-fach').replaceChildren(...(await call('GET', 'verse?subject_id=' + encodeURIComponent(subject))).map((v) => zeileVers(v, ladenAlles)))
+    document.getElementById('liste-allgemein').replaceChildren(...(await call('GET', 'verse?allgemein=true')).map((v) => zeileVers(v, ladenAlles)))
+  }
+
+  async function ladenFortschritt() {
+    const eigene = await call('GET', 'verse?subject_id=' + encodeURIComponent(subject))
+    const anzeige = document.getElementById('fortschritt')
+    if (!eigene.length) { anzeige.textContent = 'Noch kein Vers in diesem Fach.'; return }
+    const gelernt = eigene.filter((v) => v.box >= 4).length
+    anzeige.textContent = `${gelernt} von ${eigene.length} Versen dieses Fachs sicher gelernt (Stufe 4+).`
   }
 
   function zeigeLernkarte() {
