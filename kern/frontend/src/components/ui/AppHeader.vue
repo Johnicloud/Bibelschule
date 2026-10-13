@@ -1,8 +1,8 @@
 <script setup>
 import ThemeToggle from './ThemeToggle.vue'
 
-defineProps({ active: String })
-defineEmits(['nav'])
+defineProps({ active: String, username: String })
+defineEmits(['nav', 'logout'])
 const tabs = [
   { id: 'home', label: 'Start' },
   { id: 'subjects', label: 'Fächer' },
@@ -27,6 +27,8 @@ const tabs = [
           {{ t.label }}
         </button>
         <ThemeToggle />
+        <span class="ml-2 hidden text-sm text-slate-500 dark:text-slate-400 sm:inline">{{ username }}</span>
+        <button class="btn btn-ghost !px-3" @click="$emit('logout')">Abmelden</button>
       </nav>
     </div>
   </header>

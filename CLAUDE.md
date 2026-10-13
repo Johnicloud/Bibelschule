@@ -67,6 +67,13 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Lesepensum aus mehreren Büchern: optionale `buecher`-Liste (Titel + eigener Umfang je Buch), `total`
   wird dann automatisch als Summe gesetzt (wie „Pflicht-Lektüre 600 Seiten“ aus mehreren Titeln im Aufgabenblatt).
   Ohne Bücherliste bleibt der einfache einzelne Umfang wie bisher.
+- [fertig] Login: Konten nur per Skript (`./neues-konto.sh "Name" "Passwort"`), keine Selbstregistrierung.
+  Alle Konten sehen dieselben Fächer (gemeinsames Lernen) – das Konto regelt nur den Zugang, keine Datentrennung,
+  kein Dienst musste dafür geändert werden. Sitzung über httpOnly-Cookie, Passwort als PBKDF2-Hash (stdlib,
+  keine neue Abhängigkeit). Der Kern prüft bei jedem `/api/…`-Aufruf außer `/api/health`, `/api/registry`
+  (Selbstanmeldung der Dienste, interner Docker-Verkehr) und `/api/login`; schützt damit automatisch auch jeden
+  weitergereichten Dienst, da die Oberfläche nur über den Kern spricht. Sitzungen liegen nur im Speicher
+  (Neustart des Kerns meldet alle ab) – bewusst so, keine Sitzungsdatei, die man stehlen könnte.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
@@ -98,6 +105,10 @@ Fächer, Volltextsuche, Notizen/Logbuch.
 - Aufgaben (Umfang eines Fachs) liegen bewusst im Kern, nicht in einem eigenen Dienst: sie gehören zum Fach selbst
   (wie der Name), nicht zu einem bestimmten Lernweg. Das Domänenmodell des Kerns wächst dadurch mit; das ist hier
   gewollt, abweichend von der sonstigen Regel „Erweitern = Dienst, nie Kern“.
+- `/api/registry` (Selbstanmeldung der Dienste) bleibt bewusst ohne Login erreichbar, da Dienste den Kern intern
+  über `http://kern:8000` ansprechen (nicht über die Oberfläche) und keine eigenen Zugangsdaten haben. War schon vor
+  dem Login offen erreichbar; das Risiko ändert sich durch den Login nicht, nur die eigentlichen Daten sind jetzt
+  geschützt. Wer die App ins offene Internet stellt, sollte das wissen.
 - Neue Dienste (aus `dienst-vorlage`) binden ihre eigene Oberfläche nicht mehr mit eigenem CSS/JS, sondern über
   `/ui-kit.css` und `/ui-kit.js` vom Kern-Frontend. Absoluter Pfad genügt, weil Oberfläche und alle Dienste hinter
   einem Nginx-Origin liegen (auch im Reiter-iframe). Folgt die Seite nicht dem Hell/Dunkel-Umschalter der App

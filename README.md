@@ -22,6 +22,12 @@ Skripte und Bibelverse, dazu Aufgaben (Umfang des Fachs, Teil des Kerns) und SE/
 
 Dann http://localhost:8170 öffnen. Im Hintergrund: `docker compose up -d --build`, beenden: `docker compose down`.
 
+Die App ist nur für eingeladene Konten (keine Selbstregistrierung). Erstes Konto anlegen:
+
+    ./neues-konto.sh "Dein Name" "Passwort (mind. 8 Zeichen)"
+
+Alle Konten sehen dieselben Fächer (gemeinsames Lernen) – das Konto regelt nur den Zugang.
+
 ## Deine Daten
 
 - Alles liegt in `./data/` und überlebt Neustarts, Neubauen und Updates (`docker compose down` löscht nichts).

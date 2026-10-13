@@ -4,3 +4,7 @@ class NotFound(Exception):
 
 class InvalidInput(Exception):
     pass
+
+
+class Unauthorized(Exception):
+    """Falsches Login oder keine/abgelaufene Sitzung."""

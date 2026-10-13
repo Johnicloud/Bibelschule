@@ -1,7 +1,9 @@
 """Ports: so sieht der Kern seine Umwelt."""
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
-from app.domain.models import Subject
+from app.domain.models import Account, Subject
 
 
 class SubjectRepository(ABC):
@@ -17,6 +19,31 @@ class SubjectRepository(ABC):
 
     @abstractmethod
     def delete(self, subject_id: str) -> None: ...
+
+
+class AccountRepository(ABC):
+    """Ausgehender Port: Speicher der Konten (nur Zugang, keine Datentrennung)."""
+    @abstractmethod
+    def list(self) -> list[Account]: ...
+
+    @abstractmethod
+    def get_by_username(self, username: str) -> Account | None: ...
+
+    @abstractmethod
+    def save(self, account: Account) -> None: ...
+
+
+class SessionStore(ABC):
+    """Ausgehender Port: angemeldete Sitzungen (Token -> Konto-ID). Muss nicht dauerhaft sein;
+    ein Neustart meldet alle ab, das ist in Ordnung."""
+    @abstractmethod
+    def create(self, account_id: str) -> str: ...
+
+    @abstractmethod
+    def account_id_for(self, token: str) -> str | None: ...
+
+    @abstractmethod
+    def delete(self, token: str) -> None: ...
 
 
 class ServiceGateway(ABC):

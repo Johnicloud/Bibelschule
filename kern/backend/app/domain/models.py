@@ -24,3 +24,12 @@ class Subject:
     id: str = field(default_factory=new_id)
     aufgaben: list[Aufgabe] = field(default_factory=list)
     se: float | None = None   # Studieneinheiten (alt); Credits = se * 1.5 (neues System, wird nicht gespeichert)
+
+
+@dataclass
+class Account:
+    """Ein Konto. Alle Konten sehen dieselben Fächer (gemeinsames Lernen) – das Konto regelt nur den Zugang,
+    keine Datentrennung. Konten legt man per Skript an, es gibt keine Selbstregistrierung."""
+    username: str
+    password_hash: str
+    id: str = field(default_factory=new_id)
