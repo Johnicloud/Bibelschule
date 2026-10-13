@@ -24,14 +24,17 @@ def test_add_dozent_requires_a_name(svc):
 
 def test_add_and_list_sorted_by_name(svc):
     svc.add_dozent("Viktor Löwen")
-    svc.add_dozent("Andreas Neufeld", email="andreas.neufeld@eben-ezer.tel")
+    svc.add_dozent("Andreas Neufeld", email="andreas.neufeld@eben-ezer.tel", adresse="Beverstr. 52, 59077 Hamm")
     assert [d.name for d in svc.list_dozenten()] == ["Andreas Neufeld", "Viktor Löwen"]
+    assert svc.list_dozenten()[0].adresse == "Beverstr. 52, 59077 Hamm"
 
 
 def test_update_and_delete(svc):
     d = svc.add_dozent("Sergi Panin", telefon="0123")
-    updated = svc.update_dozent(d.id, "Sergi Panin", "sergi@example.com", "0456", "kennt Pneumatologie")
+    updated = svc.update_dozent(d.id, "Sergi Panin", "sergi@example.com", "0456",
+                                 "Beverstr. 52, 59077 Hamm", "kennt Pneumatologie")
     assert updated.email == "sergi@example.com" and updated.telefon == "0456"
+    assert updated.adresse == "Beverstr. 52, 59077 Hamm"
     svc.delete_dozent(d.id)
     assert svc.list_dozenten() == []
     with pytest.raises(NotFound):

@@ -20,14 +20,14 @@ class JsonDozentRepository(DozentRepository):
         if not self.path.exists():
             return {}
         return {d["id"]: Dozent(id=d["id"], name=d["name"], email=d.get("email"), telefon=d.get("telefon"),
-                                 notiz=d.get("notiz"), faecher=d.get("faecher", []))
+                                 adresse=d.get("adresse"), notiz=d.get("notiz"), faecher=d.get("faecher", []))
                 for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, dozenten: dict[str, Dozent]) -> None:
         daily_backup(self.path)
         atomic_write_text(self.path, json.dumps(
-            [{"id": d.id, "name": d.name, "email": d.email, "telefon": d.telefon, "notiz": d.notiz,
-              "faecher": d.faecher} for d in dozenten.values()],
+            [{"id": d.id, "name": d.name, "email": d.email, "telefon": d.telefon, "adresse": d.adresse,
+              "notiz": d.notiz, "faecher": d.faecher} for d in dozenten.values()],
             ensure_ascii=False, indent=2))
 
     def list(self) -> list[Dozent]:

@@ -25,15 +25,17 @@ class DozentService:
         return sorted(self.repo.list(), key=lambda d: d.name.casefold())
 
     def add_dozent(self, name: str, email: str | None = None, telefon: str | None = None,
-                    notiz: str | None = None) -> Dozent:
-        dozent = Dozent(name=_clean(name), email=email or None, telefon=telefon or None, notiz=notiz or None)
+                    adresse: str | None = None, notiz: str | None = None) -> Dozent:
+        dozent = Dozent(name=_clean(name), email=email or None, telefon=telefon or None,
+                         adresse=adresse or None, notiz=notiz or None)
         self.repo.save(dozent)
         return dozent
 
     def update_dozent(self, dozent_id: str, name: str, email: str | None, telefon: str | None,
-                       notiz: str | None) -> Dozent:
+                       adresse: str | None, notiz: str | None) -> Dozent:
         dozent = self._dozent(dozent_id)
-        dozent.name, dozent.email, dozent.telefon, dozent.notiz = _clean(name), email or None, telefon or None, notiz or None
+        dozent.name, dozent.email, dozent.telefon = _clean(name), email or None, telefon or None
+        dozent.adresse, dozent.notiz = adresse or None, notiz or None
         self.repo.save(dozent)
         return dozent
 

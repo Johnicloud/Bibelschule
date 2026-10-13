@@ -15,6 +15,7 @@ class DozentIn(BaseModel):
     name: str
     email: str | None = None
     telefon: str | None = None
+    adresse: str | None = None
     notiz: str | None = None
 
 
@@ -23,7 +24,8 @@ class SubjectIn(BaseModel):
 
 
 def dozent_out(d: Dozent) -> dict:
-    return {"id": d.id, "name": d.name, "email": d.email, "telefon": d.telefon, "notiz": d.notiz, "faecher": d.faecher}
+    return {"id": d.id, "name": d.name, "email": d.email, "telefon": d.telefon, "adresse": d.adresse,
+            "notiz": d.notiz, "faecher": d.faecher}
 
 
 def create_app(service: DozentService) -> FastAPI:
@@ -57,11 +59,11 @@ def create_app(service: DozentService) -> FastAPI:
 
     @api.post("/dozenten", status_code=201)
     def add_dozent(body: DozentIn):
-        return dozent_out(service.add_dozent(body.name, body.email, body.telefon, body.notiz))
+        return dozent_out(service.add_dozent(body.name, body.email, body.telefon, body.adresse, body.notiz))
 
     @api.put("/dozenten/{dozent_id}")
     def update_dozent(dozent_id: str, body: DozentIn):
-        return dozent_out(service.update_dozent(dozent_id, body.name, body.email, body.telefon, body.notiz))
+        return dozent_out(service.update_dozent(dozent_id, body.name, body.email, body.telefon, body.adresse, body.notiz))
 
     @api.delete("/dozenten/{dozent_id}", status_code=204)
     def delete_dozent(dozent_id: str):
