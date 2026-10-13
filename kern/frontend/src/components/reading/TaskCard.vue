@@ -14,6 +14,9 @@ const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in der Zeit d
 
 const f = computed(() => props.task.forecast)
 const status = computed(() => READING_STATUS[f.value.status])
+const heutigesZiel = computed(() => f.value.needed_per_day ?? f.value.plan_per_day)
+const heuteSchonGelesen = computed(() => props.task.entries.some((e) => e.day === today))
+const zeigeTagesziel = computed(() => f.value.status !== 'done' && !heuteSchonGelesen.value && heutigesZiel.value)
 
 async function log() {
   error.value = ''
@@ -61,6 +64,10 @@ async function removeTask() {
       </div>
       <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ forecastText(task) }}</p>
     </div>
+
+    <p v-if="zeigeTagesziel" class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+      Heute noch nicht gelesen — Ziel: {{ num(heutigesZiel) }} {{ task.unit }}
+    </p>
 
     <form class="mt-4 grid gap-2 sm:grid-cols-[7rem_9rem_1fr_auto]" @submit.prevent="log">
       <input v-model="amount" type="number" min="1" class="input" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
