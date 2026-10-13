@@ -7,6 +7,7 @@ import SubjectView from './views/SubjectView.vue'
 import CardsView from './views/CardsView.vue'
 import StudyView from './views/StudyView.vue'
 import LoginView from './views/LoginView.vue'
+import ProfileView from './views/ProfileView.vue'
 import { loggedIn, username } from './state/auth'
 
 const auth = inject('auth')
@@ -32,13 +33,14 @@ onMounted(async () => {
 <template>
   <LoginView v-if="loggedIn === false" />
   <template v-else-if="loggedIn">
-    <AppHeader :active="active" :username="username" @nav="nav" @logout="logout" />
+    <AppHeader :active="active" :username="username" @nav="nav" @logout="logout" @profile="go('profile')" />
     <main class="mx-auto max-w-5xl px-4 pb-24 pt-8">
       <HomeView v-if="view === 'home'" @open-subject="(id, t) => go('subject', id, t)" @study="go('study')" @nav="nav" />
       <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'aufgaben')" />
       <SubjectView v-else-if="view === 'subject'" :key="subjectId" :subject-id="subjectId" v-model:tab="tab"
         @back="go('subjects')" @study="go('study', subjectId)" />
       <CardsView v-else-if="view === 'cards'" />
+      <ProfileView v-else-if="view === 'profile'" @back="go('home')" />
       <StudyView v-else :deck-id="subjectId" @back="subjectId ? go('subject', subjectId) : go('home')" />
     </main>
   </template>

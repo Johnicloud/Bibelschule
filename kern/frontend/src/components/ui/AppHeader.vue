@@ -2,7 +2,7 @@
 import ThemeToggle from './ThemeToggle.vue'
 
 defineProps({ active: String, username: String })
-defineEmits(['nav', 'logout'])
+defineEmits(['nav', 'logout', 'profile'])
 const tabs = [
   { id: 'home', label: 'Start' },
   { id: 'subjects', label: 'Fächer' },
@@ -27,7 +27,8 @@ const tabs = [
           {{ t.label }}
         </button>
         <ThemeToggle />
-        <span class="ml-2 hidden text-sm text-slate-500 dark:text-slate-400 sm:inline">{{ username }}</span>
+        <button class="ml-2 hidden rounded-full px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800 sm:inline"
+          :aria-current="active === 'profile' ? 'page' : undefined" @click="$emit('profile')">{{ username }}</button>
         <button class="btn btn-ghost !px-3" @click="$emit('logout')">Abmelden</button>
       </nav>
     </div>

@@ -67,13 +67,19 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Lesepensum aus mehreren Büchern: optionale `buecher`-Liste (Titel + eigener Umfang je Buch), `total`
   wird dann automatisch als Summe gesetzt (wie „Pflicht-Lektüre 600 Seiten“ aus mehreren Titeln im Aufgabenblatt).
   Ohne Bücherliste bleibt der einfache einzelne Umfang wie bisher.
-- [fertig] Login: Konten nur per Skript (`./neues-konto.sh "Name" "Passwort"`), keine Selbstregistrierung.
+- [fertig] Login: Konten per Skript (`./neues-konto.sh "Name" "Passwort"`) oder, einmal angemeldet, über die
+  Oberfläche (Profilseite „Konto“, Klick auf den eigenen Namen) – keine Selbstregistrierung ohne Anmeldung.
   Alle Konten sehen dieselben Fächer (gemeinsames Lernen) – das Konto regelt nur den Zugang, keine Datentrennung,
   kein Dienst musste dafür geändert werden. Sitzung über httpOnly-Cookie, Passwort als PBKDF2-Hash (stdlib,
   keine neue Abhängigkeit). Der Kern prüft bei jedem `/api/…`-Aufruf außer `/api/health`, `/api/registry`
   (Selbstanmeldung der Dienste, interner Docker-Verkehr) und `/api/login`; schützt damit automatisch auch jeden
   weitergereichten Dienst, da die Oberfläche nur über den Kern spricht. Sitzungen liegen nur im Speicher
   (Neustart des Kerns meldet alle ab) – bewusst so, keine Sitzungsdatei, die man stehlen könnte.
+  Eigenes Passwort ändern: `PUT /api/me/password` (altes + neues Passwort), Profilseite.
+- [fertig] Fach bearbeiten (nicht nur bei der Anlage): auf der Fachseite „Bearbeiten“ öffnet ein Formular mit
+  Name, SE/Credits (synchron wie beim Anlegen) und Dozenten (Mehrfachauswahl, gleicht beim Speichern per
+  Zuordnen/Entfernen mit dem Adressbuch ab). Ersetzt die alten einzelnen `prompt()`-Dialoge für Umbenennen/SE.
+  Dozentenauswahl steht jetzt auch beim Anlegen direkt neben SE/Credits, nicht mehr darunter.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

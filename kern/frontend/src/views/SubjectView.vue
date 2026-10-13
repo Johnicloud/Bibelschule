@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import DeckPanel from './DeckPanel.vue'
 import AufgabenPanel from '../components/aufgaben/AufgabenPanel.vue'
 import ReadingPanel from '../components/reading/ReadingPanel.vue'
@@ -11,10 +11,24 @@ import { NATIVE_SERVICES } from '../domain/status'
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'aufgaben' } })
 defineEmits(['back', 'study', 'update:tab'])
 const subjects = inject('subjects')
+const adressbuch = inject('adressbuch')
 const subject = ref(null)
 const services = ref([])
 const overview = ref(null)
 const error = ref('')
+
+const bearbeiten = ref(false)
+const editName = ref('')
+const editSe = ref('')
+const editCredits = ref('')
+const alleDozenten = ref([])
+const ausgewaehlteDozenten = ref([])
+const editError = ref('')
+const speichert = ref(false)
+
+let syncCredits = false
+watch(editSe, (v) => { if (syncCredits) return; syncCredits = true; editCredits.value = v === '' ? '' : (Number(v) * 1.5).toFixed(1); syncCredits = false })
+watch(editCredits, (v) => { if (syncCredits) return; syncCredits = true; editSe.value = v === '' ? '' : (Number(v) / 1.5).toFixed(1); syncCredits = false })
 
 // Reiter = Aufgaben (gehört zum Fach im Kern), die eingebauten Dienste und jeder Dienst mit eigener Seite (panel).
 const tabs = computed(() => [
@@ -27,10 +41,32 @@ const current = computed(() => tabs.value.find((t) => t.name === props.tab) || t
 async function loadOverview() {
   try { overview.value = await subjects.overviewOf(props.subjectId) } catch { /* Anzeige bleibt wie sie war */ }
 }
-async function editSe() {
-  const next = prompt('Studieneinheiten (SE) dieses Fachs', subject.value.se ?? '')
-  if (next === null) return
-  subject.value = await subjects.setSe(props.subjectId, next.trim())
+
+async function openEdit() {
+  editError.value = ''
+  editName.value = subject.value.name
+  editSe.value = subject.value.se ?? ''
+  editCredits.value = subject.value.credits ?? ''
+  try { alleDozenten.value = await adressbuch.dozenten() } catch { alleDozenten.value = [] }
+  ausgewaehlteDozenten.value = alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id)
+  bearbeiten.value = true
+}
+async function saveEdit() {
+  editError.value = ''
+  speichert.value = true
+  try {
+    if (editName.value.trim() !== subject.value.name) await subjects.rename(props.subjectId, editName.value)
+    subject.value = await subjects.setSe(props.subjectId, editSe.value)
+    const vorher = new Set(alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id))
+    const nachher = new Set(ausgewaehlteDozenten.value)
+    await Promise.all([
+      ...[...nachher].filter((id) => !vorher.has(id)).map((id) => adressbuch.assign(id, props.subjectId)),
+      ...[...vorher].filter((id) => !nachher.has(id)).map((id) => adressbuch.unassign(id, props.subjectId)),
+    ])
+    bearbeiten.value = false
+    await loadOverview()
+  } catch (e) { editError.value = e.message }
+  finally { speichert.value = false }
 }
 
 onMounted(async () => {
@@ -45,13 +81,35 @@ onMounted(async () => {
   <button class="btn btn-ghost !px-2" @click="$emit('back')">Zurück zu den Fächern</button>
   <p v-if="error" class="mt-4 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
   <template v-if="subject && current">
-    <div class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <div v-if="!bearbeiten" class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <h1 class="text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
-      <button class="text-sm text-slate-500 hover:underline dark:text-slate-400" @click="editSe">
-        <template v-if="subject.se != null">{{ subject.se }} SE · {{ subject.credits }} Credits</template>
-        <template v-else>SE eintragen</template>
-      </button>
+      <span v-if="subject.se != null" class="text-sm text-slate-500 dark:text-slate-400">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
+      <button class="btn btn-ghost !px-2.5 !py-1 text-sm" @click="openEdit">Bearbeiten</button>
     </div>
+
+    <form v-else class="panel mt-2 grid gap-3 p-4" @submit.prevent="saveEdit">
+      <input v-model="editName" class="input" placeholder="Name des Fachs" aria-label="Name des Fachs" />
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="flex gap-2">
+          <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
+          <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
+        </div>
+        <div v-if="alleDozenten.length" class="flex-1">
+          <span class="mb-1.5 block text-sm text-slate-500 dark:text-slate-400">Dozenten</span>
+          <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+            <label v-for="d in alleDozenten" :key="d.id" class="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" :value="d.id" v-model="ausgewaehlteDozenten" class="h-4 w-4 rounded" />
+              {{ d.name }}
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" :disabled="speichert">{{ speichert ? 'Speichert …' : 'Speichern' }}</button>
+        <button type="button" class="btn btn-ghost" @click="bearbeiten = false">Abbrechen</button>
+      </div>
+      <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
+    </form>
 
     <ProgressPanel v-if="overview" :overview="overview" :services="services" class="mt-4" />
 

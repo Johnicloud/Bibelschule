@@ -1,5 +1,6 @@
 """Anwendungsfälle rund um Konten und Anmeldung. Kennt nur Domäne und Ports.
-Konten legt man per Skript an (./neues-konto.sh), es gibt keine Selbstregistrierung über die API."""
+Neue Konten legt entweder ./neues-konto.sh an oder ein schon angemeldetes Konto über die Oberfläche
+(„Benutzer verwalten“) – nie ein Fremder ohne Anmeldung."""
 from app.application.ports import AccountRepository, SessionStore
 from app.domain.auth import hash_password, verify_password
 from app.domain.errors import InvalidInput, Unauthorized
@@ -41,3 +42,15 @@ class AuthService:
         if not account_id:
             return None
         return next((a for a in self.accounts.list() if a.id == account_id), None)
+
+    def list_accounts(self) -> list[Account]:
+        return self.accounts.list()
+
+    def change_password(self, account_id: str, old_password: str, new_password: str) -> None:
+        account = next((a for a in self.accounts.list() if a.id == account_id), None)
+        if account is None or not verify_password(old_password or "", account.password_hash):
+            raise Unauthorized("Das bisherige Passwort ist falsch.")
+        if len(new_password or "") < MIN_PASSWORD_LENGTH:
+            raise InvalidInput(f"Das neue Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen haben.")
+        account.password_hash = hash_password(new_password)
+        self.accounts.save(account)

@@ -67,19 +67,21 @@ onMounted(() => { load(); loadDozenten() })
   <p class="mt-1 text-slate-500 dark:text-slate-400">Jedes Fach hat Karteikarten, Lesenachweis und Register.</p>
 
   <form class="panel mt-6 grid gap-3 p-4" @submit.prevent="create">
-    <div class="flex gap-2">
-      <input v-model="name" class="input" placeholder="Neues Fach, z. B. Bibelkunde" aria-label="Name des Fachs" />
-      <input v-model="se" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten (optional)" />
-      <input v-model="credits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits (optional)" />
-    </div>
+    <input v-model="name" class="input" placeholder="Neues Fach, z. B. Bibelkunde" aria-label="Name des Fachs" />
 
-    <div v-if="dozenten.length">
-      <span class="mb-1.5 block text-sm text-slate-500 dark:text-slate-400">Dozenten (optional)</span>
-      <div class="flex flex-wrap gap-x-4 gap-y-1.5">
-        <label v-for="d in dozenten" :key="d.id" class="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" :value="d.id" v-model="ausgewaehlteDozenten" class="h-4 w-4 rounded" />
-          {{ d.name }}
-        </label>
+    <div class="flex flex-wrap items-start gap-4">
+      <div class="flex gap-2">
+        <input v-model="se" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten (optional)" />
+        <input v-model="credits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits (optional)" />
+      </div>
+      <div v-if="dozenten.length" class="flex-1">
+        <span class="mb-1.5 block text-sm text-slate-500 dark:text-slate-400">Dozenten (optional)</span>
+        <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+          <label v-for="d in dozenten" :key="d.id" class="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" :value="d.id" v-model="ausgewaehlteDozenten" class="h-4 w-4 rounded" />
+            {{ d.name }}
+          </label>
+        </div>
       </div>
     </div>
 

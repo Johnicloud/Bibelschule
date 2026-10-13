@@ -4,5 +4,8 @@ export function createAuthService(api) {
     me: () => api.me(),
     login: (username, password) => api.login(username.trim(), password),
     logout: () => api.logout(),
+    changePassword: (oldPassword, newPassword) => api.changePassword(oldPassword, newPassword),
+    accounts: () => api.accounts(),
+    createAccount: (username, password) => api.createAccount(username.trim(), password),
   }
 }

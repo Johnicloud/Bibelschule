@@ -64,3 +64,25 @@ def test_logout_invalidates_the_session(svc):
 def test_current_account_without_or_unknown_token(svc):
     assert svc.current_account(None) is None
     assert svc.current_account("gibt-es-nicht") is None
+
+
+def test_change_password_requires_the_old_one_and_logs_in_with_the_new(svc):
+    account = svc.create_account("johannes", "geheim123")
+    svc.change_password(account.id, "geheim123", "neuesPasswort9")
+    svc.login("johannes", "neuesPasswort9")
+    with pytest.raises(Unauthorized):
+        svc.login("johannes", "geheim123")
+
+
+def test_change_password_rejects_wrong_old_password_or_too_short_new_one(svc):
+    account = svc.create_account("johannes", "geheim123")
+    with pytest.raises(Unauthorized):
+        svc.change_password(account.id, "falsch", "neuesPasswort9")
+    with pytest.raises(InvalidInput):
+        svc.change_password(account.id, "geheim123", "kurz")
+
+
+def test_list_accounts_exposes_no_password_hashes(svc):
+    svc.create_account("johannes", "geheim123")
+    svc.create_account("maria", "geheim456")
+    assert [a.username for a in svc.list_accounts()] == ["johannes", "maria"]

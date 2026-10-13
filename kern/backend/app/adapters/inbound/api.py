@@ -48,6 +48,11 @@ class LoginIn(BaseModel):
     password: str
 
 
+class PasswordIn(BaseModel):
+    old_password: str
+    new_password: str
+
+
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
@@ -105,6 +110,21 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def me(request: Request):
         account = auth.current_account(request.cookies.get(SESSION_COOKIE))
         return {"username": account.username}
+
+    @api.put("/me/password", status_code=204)
+    def change_password(request: Request, body: PasswordIn):
+        account = auth.current_account(request.cookies.get(SESSION_COOKIE))
+        auth.change_password(account.id, body.old_password, body.new_password)
+
+    @api.get("/accounts")
+    def list_accounts():
+        """Nur die Benutzernamen, nie der Passwort-Hash."""
+        return [{"username": a.username} for a in auth.list_accounts()]
+
+    @api.post("/accounts", status_code=201)
+    def create_account(body: LoginIn):
+        """Ein schon angemeldetes Konto darf weitere Konten anlegen (eingeladene Personen); keine Selbstregistrierung."""
+        return {"username": auth.create_account(body.username, body.password).username}
 
     @api.get("/subjects")
     def list_subjects():

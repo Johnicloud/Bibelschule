@@ -1,0 +1,80 @@
+<script setup>
+import { inject, onMounted, ref } from 'vue'
+import { username as currentUsername } from '../state/auth'
+
+defineEmits(['back'])
+const auth = inject('auth')
+
+const accounts = ref([])
+const loadError = ref('')
+
+const oldPassword = ref('')
+const newPassword = ref('')
+const pwError = ref('')
+const pwSuccess = ref(false)
+
+const newUsername = ref('')
+const newUserPassword = ref('')
+const userError = ref('')
+
+async function load() {
+  try { accounts.value = await auth.accounts(); loadError.value = '' }
+  catch (e) { loadError.value = e.message }
+}
+
+async function changePassword() {
+  pwError.value = ''
+  pwSuccess.value = false
+  try {
+    await auth.changePassword(oldPassword.value, newPassword.value)
+    oldPassword.value = ''
+    newPassword.value = ''
+    pwSuccess.value = true
+  } catch (e) { pwError.value = e.message }
+}
+
+async function createAccount() {
+  userError.value = ''
+  try {
+    await auth.createAccount(newUsername.value, newUserPassword.value)
+    newUsername.value = ''
+    newUserPassword.value = ''
+    await load()
+  } catch (e) { userError.value = e.message }
+}
+
+onMounted(load)
+</script>
+
+<template>
+  <button class="btn btn-ghost !px-2" @click="$emit('back')">Zurück</button>
+  <h1 class="mt-2 text-3xl font-semibold tracking-tight">Konto</h1>
+  <p class="mt-1 text-slate-500 dark:text-slate-400">Angemeldet als {{ currentUsername }}.</p>
+
+  <section class="panel mt-6 p-5">
+    <h2 class="text-lg font-semibold">Passwort ändern</h2>
+    <form class="mt-4 grid gap-3 sm:max-w-sm" @submit.prevent="changePassword">
+      <input v-model="oldPassword" type="password" class="input" placeholder="Bisheriges Passwort" aria-label="Bisheriges Passwort" autocomplete="current-password" />
+      <input v-model="newPassword" type="password" class="input" placeholder="Neues Passwort (mind. 8 Zeichen)" aria-label="Neues Passwort" autocomplete="new-password" />
+      <button class="btn btn-primary justify-self-start">Passwort ändern</button>
+      <p v-if="pwError" class="text-sm text-rose-600 dark:text-rose-400">{{ pwError }}</p>
+      <p v-if="pwSuccess" class="text-sm text-teal-700 dark:text-teal-400">Passwort geändert.</p>
+    </form>
+  </section>
+
+  <section class="panel mt-6 p-5">
+    <h2 class="text-lg font-semibold">Benutzer</h2>
+    <p v-if="loadError" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
+    <ul v-else class="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
+      <li v-for="a in accounts" :key="a.username" class="py-2 text-sm">{{ a.username }}</li>
+    </ul>
+
+    <h3 class="mt-6 text-sm font-medium text-slate-500 dark:text-slate-400">Neuen Benutzer anlegen</h3>
+    <form class="mt-2 grid gap-3 sm:max-w-sm" @submit.prevent="createAccount">
+      <input v-model="newUsername" class="input" placeholder="Benutzername" aria-label="Benutzername" />
+      <input v-model="newUserPassword" type="password" class="input" placeholder="Passwort (mind. 8 Zeichen)" aria-label="Passwort" autocomplete="new-password" />
+      <button class="btn btn-primary justify-self-start">Anlegen</button>
+      <p v-if="userError" class="text-sm text-rose-600 dark:text-rose-400">{{ userError }}</p>
+    </form>
+  </section>
+</template>

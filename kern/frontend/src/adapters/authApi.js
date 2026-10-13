@@ -7,5 +7,9 @@ export function createAuthApi(base = '/api') {
     me: () => call('GET', '/me'),
     login: (username, password) => call('POST', '/login', { username, password }),
     logout: () => call('POST', '/logout'),
+    changePassword: (oldPassword, newPassword) =>
+      call('PUT', '/me/password', { old_password: oldPassword, new_password: newPassword }),
+    accounts: () => call('GET', '/accounts'),
+    createAccount: (username, password) => call('POST', '/accounts', { username, password }),
   }
 }
