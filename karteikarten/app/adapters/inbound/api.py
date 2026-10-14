@@ -3,7 +3,7 @@ Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json (auch für übergeord
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.application.services import FlashcardService, Pair
@@ -77,6 +77,12 @@ def create_app(service: FlashcardService) -> FastAPI:
     @api.delete("/decks/{deck_id}", status_code=204)
     def delete_deck(deck_id: str):
         service.delete_deck(deck_id)
+
+    @api.get("/decks/{deck_id}/druckbogen")
+    def druckbogen(deck_id: str):
+        pdf = service.druckbogen(deck_id)
+        return Response(content=pdf, media_type="application/pdf",
+                         headers={"Content-Disposition": 'inline; filename="karteikarten.pdf"'})
 
     @api.get("/cards")
     def all_cards():

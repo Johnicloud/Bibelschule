@@ -1,5 +1,5 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
-from app.application.ports import DeckRepository, EventPublisher
+from app.application.ports import DeckRepository, EventPublisher, PrintRenderer
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import TRUE_FALSE, Card, Deck
 
@@ -33,9 +33,11 @@ def build_card(kind: str, front: str, back: str, options: list[str], correct_ind
 
 
 class FlashcardService:
-    def __init__(self, decks: DeckRepository, events: EventPublisher | None = None):
+    def __init__(self, decks: DeckRepository, events: EventPublisher | None = None,
+                 printer: PrintRenderer | None = None):
         self.decks = decks
         self.events = events
+        self.printer = printer
 
     def _emit(self, event: str, payload: dict) -> None:
         if self.events:
@@ -110,6 +112,14 @@ class FlashcardService:
         deck.cards.remove(card)
         self.decks.save(deck)
         self._emit("card.deleted", {"deck_id": deck.id, "card_id": card.id})
+
+    def druckbogen(self, deck_id: str) -> bytes:
+        deck = self._deck(deck_id)
+        if not deck.cards:
+            raise InvalidInput("Dieses Fach hat keine Karten zum Drucken.")
+        if self.printer is None:
+            raise InvalidInput("Drucken ist gerade nicht verfügbar.")
+        return self.printer.druckbogen(deck.cards)
 
     def all_cards(self) -> list[Pair]:
         pairs = [(d, c) for d in self.decks.list() for c in d.cards]

@@ -2,6 +2,7 @@
 import { computed, inject, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, formatDate, num } from '../../domain/status'
+import { fensterOeffnen } from '../../application/pdf'
 import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
 const props = defineProps({ task: Object, subjectName: String })
@@ -56,14 +57,15 @@ async function removeTask() {
 async function exportierenAlsPdf() {
   exportError.value = ''
   exportLaeuft.value = true
+  const fenster = fensterOeffnen()   // sofort im Klick öffnen, bevor die PDF geladen ist (siehe pdf.js)
   try {
     // Tatsächlich gelesene Seiten/Kapitel (b.done bzw. forecast.done), nicht der geplante Umfang (b.total/task.total).
     const buecher = props.task.buecher.length
       ? props.task.buecher.map((b) => ({ titel: b.title, seiten: b.done }))
       : [{ titel: props.task.title, seiten: props.task.forecast.done }]
-    await pdfcreator.lesenachweisExportieren(props.subjectName, exportName.value, exportGemeinde.value, buecher)
+    await pdfcreator.lesenachweisExportieren(props.subjectName, exportName.value, exportGemeinde.value, buecher, fenster)
     exportieren.value = false
-  } catch (e) { exportError.value = e.message }
+  } catch (e) { exportError.value = e.message; fenster?.close() }
   finally { exportLaeuft.value = false }
 }
 
