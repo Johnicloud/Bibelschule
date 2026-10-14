@@ -13,11 +13,14 @@ def new_id() -> str:
 @dataclass
 class ReadingEntry:
     """Ein Eintrag im Leseprotokoll: an einem Tag wurde so viel gelesen.
-    `buch_id` ist gesetzt, wenn sich der Eintrag bei einem Pensum aus mehreren Büchern auf eines davon bezieht."""
+    `buch_id` ist gesetzt, wenn sich der Eintrag bei einem Pensum aus mehreren Büchern auf eines davon bezieht.
+    `durchlauf` (1-basiert) ist bei mehreren Durchgängen (passes > 1), welcher Durchgang gemeint ist – so lässt
+    sich im ersten Durchgang Seite 5 stehen und im zweiten gleichzeitig Seite 7."""
     day: date
     amount: int
     note: str = ""
     buch_id: str | None = None
+    durchlauf: int = 1
     id: str = field(default_factory=new_id)
 
 
@@ -60,3 +63,14 @@ class ReadingTask:
 
     def buch_done(self, buch_id: str) -> int:
         return sum(e.amount for e in self.entries if e.buch_id == buch_id)
+
+    def durchlauf_done(self, nummer: int) -> int:
+        return sum(e.amount for e in self.entries if e.durchlauf == nummer)
+
+    def aktiver_durchlauf(self) -> int:
+        """Der erste noch nicht abgeschlossene Durchgang (1-basiert) – dort tragen neue Einträge standardmäßig
+        ein. Sind alle Durchgänge fertig, bleibt es beim letzten."""
+        for n in range(1, self.passes + 1):
+            if self.durchlauf_done(n) < self.total:
+                return n
+        return self.passes

@@ -128,6 +128,41 @@ def test_log_reading_can_reference_a_buch(svc):
         svc.log_reading(t.id, 5, buch_id="gibt-es-nicht")
 
 
+def test_log_reading_tracks_each_durchlauf_separately(svc):
+    """Mehrere Durchgänge: im ersten Durchgang auf Seite 5 stehen, gleichzeitig im zweiten auf Seite 7 –
+    jeder Durchgang hat seinen eigenen Stand (wie bei Büchern), nicht nur eine gemeinsame Summe."""
+    t = svc.add_task("f", "Apostelgeschichte", "Seiten", 10, passes=3)
+    svc.log_reading(t.id, 5, durchlauf=1)
+    svc.log_reading(t.id, 7, durchlauf=2)
+    t = svc.get_task(t.id)
+    assert t.durchlauf_done(1) == 5 and t.durchlauf_done(2) == 7 and t.durchlauf_done(3) == 0
+    assert t.done == 12   # Gesamtfortschritt bleibt die Summe über alle Durchgänge
+
+    with pytest.raises(InvalidInput):
+        svc.log_reading(t.id, 1, durchlauf=0)
+    with pytest.raises(InvalidInput):
+        svc.log_reading(t.id, 1, durchlauf=4)   # nur 3 Durchgänge vereinbart
+
+
+def test_log_reading_without_durchlauf_defaults_to_the_first(svc):
+    t = svc.add_task("f", "Buch", "Seiten", 10, passes=2)
+    svc.log_reading(t.id, 3)
+    t = svc.get_task(t.id)
+    assert t.durchlauf_done(1) == 3 and t.entries[0].durchlauf == 1
+
+
+def test_aktiver_durchlauf_is_the_first_unfinished_one(svc):
+    t = svc.add_task("f", "Buch", "Seiten", 10, passes=3)
+    assert t.aktiver_durchlauf() == 1
+    svc.log_reading(t.id, 10, durchlauf=1)   # Durchgang 1 fertig
+    t = svc.get_task(t.id)
+    assert t.aktiver_durchlauf() == 2
+    svc.log_reading(t.id, 10, durchlauf=2)
+    svc.log_reading(t.id, 10, durchlauf=3)   # alle fertig
+    t = svc.get_task(t.id)
+    assert t.aktiver_durchlauf() == 3   # bleibt beim letzten, kein Durchgang 4
+
+
 def test_tasks_sorted_by_deadline(svc):
     svc.add_task("f", "Später", "Seiten", 10, deadline=date(2026, 12, 1))
     svc.add_task("f", "Ohne", "Seiten", 10)

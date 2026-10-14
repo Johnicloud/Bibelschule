@@ -97,7 +97,7 @@ class ReadingService:
 
     # Leseprotokoll
     def log_reading(self, task_id: str, amount: int, day: date | None = None, note: str = "",
-                     buch_id: str | None = None) -> ReadingTask:
+                     buch_id: str | None = None, durchlauf: int = 1) -> ReadingTask:
         task = self._task(task_id)
         day = day or self.today()
         if not isinstance(amount, int) or amount < 1:
@@ -106,7 +106,10 @@ class ReadingService:
             raise InvalidInput("Das Datum liegt in der Zukunft.")
         if buch_id and task.get_buch(buch_id) is None:
             raise InvalidInput("Dieses Buch gehört nicht zu diesem Pensum.")
-        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(), buch_id=buch_id or None))
+        if not isinstance(durchlauf, int) or not 1 <= durchlauf <= task.passes:
+            raise InvalidInput(f"Der Durchgang muss zwischen 1 und {task.passes} liegen.")
+        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(),
+                                         buch_id=buch_id or None, durchlauf=durchlauf))
         self.repo.save(task)
         self._emit("reading.logged", {"subject_id": task.subject_id, "task_id": task.id,
                                       "amount": amount, "done": task.done, "target": task.target})

@@ -44,6 +44,7 @@ class EntryIn(BaseModel):
     day: date | None = None   # leer = heute
     note: str = ""
     buch_id: str | None = None   # bei Pensen aus mehreren Büchern: auf welches Buch sich der Eintrag bezieht
+    durchlauf: int = 1            # bei mehreren Durchgängen (passes > 1): welcher Durchgang gemeint ist
 
 
 class SubjectIn(BaseModel):
@@ -68,14 +69,21 @@ def create_app(service: ReadingService) -> FastAPI:
 
     def task_out(t: ReadingTask) -> dict:
         entries = sorted(t.entries, key=lambda e: (e.day, e.id), reverse=True)
+        aktiv = t.aktiver_durchlauf()
         return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
                 "total": t.total, "passes": t.passes,
                 "buecher": [{"id": b.id, "title": b.title, "total": b.total, "done": t.buch_done(b.id)}
                             for b in t.buecher],
+                # Je Durchgang (nur bei passes > 1 wirklich mehr als einer): Stand und ob abgeschlossen bzw. der
+                # gerade aktive (erste noch nicht fertige). Für die Oberfläche: abgeschlossene oben zusammenfassen,
+                # alles nach dem aktiven noch nicht zeigen (siehe Projektnotizen).
+                "durchlaeufe": [{"nummer": n, "done": t.durchlauf_done(n), "total": t.total,
+                                 "abgeschlossen": t.durchlauf_done(n) >= t.total, "aktiv": n == aktiv}
+                                for n in range(1, t.passes + 1)],
                 "start": t.start.isoformat() if t.start else None,
                 "deadline": t.deadline.isoformat() if t.deadline else None,
                 "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note,
-                             "buch_id": e.buch_id} for e in entries],
+                             "buch_id": e.buch_id, "durchlauf": e.durchlauf} for e in entries],
                 "forecast": forecast_out(service.forecast_for(t))}
 
     @app.exception_handler(NotFound)
@@ -122,7 +130,7 @@ def create_app(service: ReadingService) -> FastAPI:
 
     @api.post("/tasks/{task_id}/entries", status_code=201)
     def log_reading(task_id: str, body: EntryIn):
-        return task_out(service.log_reading(task_id, body.amount, body.day, body.note, body.buch_id))
+        return task_out(service.log_reading(task_id, body.amount, body.day, body.note, body.buch_id, body.durchlauf))
 
     @api.delete("/tasks/{task_id}/entries/{entry_id}")
     def delete_entry(task_id: str, entry_id: str):
