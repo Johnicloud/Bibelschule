@@ -295,6 +295,14 @@ Sprache der Oberfläche und der Texte: Deutsch.
 - [fertig] Workflow-Wechsel (auf Wunsch): Änderungen an diesem Projekt laufen ab jetzt über einen eigenen
   Branch + Pull Request + Review, nicht mehr direkt auf `main`. `gh` (GitHub-CLI) wurde dafür installiert.
 
+- [fertig] Pensum-Kachel (`TaskCard.vue`) weiter ausgearbeitet: Eintragen-Formular zeigt den Buchnamen jetzt
+  komplett (statt abgeschnitten), Seiten-Feld dafür schmaler, Datum nur noch ein Kalender-Symbol (öffnet den
+  nativen Datumswähler über `showPicker()`), Eintragen ein Haken-Symbol statt Textknopf. Kopf zeigt nur noch
+  Status (Frist fiel weg). Die reine „aus: Buch (x/y), …“-Textzeile ist jetzt je Buch eine eigene, schlichte
+  Statusleiste mit Seitenzahl darüber; Einträge ohne Buch-Zuordnung (z. B. aus der Zeit vor einer Aufteilung in
+  mehrere Bücher) laufen nicht mehr spurlos in den Gesamtfortschritt ein, sondern erscheinen sichtbar als „Ohne
+  Buch zugeordnet“ mit ihrer Menge.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

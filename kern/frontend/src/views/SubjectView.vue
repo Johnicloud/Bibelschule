@@ -146,6 +146,7 @@ onMounted(async () => {
     <div class="mt-6" role="tabpanel">
       <SubjectOverview v-if="current.name === 'uebersicht' && overview" :subject="subject" :overview="overview" :services="services"
         @go="(name) => $emit('update:tab', name)" @aktivieren="(name) => dienstAktivieren(name).then(() => $emit('update:tab', name))" />
+      <template v-else-if="current.name === 'uebersicht'" /> <!-- overview noch nicht geladen: nicht auf ExternalPanel zurückfallen -->
       <AufgabenPanel v-else-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
       <DeckPanel v-else-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
       <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />

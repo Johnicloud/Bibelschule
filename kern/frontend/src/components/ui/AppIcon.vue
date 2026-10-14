@@ -20,6 +20,7 @@ const PATHS = {
   chevron: 'M6 9l6 6 6-6',
   zurueck: 'M19 12H5M12 19l-7-7 7-7',
   haken: 'M20 6 9 17l-5-5',
+  kalender: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
   x: 'M6 6l12 12M18 6 6 18',
 }
 
