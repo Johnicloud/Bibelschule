@@ -12,7 +12,9 @@ const pdfcreator = inject('pdfcreator')
 const amount = ref('')
 const day = ref('')
 const dayInput = ref(null)
-const buchId = ref(props.task.buecher[0]?.id || '')
+// Bewusst keine stille Vorauswahl des ersten Buches mehr: dadurch landeten Einträge unbemerkt beim falschen
+// (nämlich dem per Zufall vorausgewählten) Buch, wenn das Dropdown nicht tatsächlich angefasst wurde.
+const buchId = ref('')
 const error = ref('')
 const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in der Zeit des Geräts
 function dayPickerOeffnen() { dayInput.value?.showPicker ? dayInput.value.showPicker() : dayInput.value?.click() }
@@ -43,6 +45,7 @@ const ohneBuchGelesen = computed(() => props.task.buecher.length
 
 async function log() {
   error.value = ''
+  if (props.task.buecher.length && !buchId.value) { error.value = 'Bitte zuerst ein Buch auswählen.'; return }
   try {
     await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value })
     amount.value = ''
@@ -196,6 +199,7 @@ async function saveEdit() {
     <form v-if="!bearbeiten" class="mt-4 grid gap-2"
       :class="task.buecher.length ? 'sm:grid-cols-[1fr_5rem_auto_auto]' : 'sm:grid-cols-[5rem_auto_auto]'" @submit.prevent="log">
       <select v-if="task.buecher.length" v-model="buchId" class="input min-w-0" aria-label="Buch">
+        <option value="" disabled>Buch wählen</option>
         <option v-for="b in task.buecher" :key="b.id" :value="b.id">{{ b.title }}</option>
       </select>
       <input v-model="amount" type="number" min="1" class="input" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />

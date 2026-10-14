@@ -303,6 +303,14 @@ Sprache der Oberfläche und der Texte: Deutsch.
   mehrere Bücher) laufen nicht mehr spurlos in den Gesamtfortschritt ein, sondern erscheinen sichtbar als „Ohne
   Buch zugeordnet“ mit ihrer Menge.
 
+- [fertig] Bug behoben: `buch_id` eines Leseeintrags ging beim Speichern verloren (`JsonReadingRepository._to_dict`/
+  `_from_dict` kannten das Feld nicht, obwohl Domäne/API es längst hatten) – ein Eintrag landete nach dem
+  nächsten Laden immer bei „ohne Buch zugeordnet“, egal welches Buch beim Eintragen gewählt wurde. Dazu als
+  Absicherung in `TaskCard.vue`: die Buch-Auswahl hat keine stille Vorauswahl mehr („Buch wählen“ als
+  Pflicht-Option), Eintragen ohne gewähltes Buch wird jetzt abgelehnt statt stillschweigend ohne Zuordnung
+  gespeichert zu werden. Neuer Regressionstest `lesenachweis/tests/test_json_repository.py` (Speichern + Laden
+  mit `buch_id`, bisher gab es keinen Test fürs Repository selbst, nur mit einem In-Memory-Fake).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

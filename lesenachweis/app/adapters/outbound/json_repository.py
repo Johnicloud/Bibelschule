@@ -15,8 +15,8 @@ def _to_dict(t: ReadingTask) -> dict:
             "buecher": [{"id": b.id, "title": b.title, "total": b.total} for b in t.buecher],
             "start": t.start.isoformat() if t.start else None,
             "deadline": t.deadline.isoformat() if t.deadline else None,
-            "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note}
-                        for e in t.entries]}
+            "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note,
+                         "buch_id": e.buch_id} for e in t.entries]}
 
 
 def _from_dict(d: dict) -> ReadingTask:
@@ -27,7 +27,7 @@ def _from_dict(d: dict) -> ReadingTask:
         start=date.fromisoformat(d["start"]) if d.get("start") else None,
         deadline=date.fromisoformat(d["deadline"]) if d.get("deadline") else None,
         entries=[ReadingEntry(id=e["id"], day=date.fromisoformat(e["day"]), amount=e["amount"],
-                              note=e.get("note", "")) for e in d.get("entries", [])])
+                              note=e.get("note", ""), buch_id=e.get("buch_id")) for e in d.get("entries", [])])
 
 
 class JsonReadingRepository(ReadingRepository):
