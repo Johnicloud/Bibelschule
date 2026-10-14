@@ -12,5 +12,7 @@ export function createAuthApi(base = '/api') {
     updateProfile: (vorname, nachname, gemeinde) => call('PUT', '/me', { vorname, nachname, gemeinde }),
     accounts: () => call('GET', '/accounts'),
     createAccount: (username, password, isAdmin) => call('POST', '/accounts', { username, password, is_admin: isAdmin }),
+    setAdmin: (username, isAdmin) => call('PUT', `/accounts/${encodeURIComponent(username)}/admin`, { is_admin: isAdmin }),
+    resetPassword: (username) => call('POST', `/accounts/${encodeURIComponent(username)}/reset-password`),
   }
 }

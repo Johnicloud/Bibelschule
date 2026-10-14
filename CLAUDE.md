@@ -287,6 +287,70 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Name noch einmal. Nur beim (bisher nicht über die Oberfläche erreichbaren) Export über alle Register eines
   Fachs hinweg bleibt die Spalte zur Unterscheidung nötig (`entries_table(..., mit_register=register_id is None)`).
 
+- [fertig] Fach-Kopf: Status-Chip und Prozentzahl stehen jetzt doch wieder neben dem Titel (nur der Farbbalken
+  allein war zu wenig), SE/Credits bleiben aber weg. Aufgaben-Erledigt ist jetzt ein runder Haken-Knopf
+  (`AppIcon name="haken"`, gefüllt/teal wenn erledigt, nur Umriss wenn offen) statt einer schlichten Checkbox.
+  „PDF auswählen“ (Aufgabenblatt einlesen) steht als Knopf direkt neben „+ Neue Aufgabe“ im Kopf von „Umfang
+  dieses Fachs“, die frühere eigene Einleitungsbox mit Erklärungstext fiel weg.
+- [fertig] Workflow-Wechsel (auf Wunsch): Änderungen an diesem Projekt laufen ab jetzt über einen eigenen
+  Branch + Pull Request + Review, nicht mehr direkt auf `main`. `gh` (GitHub-CLI) wurde dafür installiert.
+
+- [fertig] Pensum-Kachel (`TaskCard.vue`) weiter ausgearbeitet: Eintragen-Formular zeigt den Buchnamen jetzt
+  komplett (statt abgeschnitten), Seiten-Feld dafür schmaler, Datum nur noch ein Kalender-Symbol (öffnet den
+  nativen Datumswähler über `showPicker()`), Eintragen ein Haken-Symbol statt Textknopf. Kopf zeigt nur noch
+  Status (Frist fiel weg). Die reine „aus: Buch (x/y), …“-Textzeile ist jetzt je Buch eine eigene, schlichte
+  Statusleiste mit Seitenzahl darüber; Einträge ohne Buch-Zuordnung (z. B. aus der Zeit vor einer Aufteilung in
+  mehrere Bücher) laufen nicht mehr spurlos in den Gesamtfortschritt ein, sondern erscheinen sichtbar als „Ohne
+  Buch zugeordnet“ mit ihrer Menge.
+
+- [fertig] Bug behoben: `buch_id` eines Leseeintrags ging beim Speichern verloren (`JsonReadingRepository._to_dict`/
+  `_from_dict` kannten das Feld nicht, obwohl Domäne/API es längst hatten) – ein Eintrag landete nach dem
+  nächsten Laden immer bei „ohne Buch zugeordnet“, egal welches Buch beim Eintragen gewählt wurde. Dazu als
+  Absicherung in `TaskCard.vue`: die Buch-Auswahl hat keine stille Vorauswahl mehr („Buch wählen“ als
+  Pflicht-Option), Eintragen ohne gewähltes Buch wird jetzt abgelehnt statt stillschweigend ohne Zuordnung
+  gespeichert zu werden. Neuer Regressionstest `lesenachweis/tests/test_json_repository.py` (Speichern + Laden
+  mit `buch_id`, bisher gab es keinen Test fürs Repository selbst, nur mit einem In-Memory-Fake).
+
+- [fertig] Lesenachweis: mehrere Durchgänge (passes > 1) jetzt mit je eigenem Stand, wie bei Büchern – im ersten
+  Durchgang auf Seite 5 stehen und gleichzeitig im zweiten auf Seite 7 ist jetzt möglich. `ReadingEntry.durchlauf`
+  (1-basiert, Default 1) hält fest, zu welchem Durchgang ein Eintrag gehört; `ReadingTask.durchlauf_done(n)` und
+  `aktiver_durchlauf()` (der erste noch nicht abgeschlossene) in der Domäne. API liefert je Pensum eine
+  `durchlaeufe`-Liste (`{nummer, done, total, abgeschlossen, aktiv}`). Oberfläche (`TaskCard.vue`): abgeschlossene
+  Durchgänge nur als Zahl oben zusammengefasst („2 von 4 Durchgängen abgeschlossen“), nur der gerade laufende
+  bekommt eine eigene Statusleiste, künftige (noch nicht erreichte) Durchgänge erscheinen gar nicht erst.
+  Eintragen-Formular bekommt bei passes > 1 ein Durchgang-Dropdown (anders als beim Buch bewusst mit einer
+  Vorauswahl – dem aus echten Daten berechneten aktiven Durchgang, kein Zufallswert).
+
+- [fertig] Karteikarten doppelseitig drucken: `GET /api/karteikarten/decks/{id}/druckbogen` baut aus den Karten
+  eines Fachs eine neue PDF-Seite mit reportlab (eigener Port `PrintRenderer`/Adapter `ReportlabPrintRenderer`,
+  kein Overlay wie bei `pdfcreator` – hier wird von Grund auf gezeichnet). Raster 2×4 Karten je Bogen, je zwei
+  PDF-Seiten im Wechsel (erst alle Vorderseiten des Bogens, dann alle Rückseiten) – beim doppelseitigen Drucken
+  liegen so aufeinanderfolgende Seiten direkt richtig. Rückseite ist je Zeile spaltenverkehrt gezeichnet (passt
+  zu „Wenden an der langen Kante“, der üblichen Standardeinstellung – bei „kurzer Kante“ zur Probe erst mit
+  wenigen Karten drucken). `card.back` ist für alle Kartentypen schon der richtige Antworttext (bei Multiple
+  Choice/Richtig-Falsch die richtige Antwort, nicht die Optionenliste), daher keine Sonderfälle im Renderer nötig.
+  Dünne gestrichelte Schnittlinien je Karte. Oberfläche: Knopf „Als PDF drucken“ im Fach-Reiter Karteikarten,
+  wie der PDF-Export beim Lesenachweis als Browser-Download (`flashcardService.drucken()`, eigener Fetch-Aufruf
+  für die Binärdatei statt des gemeinsamen `createCall`, siehe `httpApi.js`).
+
+- [fertig] Benutzerverwaltung wie bei der Finanzapp (`/Users/admin/finanzapp`, Vorbild begutachtet): auf der
+  Konto-Seite ist das Admin-Recht jetzt eine Checkbox je Benutzer (statt nur beim Anlegen setzbar und danach
+  ein reiner Anzeige-Chip) – `PUT /api/accounts/{username}/admin`, `AuthService.set_is_admin`. Der letzte Admin
+  kann sich sein Admin-Recht nicht selbst nehmen (serverseitig erzwungen, wie bei der Finanzapp). Dazu „Passwort
+  neu setzen“ je Benutzer: `POST /api/accounts/{username}/reset-password` erzeugt ein zufälliges temporäres
+  Passwort, meldet das Konto überall ab (`SessionStore.delete_for_account`, neue Pflichtmethode am Port) und
+  setzt `Account.muss_passwort_aendern`. Das temporäre Passwort steht einmalig in der Oberfläche (nicht
+  geloggt) – der Admin kennt nie das endgültige Passwort, das sich der Benutzer selbst setzt. Beim nächsten
+  Anmelden zeigt die Oberfläche statt der App erst `PasswortAendernPflichtView.vue` (temporäres Passwort als
+  „bisheriges“ + neues zweimal, nutzt denselben `PUT /api/me/password`-Weg wie die normale Passwort-Änderung,
+  die dabei das Flag löscht).
+  Zusätzlich wie bei der Finanzapp: nach automatischer Abmeldung durch Inaktivität zeigt die Anmeldeseite jetzt
+  einen Hinweis („Du wurdest nach 15 Minuten ohne Benutzung abgemeldet.“) statt kommentarlos zum leeren
+  Login-Formular zurückzuspringen (`state/auth.js` `abmeldeHinweis`, gesetzt in `App.vue` `idleLogout()`,
+  geleert beim nächsten erfolgreichen Login). Finanzapp selbst hat weder einen Vorab-Countdown/Warn-Dialog vor
+  der automatischen Abmeldung noch einen Bestätigungsdialog beim manuellen Abmelden – beides bewusst nicht
+  nachgebaut, das „Abmelden wie bei der Finanzapp“ bezog sich recherchiert auf genau diesen Hinweistext.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

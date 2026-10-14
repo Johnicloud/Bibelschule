@@ -73,9 +73,14 @@ class ProfileIn(BaseModel):
     gemeinde: str = ""
 
 
+class AdminStatusIn(BaseModel):
+    is_admin: bool
+
+
 def account_out(account) -> dict:
     return {"username": account.username, "is_admin": account.is_admin, "vorname": account.vorname,
-            "nachname": account.nachname, "gemeinde": account.gemeinde}
+            "nachname": account.nachname, "gemeinde": account.gemeinde,
+            "muss_passwort_aendern": account.muss_passwort_aendern}
 
 
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
@@ -160,7 +165,8 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def list_accounts(request: Request):
         """Nur Admins; nie der Passwort-Hash."""
         _require_admin(request)
-        return [{"username": a.username, "is_admin": a.is_admin} for a in auth.list_accounts()]
+        return [{"username": a.username, "is_admin": a.is_admin, "muss_passwort_aendern": a.muss_passwort_aendern}
+                for a in auth.list_accounts()]
 
     @api.post("/accounts", status_code=201)
     def create_account(request: Request, body: AccountIn):
@@ -168,6 +174,23 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
         _require_admin(request)
         account = auth.create_account(body.username, body.password, body.is_admin)
         return {"username": account.username, "is_admin": account.is_admin}
+
+    @api.put("/accounts/{username}/admin")
+    def set_account_admin(request: Request, username: str, body: AdminStatusIn):
+        """Admin-Recht nachträglich geben/entziehen (wie bei der Finanzapp) – der letzte Admin kann es sich
+        nicht selbst nehmen, das prüft der Anwendungsfall."""
+        _require_admin(request)
+        account = auth.set_is_admin(username, body.is_admin)
+        return {"username": account.username, "is_admin": account.is_admin}
+
+    @api.post("/accounts/{username}/reset-password")
+    def reset_account_password(request: Request, username: str):
+        """Setzt ein zufälliges, temporäres Passwort und meldet das Konto überall ab; es muss sich beim
+        nächsten Anmelden selbst ein neues Passwort wählen. Die Antwort zeigt das temporäre Passwort EINMAL –
+        der Admin muss es dem Benutzer auf einem anderen Weg mitteilen (z. B. mündlich)."""
+        _require_admin(request)
+        temp_password = auth.reset_password(username)
+        return {"temporaeres_passwort": temp_password}
 
     @api.get("/subjects")
     def list_subjects():
