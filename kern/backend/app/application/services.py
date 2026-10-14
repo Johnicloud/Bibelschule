@@ -110,9 +110,26 @@ class SubjectService:
 
     def set_aufgabe_pensum(self, subject_id: str, aufgabe_id: str, pensum_id: str | None) -> Subject:
         """Verknüpft eine Aufgabe mit einem Pensum des Lesenachweis-Diensts (oder löst die Verknüpfung, pensum_id=None).
-        Die Übersicht zeigt dann für diese Aufgabe den echten Lesestatus statt eines einfachen Häkchens."""
+        Die Übersicht zeigt dann für diese Aufgabe den echten Lesestatus statt eines einfachen Häkchens. Höchstens
+        eine Verknüpfung gleichzeitig: eine echte pensum_id löst eine vorhandene register_id ab."""
         subject = self._subject(subject_id)
-        self._aufgabe(subject, aufgabe_id).pensum_id = pensum_id or None
+        aufgabe = self._aufgabe(subject, aufgabe_id)
+        aufgabe.pensum_id = pensum_id or None
+        if pensum_id:
+            aufgabe.register_id = None
+        self.subjects.save(subject)
+        return subject
+
+    def set_aufgabe_register(self, subject_id: str, aufgabe_id: str, register_id: str | None) -> Subject:
+        """Verknüpft eine Aufgabe mit einer Registerkarte (oder löst die Verknüpfung, register_id=None). Die
+        Übersicht zeigt dann deren Eintragszahl statt eines einfachen Häkchens (Register melden keinen echten
+        Status, siehe Projektnotizen). Höchstens eine Verknüpfung gleichzeitig: eine echte register_id löst eine
+        vorhandene pensum_id ab."""
+        subject = self._subject(subject_id)
+        aufgabe = self._aufgabe(subject, aufgabe_id)
+        aufgabe.register_id = register_id or None
+        if register_id:
+            aufgabe.pensum_id = None
         self.subjects.save(subject)
         return subject
 

@@ -206,6 +206,33 @@ def test_set_aufgabe_pensum_links_and_unlinks(svc):
     assert subject.aufgaben[0].pensum_id is None
 
 
+def test_set_aufgabe_register_links_and_unlinks(svc):
+    """Verknüpft eine Aufgabe mit einer Registerkarte (per Id) – die Übersicht zeigt dann deren Eintragszahl."""
+    subject, _ = svc.create_subject("Dogmatik")
+    aufgabe = svc.add_aufgabe(subject.id, "Schriftliche Arbeit (Namens- und Ortsregister)").aufgaben[0]
+
+    subject = svc.set_aufgabe_register(subject.id, aufgabe.id, "register-123")
+    assert subject.aufgaben[0].register_id == "register-123"
+
+    subject = svc.set_aufgabe_register(subject.id, aufgabe.id, None)
+    assert subject.aufgaben[0].register_id is None
+
+
+def test_aufgabe_pensum_und_register_schliessen_sich_gegenseitig_aus(svc):
+    """Höchstens eine Verknüpfung gleichzeitig: die neue löst die alte ab."""
+    subject, _ = svc.create_subject("Dogmatik")
+    aufgabe = svc.add_aufgabe(subject.id, "Lesen + Register").aufgaben[0]
+
+    subject = svc.set_aufgabe_pensum(subject.id, aufgabe.id, "pensum-123")
+    subject = svc.set_aufgabe_register(subject.id, aufgabe.id, "register-123")
+    assert subject.aufgaben[0].register_id == "register-123"
+    assert subject.aufgaben[0].pensum_id is None
+
+    subject = svc.set_aufgabe_pensum(subject.id, aufgabe.id, "pensum-456")
+    assert subject.aufgaben[0].pensum_id == "pensum-456"
+    assert subject.aufgaben[0].register_id is None
+
+
 def test_set_aktive_dienste_speichert_liste_ohne_duplikate(svc):
     subject, _ = svc.create_subject("Dogmatik")
     assert subject.aktive_dienste == []

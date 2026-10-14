@@ -1,7 +1,6 @@
 <script setup>
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import DeckPanel from './DeckPanel.vue'
-import AufgabenPanel from '../components/aufgaben/AufgabenPanel.vue'
 import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
 import ExternalPanel from '../components/ui/ExternalPanel.vue'
@@ -32,12 +31,12 @@ let syncCredits = false
 watch(editSe, (v) => { if (syncCredits) return; syncCredits = true; editCredits.value = v === '' ? '' : (Number(v) * 1.5).toFixed(1); syncCredits = false })
 watch(editCredits, (v) => { if (syncCredits) return; syncCredits = true; editSe.value = v === '' ? '' : (Number(v) / 1.5).toFixed(1); syncCredits = false })
 
-// Reiter = Übersicht (Kurzüberblick, erster Reiter), Aufgaben und Lesenachweis sind fest; Register/Karteikarten/
-// Bibelverse/Skripte sind optional und erscheinen erst, wenn im Fach aktiviert (subject.aktive_dienste) –
-// siehe SubjectOverview.vue, wo man sie hinzufügen kann. Adressbuch erscheint hier nie (siehe status.js).
+// Reiter = Übersicht (Kurzüberblick, erster Reiter – enthält jetzt auch die Aufgaben direkt, kein eigener
+// Aufgaben-Reiter mehr) und Lesenachweis sind fest; Register/Karteikarten/Bibelverse/Skripte sind optional und
+// erscheinen erst, wenn im Fach aktiviert (subject.aktive_dienste) – siehe SubjectOverview.vue, wo man sie
+// hinzufügen kann. Adressbuch erscheint hier nie (siehe status.js).
 const tabs = computed(() => [
   { name: 'uebersicht', label: 'Übersicht' },
-  { name: 'aufgaben', label: 'Aufgaben' },
   ...services.value.filter((s) => s.name === 'lesenachweis'),
   ...services.value.filter((s) => OPTIONAL_SERVICES.includes(s.name) && (subject.value?.aktive_dienste || []).includes(s.name)),
 ])
@@ -142,8 +141,9 @@ onMounted(async () => {
 
     <div class="mt-6" role="tabpanel">
       <SubjectOverview v-if="current.name === 'uebersicht' && overview" :subject="subject" :overview="overview" :services="services"
-        @go="(name) => $emit('update:tab', name)" @aktivieren="(name) => dienstAktivieren(name).then(() => $emit('update:tab', name))" />
-      <AufgabenPanel v-else-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
+        @go="(name) => $emit('update:tab', name)" @aktivieren="(name) => dienstAktivieren(name).then(() => $emit('update:tab', name))"
+        @changed="loadOverview" />
+      <template v-else-if="current.name === 'uebersicht'" /> <!-- overview noch nicht geladen: nicht auf ExternalPanel zurückfallen -->
       <DeckPanel v-else-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
       <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />
       <RegisterPanel v-else-if="current.name === 'register'" :subject-id="subjectId" @changed="loadOverview" />

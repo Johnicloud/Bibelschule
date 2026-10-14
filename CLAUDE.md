@@ -287,6 +287,17 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Name noch einmal. Nur beim (bisher nicht über die Oberfläche erreichbaren) Export über alle Register eines
   Fachs hinweg bleibt die Spalte zur Unterscheidung nötig (`entries_table(..., mit_register=register_id is None)`).
 
+- [fertig] Aufgaben direkt in der Übersicht: kein eigener Aufgaben-Reiter mehr (`AufgabenPanel.vue` entfernt,
+  Logik komplett in `SubjectOverview.vue` verschoben – inklusive PDF-Aufgabenblatt-Einlesen). Jede Aufgabe mit
+  einem Haken-Knopf direkt abhakbar, oder, ist sie verknüpft, mit ihrem echten Stand statt eines Häkchens: ein
+  Lesenachweis-Pensum zeigt weiterhin den Lesestatus (Pille), eine neu mögliche Verknüpfung mit einer
+  Registerkarte (`Aufgabe.register_id`, `PUT /api/subjects/{id}/aufgaben/{aufgabe_id}/register`,
+  `SubjectService.set_aufgabe_register`) zeigt stattdessen schlicht deren Eintragszahl (Register melden keinen
+  echten Status, siehe Entscheidungen). Höchstens eine Verknüpfung gleichzeitig – eine neu gesetzte löst die
+  andere ab (serverseitig in `set_aufgabe_pensum`/`set_aufgabe_register`). Ein Dropdown je Aufgabe listet beide
+  Verweisarten gruppiert (Lesepensen/Register); „+ Aufgabe“ legt wie gewohnt von Hand an, „PDF auswählen“ bleibt
+  der bestehende Ollama-Vorschlagsweg.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

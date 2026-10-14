@@ -12,6 +12,7 @@ export function createSubjectService(api) {
     setAufgabeErledigt: (id, aufgabeId, erledigt) => api.setAufgabeErledigt(id, aufgabeId, erledigt),
     removeAufgabe: (id, aufgabeId) => api.deleteAufgabe(id, aufgabeId),
     setAufgabePensum: (id, aufgabeId, pensumId) => api.setAufgabePensum(id, aufgabeId, pensumId),
+    setAufgabeRegister: (id, aufgabeId, registerId) => api.setAufgabeRegister(id, aufgabeId, registerId),
     setAktiveDienste: (id, dienste) => api.setAktiveDienste(id, dienste),
     services: () => api.services(),
     overview: () => api.overview(),

@@ -18,7 +18,7 @@ const IDLE_LOGOUT_MS = 15 * 60 * 1000   // wie beim Server (MemorySessionStore):
 const auth = inject('auth')
 const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch'
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
-const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'aufgaben'/'uebersicht')
+const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'uebersicht')
 
 function go(next, id = null, nextTab = null) {
   view.value = next

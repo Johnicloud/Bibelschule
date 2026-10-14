@@ -12,12 +12,16 @@ class Aufgabe:
     """Eine Aufgabe umreißt den Umfang eines Fachs (Zeile im Aufgabenblatt der Dozentin).
     gewichtung = anteilige Bewertung in Prozent, wie im Aufgabenblatt (z. B. Klausur 50 %).
     pensum_id: optional, verknüpft die Aufgabe mit einem Pensum des Lesenachweis-Diensts (z. B. „Lesen der
-    Pflicht-Lektüre + Lesenachweis“) – die Übersicht zeigt dann dessen echten Lesestatus statt eines Häkchens."""
+    Pflicht-Lektüre + Lesenachweis“) – die Übersicht zeigt dann dessen echten Lesestatus statt eines Häkchens.
+    register_id: optional, verknüpft die Aufgabe stattdessen mit einer Registerkarte (z. B. „Schriftliche Arbeit
+    (Namens- und Ortsregister)“) – die Übersicht zeigt dann deren Eintragszahl (Register melden keinen echten
+    Status, siehe Projektnotizen). Höchstens eine der beiden Verknüpfungen gleichzeitig (siehe SubjectService)."""
     titel: str
     frist: str | None = None
     gewichtung: float | None = None
     erledigt: bool = False
     pensum_id: str | None = None
+    register_id: str | None = None
     id: str = field(default_factory=new_id)
 
 
