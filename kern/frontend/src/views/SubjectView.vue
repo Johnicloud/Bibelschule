@@ -12,7 +12,7 @@ import DozentenAuswahl from '../components/ui/DozentenAuswahl.vue'
 import { FACH_STATUS, NATIVE_SERVICES, TAB_ICONS, TONE_CLASSES } from '../domain/status'
 
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'uebersicht' } })
-defineEmits(['back', 'study', 'update:tab'])
+defineEmits(['study', 'update:tab'])
 const subjects = inject('subjects')
 const adressbuch = inject('adressbuch')
 const subject = ref(null)
@@ -83,47 +83,49 @@ onMounted(async () => {
 </script>
 
 <template>
-  <button class="btn btn-ghost !px-2" @click="$emit('back')">Zurück zu den Fächern</button>
-  <p v-if="error" class="mt-4 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
+  <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
   <template v-if="subject && current">
-    <div v-if="!bearbeiten" class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <h1 class="text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
-      <span v-if="overview && FACH_STATUS[overview.stufe]" class="rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[overview.stufe].tone]">
-        {{ FACH_STATUS[overview.stufe].label }}
-      </span>
-      <span v-if="subject.se != null" class="text-sm opacity-70">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
-      <button class="btn btn-ghost !p-2" aria-label="Fach bearbeiten" @click="openEdit">
-        <AppIcon name="stift" class="h-4 w-4" />
-      </button>
+    <div class="panel p-5">
+      <template v-if="!bearbeiten">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 class="text-2xl font-semibold tracking-tight">{{ subject.name }}</h1>
+          <span v-if="overview && FACH_STATUS[overview.stufe]" class="rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[overview.stufe].tone]">
+            {{ FACH_STATUS[overview.stufe].label }}
+          </span>
+          <span v-if="subject.se != null" class="text-sm opacity-70">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
+          <button class="btn btn-ghost !p-2 ml-auto" aria-label="Fach bearbeiten" @click="openEdit">
+            <AppIcon name="stift" class="h-4 w-4" />
+          </button>
+        </div>
+        <ProgressPanel v-if="overview" :overview="overview" class="mt-4" />
+      </template>
+
+      <form v-else class="grid gap-3" @submit.prevent="saveEdit">
+        <input v-model="editName" class="input" placeholder="Name des Fachs" aria-label="Name des Fachs" />
+        <div class="flex flex-wrap items-start gap-4">
+          <div class="flex gap-2">
+            <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
+            <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
+          </div>
+          <DozentenAuswahl v-model="ausgewaehlteDozenten" :dozenten="alleDozenten" class="flex-1" />
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary" :disabled="speichert">{{ speichert ? 'Speichert …' : 'Speichern' }}</button>
+          <button type="button" class="btn btn-ghost" @click="bearbeiten = false">Abbrechen</button>
+        </div>
+        <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
+      </form>
     </div>
 
-    <form v-else class="panel mt-2 grid gap-3 p-4" @submit.prevent="saveEdit">
-      <input v-model="editName" class="input" placeholder="Name des Fachs" aria-label="Name des Fachs" />
-      <div class="flex flex-wrap items-start gap-4">
-        <div class="flex gap-2">
-          <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
-          <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
-        </div>
-        <DozentenAuswahl v-model="ausgewaehlteDozenten" :dozenten="alleDozenten" class="flex-1" />
-      </div>
-      <div class="flex gap-2">
-        <button class="btn btn-primary" :disabled="speichert">{{ speichert ? 'Speichert …' : 'Speichern' }}</button>
-        <button type="button" class="btn btn-ghost" @click="bearbeiten = false">Abbrechen</button>
-      </div>
-      <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
-    </form>
-
-    <ProgressPanel v-if="overview" :overview="overview" class="mt-4" />
-
-    <div class="mt-6 flex gap-1 overflow-x-auto border-b border-highlight" role="tablist">
+    <!-- So breit wie die Kachel darüber: Pillen-Leiste wie AppNav.vue statt schmalem Unterstrich-Streifen,
+         die Reiter teilen sich die volle Breite gleichmäßig auf, Symbole entsprechend größer. -->
+    <div class="mt-6 flex gap-1 rounded-xl bg-backdrop p-1" role="tablist">
       <button v-for="t in tabs" :key="t.name" role="tab" :aria-selected="current.name === t.name"
         :title="t.label" :aria-label="t.label"
-        class="-mb-px flex shrink-0 items-center justify-center border-b-2 px-3.5 py-2.5 transition"
-        :class="current.name === t.name
-          ? 'border-primary text-primary'
-          : 'border-transparent opacity-60 hover:opacity-100'"
+        class="flex flex-1 items-center justify-center rounded-lg py-3 text-theme-inv opacity-70 transition hover:opacity-100"
+        :class="current.name === t.name ? 'bg-primary text-white opacity-100 shadow-sm' : ''"
         @click="$emit('update:tab', t.name)">
-        <AppIcon :name="TAB_ICONS[t.name] || 'baustein'" class="h-5 w-5" />
+        <AppIcon :name="TAB_ICONS[t.name] || 'baustein'" class="h-6 w-6" />
       </button>
     </div>
 

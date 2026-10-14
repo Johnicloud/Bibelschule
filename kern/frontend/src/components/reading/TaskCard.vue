@@ -1,7 +1,7 @@
 <script setup>
 import { computed, inject, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
-import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, forecastText, formatDate, num } from '../../domain/status'
+import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, formatDate, num } from '../../domain/status'
 import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
 const props = defineProps({ task: Object, subjectName: String })
@@ -91,25 +91,23 @@ async function saveEdit() {
 
 <template>
   <li class="panel p-5">
-    <div v-if="!bearbeiten" class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <div class="flex items-center gap-1.5">
-          <h3 class="text-lg font-semibold">{{ task.title }}</h3>
-          <button class="btn btn-ghost !p-1.5" aria-label="Pensum bearbeiten" @click="openEdit">
-            <AppIcon name="stift" class="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <p class="text-sm text-slate-500 dark:text-slate-400">
-          {{ num(task.total) }} {{ task.unit }}<template v-if="task.passes > 1">, {{ task.passes }} Durchgänge</template>
-          <template v-if="task.start"> · Start {{ formatDate(task.start) }}</template>
-          <template v-if="task.deadline"> · Frist {{ formatDate(task.deadline) }}</template>
-          <template v-if="f.plan_per_day"> · Plan {{ num(f.plan_per_day) }} {{ task.unit }}/Tag</template>
-        </p>
-        <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          aus: {{ task.buecher.map((b) => `${b.title} (${num(b.done)}/${num(b.total)})`).join(', ') }}
-        </p>
+    <div v-if="!bearbeiten">
+      <div class="flex items-center gap-1.5">
+        <h3 class="text-lg font-semibold">{{ task.title }}</h3>
+        <button class="btn btn-ghost !p-1.5" aria-label="Pensum bearbeiten" @click="openEdit">
+          <AppIcon name="stift" class="h-3.5 w-3.5" />
+        </button>
       </div>
-      <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
+      <!-- Minimalistisch auf Wunsch: nur Status, Frist und das Tagesziel als eine Zahl bleiben auf den ersten
+           Blick sichtbar; der ausführliche Prognose-Satz und Start/Plan-Details fielen weg. -->
+      <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
+        <span v-if="task.deadline" class="opacity-70">Frist {{ formatDate(task.deadline) }}</span>
+        <span v-if="zeigeTagesziel" class="font-medium text-amber-700 dark:text-amber-300">{{ num(heutigesZiel) }} {{ task.unit }}/Tag nötig</span>
+      </div>
+      <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        aus: {{ task.buecher.map((b) => `${b.title} (${num(b.done)}/${num(b.total)})`).join(', ') }}
+      </p>
     </div>
 
     <form v-else class="grid gap-3 sm:grid-cols-6" @submit.prevent="saveEdit">
@@ -166,21 +164,10 @@ async function saveEdit() {
       <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-6">{{ editError }}</p>
     </form>
 
-    <div v-if="!bearbeiten" class="mt-4">
-      <div class="flex justify-between text-sm">
-        <span class="tabular-nums">{{ num(f.done) }} von {{ num(f.target) }} {{ task.unit }}</span>
-        <span class="font-medium tabular-nums">{{ num(f.percent) }} %</span>
-      </div>
-      <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar"
-        :aria-valuenow="f.percent" aria-valuemin="0" aria-valuemax="100">
-        <div class="h-full rounded-full" :class="BAR_CLASSES[status.tone]" :style="{ width: f.percent + '%' }"></div>
-      </div>
-      <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ forecastText(task) }}</p>
+    <div v-if="!bearbeiten" class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar"
+      :aria-valuenow="f.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="`${num(f.percent)} % gelesen`">
+      <div class="h-full rounded-full" :class="BAR_CLASSES[status.tone]" :style="{ width: f.percent + '%' }"></div>
     </div>
-
-    <p v-if="!bearbeiten && zeigeTagesziel" class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-      Heute noch nicht gelesen — Ziel: {{ num(heutigesZiel) }} {{ task.unit }}
-    </p>
 
     <form v-if="!bearbeiten" class="mt-4 grid gap-2"
       :class="task.buecher.length ? 'sm:grid-cols-[1fr_7rem_9rem_auto]' : 'sm:grid-cols-[7rem_9rem_auto]'" @submit.prevent="log">

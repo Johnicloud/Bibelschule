@@ -18,6 +18,7 @@ const PATHS = {
   stift: 'M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3zM13.5 6.5l3 3',
   plus: 'M12 5v14M5 12h14',
   chevron: 'M6 9l6 6 6-6',
+  zurueck: 'M19 12H5M12 19l-7-7 7-7',
   x: 'M6 6l12 12M18 6 6 18',
 }
 

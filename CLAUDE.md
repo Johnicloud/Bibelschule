@@ -252,6 +252,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (`App.vue`, `HomeView.vue`, `SubjectsView.vue` über `App.vue`). `TAB_ICONS` zog dafür von `SubjectView.vue`
   nach `domain/status.js` (eine Stelle für beide Komponenten, die Reiter-Symbole brauchen).
 
+- [fertig] Lesenachweis-Pensum-Kachel (`TaskCard.vue`) minimalisiert: auf einen Blick nur noch Titel, Status-
+  Badge, Frist und – falls heute noch nichts gelesen – das Tagesziel als eine Zahl, dazu ein schlichter
+  Fortschrittsbalken ohne Text. Der ausführliche Prognose-Satz („Zurzeit X Seiten pro Tag, nötig sind Y …“) und
+  die Start/Plan-Angaben in der Kopfzeile fielen weg. Bücher-Aufschlüsselung, Eintragen-Formular, Leseprotokoll
+  und die Knöpfe (PDF-Export/Löschen) blieben wie gewohnt sichtbar, auf expliziten Wunsch so entschieden
+  (Auswahl per Nachfrage, nicht geraten).
+- [fertig] Fach-Kopf weiter überarbeitet: Name, Status-Badge, SE/Credits und Gesamtfortschritt (samt Balken)
+  stehen jetzt in einer gemeinsamen Kachel (`ProgressPanel.vue` hat keinen eigenen Kachel-Rahmen mehr, lebt in
+  der Kachel von `SubjectView.vue`). „Zurück zu den Fächern“ ist kein Text-Knopf mehr auf der Seite, sondern ein
+  Pfeil-Symbol neben dem „Bibelschule“-Logo in der Kopfleiste (`AppHeader.vue`, neue Props `zurueck`/`@back`,
+  nur sichtbar während man in einem Fach ist). Die Reiter-Leiste darunter ist jetzt so breit wie die Kachel
+  darüber (Pillen-Leiste wie `AppNav.vue`, Reiter teilen sich die Breite gleichmäßig auf, `flex-1`) statt eines
+  schmalen Unterstrich-Streifens, Symbole entsprechend größer (`h-6 w-6` statt `h-5 w-5`).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

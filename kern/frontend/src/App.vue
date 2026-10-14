@@ -63,7 +63,7 @@ onMounted(async () => {
 <template>
   <LoginView v-if="loggedIn === false" />
   <template v-else-if="loggedIn">
-    <AppHeader :username="username" @nav="nav" @logout="logout" @profile="go('profile')" />
+    <AppHeader :username="username" :zurueck="view === 'subject'" @nav="nav" @logout="logout" @profile="go('profile')" @back="go('subjects')" />
     <div class="mx-auto max-w-5xl px-4 pt-4">
       <AppNav :active="active" @nav="nav" />
     </div>
@@ -71,7 +71,7 @@ onMounted(async () => {
       <HomeView v-if="view === 'home'" @open-subject="(id, t) => go('subject', id, t)" @study="go('study')" @nav="nav" />
       <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'uebersicht')" />
       <SubjectView v-else-if="view === 'subject'" :key="subjectId" :subject-id="subjectId" v-model:tab="tab"
-        @back="go('subjects')" @study="go('study', subjectId)" />
+        @study="go('study', subjectId)" />
       <CardsView v-else-if="view === 'cards'" />
       <ProfileView v-else-if="view === 'profile'" @back="go('home')" />
       <AdressbuchView v-else-if="view === 'adressbuch'" />

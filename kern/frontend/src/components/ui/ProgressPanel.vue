@@ -10,7 +10,8 @@ const measured = computed(() => props.overview.parts.filter((p) => p.progress !=
 </script>
 
 <template>
-  <section class="panel p-5" aria-label="Gesamtfortschritt">
+  <!-- Kein eigener Kachel-Rahmen mehr: lebt jetzt im Fach-Kopf, in derselben Kachel wie Name/Status (SubjectView.vue). -->
+  <div aria-label="Gesamtfortschritt">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <div class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Gesamtfortschritt</div>
@@ -25,5 +26,5 @@ const measured = computed(() => props.overview.parts.filter((p) => p.progress !=
       role="progressbar" :aria-valuenow="overview.progress" aria-valuemin="0" aria-valuemax="100">
       <div class="h-full rounded-full bg-teal-500 transition-all" :style="{ width: overview.progress + '%' }"></div>
     </div>
-  </section>
+  </div>
 </template>
