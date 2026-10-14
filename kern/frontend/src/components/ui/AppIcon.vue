@@ -19,6 +19,7 @@ const PATHS = {
   plus: 'M12 5v14M5 12h14',
   chevron: 'M6 9l6 6 6-6',
   zurueck: 'M19 12H5M12 19l-7-7 7-7',
+  haken: 'M20 6 9 17l-5-5',
   x: 'M6 6l12 12M18 6 6 18',
 }
 

@@ -186,8 +186,12 @@ onMounted(load)
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
   <ul v-else-if="aufgaben.length" class="grid gap-3">
     <li v-for="a in aufgaben" :key="a.id" class="panel flex items-center gap-3 p-4">
-      <input type="checkbox" class="h-5 w-5 shrink-0 rounded-md" :checked="a.erledigt"
-        :aria-label="`${a.titel} erledigt`" @change="toggle(a)" />
+      <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition"
+        :class="a.erledigt ? 'border-transparent bg-primary text-white' : 'border-highlight opacity-40 hover:opacity-70'"
+        :aria-pressed="a.erledigt" :aria-label="`${a.titel} ${a.erledigt ? 'als offen markieren' : 'als erledigt markieren'}`"
+        @click="toggle(a)">
+        <AppIcon name="haken" class="h-5 w-5" />
+      </button>
       <div class="min-w-0 flex-1">
         <p :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">{{ a.titel }}</p>
         <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">

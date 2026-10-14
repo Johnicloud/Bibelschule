@@ -287,6 +287,14 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Name noch einmal. Nur beim (bisher nicht über die Oberfläche erreichbaren) Export über alle Register eines
   Fachs hinweg bleibt die Spalte zur Unterscheidung nötig (`entries_table(..., mit_register=register_id is None)`).
 
+- [fertig] Fach-Kopf: Status-Chip und Prozentzahl stehen jetzt doch wieder neben dem Titel (nur der Farbbalken
+  allein war zu wenig), SE/Credits bleiben aber weg. Aufgaben-Erledigt ist jetzt ein runder Haken-Knopf
+  (`AppIcon name="haken"`, gefüllt/teal wenn erledigt, nur Umriss wenn offen) statt einer schlichten Checkbox.
+  „PDF auswählen“ (Aufgabenblatt einlesen) steht als Knopf direkt neben „+ Neue Aufgabe“ im Kopf von „Umfang
+  dieses Fachs“, die frühere eigene Einleitungsbox mit Erklärungstext fiel weg.
+- [fertig] Workflow-Wechsel (auf Wunsch): Änderungen an diesem Projekt laufen ab jetzt über einen eigenen
+  Branch + Pull Request + Review, nicht mehr direkt auf `main`. `gh` (GitHub-CLI) wurde dafür installiert.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
