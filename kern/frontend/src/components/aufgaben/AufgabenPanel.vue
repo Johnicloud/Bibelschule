@@ -21,6 +21,7 @@ function leseErkennung(titel) {
 }
 
 const aufgaben = ref([])
+const pensen = ref([])   // Lesenachweis-Pensen dieses Fachs, zum Verknüpfen mit einer Aufgabe
 const loadError = ref('')
 const error = ref('')
 const anlegen = ref(false)
@@ -38,10 +39,17 @@ const vorschlaege = ref([])        // [{ titel, frist, gewichtung, ausgewaehlt }
 const legtAn = ref(false)
 
 async function load() {
-  try { aufgaben.value = (await subjects.get(props.subjectId)).aufgaben; loadError.value = '' }
-  catch (e) { loadError.value = e.message }
+  try {
+    aufgaben.value = (await subjects.get(props.subjectId)).aufgaben
+    loadError.value = ''
+  } catch (e) { loadError.value = e.message }
+  try { pensen.value = await reading.list(props.subjectId) } catch { pensen.value = [] }
 }
 async function refresh() { await load(); emit('changed') }
+async function pensumSetzen(a, pensumId) {
+  await subjects.setAufgabePensum(props.subjectId, a.id, pensumId || null)
+  await refresh()
+}
 
 async function add() {
   error.value = ''
@@ -192,6 +200,11 @@ onMounted(load)
           <template v-if="a.frist && a.gewichtung != null"> · </template>
           <template v-if="a.gewichtung != null">{{ a.gewichtung }} % der Bewertung</template>
         </p>
+        <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
+          :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">
+          <option value="">Kein Lesepensum verknüpft</option>
+          <option v-for="p in pensen" :key="p.id" :value="p.id">{{ p.title }}</option>
+        </select>
       </div>
       <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${a.titel} löschen`" @click="remove(a)">Löschen</button>
     </li>

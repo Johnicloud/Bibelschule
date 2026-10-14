@@ -14,6 +14,8 @@ export function createKernApi(base = '/api') {
       call('POST', `/subjects/${id}/aufgaben`, { titel, frist: frist || null, gewichtung: gewichtung === '' || gewichtung == null ? null : Number(gewichtung) }),
     setAufgabeErledigt: (id, aufgabeId, erledigt) => call('PUT', `/subjects/${id}/aufgaben/${aufgabeId}`, { erledigt }),
     deleteAufgabe: (id, aufgabeId) => call('DELETE', `/subjects/${id}/aufgaben/${aufgabeId}`),
+    setAufgabePensum: (id, aufgabeId, pensumId) => call('PUT', `/subjects/${id}/aufgaben/${aufgabeId}/pensum`, { pensum_id: pensumId }),
+    setAktiveDienste: (id, dienste) => call('PUT', `/subjects/${id}/dienste`, { dienste }),
     services: () => call('GET', '/services'),
     overview: () => call('GET', '/overview'),
     subjectOverview: (id) => call('GET', `/subjects/${id}/overview`),

@@ -8,6 +8,12 @@ export const SERVICE_LABELS = {
 // Dienste mit eigener, eingebauter Oberfläche. Jeder andere Dienst erscheint über sein Manifest von selbst.
 export const NATIVE_SERVICES = ['karteikarten', 'lesenachweis', 'register']
 
+// Fest (immer Reiter, nie abschaltbar): aufgaben (Kern) und lesenachweis. Optional (nur Reiter/Kachel in der
+// Übersicht, wenn im Fach eingeblendet, siehe subject.aktive_dienste): Register/Karteikarten/Bibelverse/Skripte.
+// Adressbuch erscheint bewusst nirgends in der Fach-Übersicht (Dozenten-Zuordnung läuft übers Bearbeiten-Formular
+// und den globalen Adressbuch-Reiter).
+export const OPTIONAL_SERVICES = ['karteikarten', 'register', 'bibelverse', 'skripte']
+
 // Symbol je Reiter innerhalb eines Fachs (SubjectView.vue und die Übersicht darin, SubjectOverview.vue) –
 // an einer Stelle, damit beide dieselben Symbole zeigen. Name ohne Eintrag hier fällt auf 'baustein' zurück.
 export const TAB_ICONS = {

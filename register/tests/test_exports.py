@@ -21,6 +21,17 @@ def test_entries_csv_and_text():
     assert to_text(rows) == "Abraham (Namen): 1Mo 12,1-3; Hebr 11,8\nHaran (Orte): 1Mo 12,4\n"
 
 
+def test_entries_csv_without_register_column_for_a_single_filtered_register():
+    """Export eines einzelnen Registers (register_id gesetzt, wie bei der Oberfläche): keine Register-Spalte,
+    die sonst in jeder Zeile denselben Namen wiederholen würde."""
+    svc = filled()
+    namen_id = next(r.id for r, _ in svc.list_registers("f") if r.name == "Namen")
+    header, rows = entries_table(svc.list_entries("f", namen_id), svc.register_names(), mit_register=False)
+    assert header == ["Name", "Bibelstellen"]
+    assert to_csv(header, rows) == 'Name;Bibelstellen\r\nAbraham;"1Mo 12,1-3; Hebr 11,8"\r\n'
+    assert to_text(rows) == "Abraham: 1Mo 12,1-3; Hebr 11,8\n"
+
+
 def test_passages_csv_and_text():
     svc = filled()
     header, rows = passages_table(svc.by_passage("f"), svc.register_names())

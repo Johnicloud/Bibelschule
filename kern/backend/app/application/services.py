@@ -108,6 +108,20 @@ class SubjectService:
         self.subjects.save(subject)
         return subject
 
+    def set_aufgabe_pensum(self, subject_id: str, aufgabe_id: str, pensum_id: str | None) -> Subject:
+        """Verknüpft eine Aufgabe mit einem Pensum des Lesenachweis-Diensts (oder löst die Verknüpfung, pensum_id=None).
+        Die Übersicht zeigt dann für diese Aufgabe den echten Lesestatus statt eines einfachen Häkchens."""
+        subject = self._subject(subject_id)
+        self._aufgabe(subject, aufgabe_id).pensum_id = pensum_id or None
+        self.subjects.save(subject)
+        return subject
+
+    def set_aktive_dienste(self, subject_id: str, dienste: list[str]) -> Subject:
+        subject = self._subject(subject_id)
+        subject.aktive_dienste = list(dict.fromkeys(dienste))   # doppelte raus, Reihenfolge bleibt
+        self.subjects.save(subject)
+        return subject
+
     # Dienstverzeichnis
     def register_service(self, name: str, url: str) -> dict:
         """Ein Dienst meldet sich an (Plug-in). Er bekommt sofort alle Fächer; seine eigenen werden übernommen."""

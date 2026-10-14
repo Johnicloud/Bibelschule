@@ -10,11 +10,14 @@ def new_id() -> str:
 @dataclass
 class Aufgabe:
     """Eine Aufgabe umreißt den Umfang eines Fachs (Zeile im Aufgabenblatt der Dozentin).
-    gewichtung = anteilige Bewertung in Prozent, wie im Aufgabenblatt (z. B. Klausur 50 %)."""
+    gewichtung = anteilige Bewertung in Prozent, wie im Aufgabenblatt (z. B. Klausur 50 %).
+    pensum_id: optional, verknüpft die Aufgabe mit einem Pensum des Lesenachweis-Diensts (z. B. „Lesen der
+    Pflicht-Lektüre + Lesenachweis“) – die Übersicht zeigt dann dessen echten Lesestatus statt eines Häkchens."""
     titel: str
     frist: str | None = None
     gewichtung: float | None = None
     erledigt: bool = False
+    pensum_id: str | None = None
     id: str = field(default_factory=new_id)
 
 
@@ -24,6 +27,10 @@ class Subject:
     id: str = field(default_factory=new_id)
     aufgaben: list[Aufgabe] = field(default_factory=list)
     se: float | None = None   # Studieneinheiten (alt); Credits = se * 1.5 (neues System, wird nicht gespeichert)
+    # Optionale Dienste (Register/Karteikarten/Bibelverse/Skripte), die für dieses Fach eingeblendet wurden –
+    # ohne das hier zu stehen, erscheinen sie weder als Reiter noch als Kachel in der Übersicht (Aufgaben und
+    # Lesenachweis sind fest, kein Fach ohne die beiden).
+    aktive_dienste: list[str] = field(default_factory=list)
 
 
 @dataclass

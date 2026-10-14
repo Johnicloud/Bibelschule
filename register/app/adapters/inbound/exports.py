@@ -6,8 +6,13 @@ from app.domain.bible import BibleRef
 from app.domain.models import RegisterEntry
 
 
-def entries_table(entries: list[RegisterEntry], names: dict[str, str]) -> tuple[list[str], list[list[str]]]:
-    """names: Register-ID -> Name des Registers."""
+def entries_table(entries: list[RegisterEntry], names: dict[str, str], mit_register: bool = True) -> tuple[list[str], list[list[str]]]:
+    """names: Register-ID -> Name des Registers. mit_register=False (Export eines einzelnen, schon gefilterten
+    Registers, z. B. „Namen“) lässt die Register-Spalte weg, die sonst in jeder Zeile denselben Wert wiederholt –
+    nur beim Export über alle Register eines Fachs hinweg (register_id=None) ist sie zur Unterscheidung nötig."""
+    if not mit_register:
+        rows = [[e.name, "; ".join(r.format() for r in e.refs)] for e in entries]
+        return ["Name", "Bibelstellen"], rows
     rows = [[e.name, names.get(e.register_id, ""), "; ".join(r.format() for r in e.refs)] for e in entries]
     return ["Name", "Register", "Bibelstellen"], rows
 

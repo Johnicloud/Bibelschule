@@ -5,11 +5,10 @@ import AufgabenPanel from '../components/aufgaben/AufgabenPanel.vue'
 import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
 import ExternalPanel from '../components/ui/ExternalPanel.vue'
-import ProgressPanel from '../components/ui/ProgressPanel.vue'
 import SubjectOverview from '../components/ui/SubjectOverview.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import DozentenAuswahl from '../components/ui/DozentenAuswahl.vue'
-import { FACH_STATUS, NATIVE_SERVICES, TAB_ICONS, TONE_CLASSES } from '../domain/status'
+import { BAR_CLASSES, FACH_STATUS, OPTIONAL_SERVICES, TAB_ICONS } from '../domain/status'
 
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'uebersicht' } })
 defineEmits(['study', 'update:tab'])
@@ -33,18 +32,28 @@ let syncCredits = false
 watch(editSe, (v) => { if (syncCredits) return; syncCredits = true; editCredits.value = v === '' ? '' : (Number(v) * 1.5).toFixed(1); syncCredits = false })
 watch(editCredits, (v) => { if (syncCredits) return; syncCredits = true; editSe.value = v === '' ? '' : (Number(v) / 1.5).toFixed(1); syncCredits = false })
 
-// Reiter = Übersicht (Kurzüberblick, erster Reiter), Aufgaben (gehört zum Fach im Kern), die eingebauten
-// Dienste und jeder Dienst mit eigener Seite (panel).
+// Reiter = Übersicht (Kurzüberblick, erster Reiter), Aufgaben und Lesenachweis sind fest; Register/Karteikarten/
+// Bibelverse/Skripte sind optional und erscheinen erst, wenn im Fach aktiviert (subject.aktive_dienste) –
+// siehe SubjectOverview.vue, wo man sie hinzufügen kann. Adressbuch erscheint hier nie (siehe status.js).
 const tabs = computed(() => [
   { name: 'uebersicht', label: 'Übersicht' },
   { name: 'aufgaben', label: 'Aufgaben' },
-  ...services.value.filter((s) => NATIVE_SERVICES.includes(s.name) || s.panel),
+  ...services.value.filter((s) => s.name === 'lesenachweis'),
+  ...services.value.filter((s) => OPTIONAL_SERVICES.includes(s.name) && (subject.value?.aktive_dienste || []).includes(s.name)),
 ])
 const current = computed(() => tabs.value.find((t) => t.name === props.tab) || tabs.value[0])
 
+async function dienstAktivieren(name) {
+  subject.value = await subjects.setAktiveDienste(props.subjectId, [...(subject.value.aktive_dienste || []), name])
+}
+
 // Der Gesamtfortschritt wird neu geholt, wenn ein Reiter etwas geändert hat (Karte, Lesen, Register).
+// Auch das Fach selbst (subject.aufgaben kann sich geändert haben, z. B. Pensum-Verknüpfung), damit die
+// Übersicht nicht die veraltete Aufgabenliste vom ersten Laden zeigt.
 async function loadOverview() {
-  try { overview.value = await subjects.overviewOf(props.subjectId) } catch { /* Anzeige bleibt wie sie war */ }
+  try {
+    ;[subject.value, overview.value] = await Promise.all([subjects.get(props.subjectId), subjects.overviewOf(props.subjectId)])
+  } catch { /* Anzeige bleibt wie sie war */ }
 }
 
 async function openEdit() {
@@ -88,16 +97,18 @@ onMounted(async () => {
     <div class="panel p-5">
       <template v-if="!bearbeiten">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 class="text-2xl font-semibold tracking-tight">{{ subject.name }}</h1>
-          <span v-if="overview && FACH_STATUS[overview.stufe]" class="rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[overview.stufe].tone]">
-            {{ FACH_STATUS[overview.stufe].label }}
-          </span>
-          <span v-if="subject.se != null" class="text-sm opacity-70">{{ subject.se }} SE · {{ subject.credits }} Credits</span>
+          <h1 class="text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
           <button class="btn btn-ghost !p-2 ml-auto" aria-label="Fach bearbeiten" @click="openEdit">
             <AppIcon name="stift" class="h-4 w-4" />
           </button>
         </div>
-        <ProgressPanel v-if="overview" :overview="overview" class="mt-4" />
+        <!-- Nur ein Farbbalken: Farbe nach Fach-Status, Breite nach Gesamtfortschritt – keine Zahl, kein
+             Satz, kein eigener Status-Chip mehr (auf Wunsch so minimal). -->
+        <div v-if="overview && overview.progress != null" class="mt-3 h-2 overflow-hidden rounded-full bg-highlight"
+          role="progressbar" :aria-valuenow="overview.progress" aria-valuemin="0" aria-valuemax="100"
+          :aria-label="FACH_STATUS[overview.stufe]?.label">
+          <div class="h-full rounded-full" :class="BAR_CLASSES[FACH_STATUS[overview.stufe]?.tone || 'teal']" :style="{ width: overview.progress + '%' }"></div>
+        </div>
       </template>
 
       <form v-else class="grid gap-3" @submit.prevent="saveEdit">
@@ -130,8 +141,8 @@ onMounted(async () => {
     </div>
 
     <div class="mt-6" role="tabpanel">
-      <SubjectOverview v-if="current.name === 'uebersicht' && overview" :overview="overview" :services="services"
-        :tab-names="tabs.map((t) => t.name)" @go="(name) => $emit('update:tab', name)" />
+      <SubjectOverview v-if="current.name === 'uebersicht' && overview" :subject="subject" :overview="overview" :services="services"
+        @go="(name) => $emit('update:tab', name)" @aktivieren="(name) => dienstAktivieren(name).then(() => $emit('update:tab', name))" />
       <AufgabenPanel v-else-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
       <DeckPanel v-else-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
       <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />

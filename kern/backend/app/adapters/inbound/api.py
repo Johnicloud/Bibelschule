@@ -38,6 +38,14 @@ class AufgabeStatusIn(BaseModel):
     erledigt: bool
 
 
+class AufgabePensumIn(BaseModel):
+    pensum_id: str | None = None   # Verknüpfung mit einem Lesenachweis-Pensum, oder null zum Lösen
+
+
+class AktiveDiensteIn(BaseModel):
+    dienste: list[str]
+
+
 class RegistryIn(BaseModel):
     name: str
     url: str
@@ -73,7 +81,8 @@ def account_out(account) -> dict:
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
-                         "erledigt": a.erledigt} for a in s.aufgaben]}
+                         "erledigt": a.erledigt, "pensum_id": a.pensum_id} for a in s.aufgaben],
+           "aktive_dienste": s.aktive_dienste}
     if synced is not None:
         out["synced"] = synced   # welcher Dienst das Fach übernommen hat (false = nicht erreichbar, später /api/sync)
     return out
@@ -196,6 +205,16 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     @api.delete("/subjects/{subject_id}/aufgaben/{aufgabe_id}", status_code=204)
     def delete_aufgabe(subject_id: str, aufgabe_id: str):
         service.delete_aufgabe(subject_id, aufgabe_id)
+
+    @api.put("/subjects/{subject_id}/aufgaben/{aufgabe_id}/pensum")
+    def set_aufgabe_pensum(subject_id: str, aufgabe_id: str, body: AufgabePensumIn):
+        return subject_out(service.set_aufgabe_pensum(subject_id, aufgabe_id, body.pensum_id))
+
+    @api.put("/subjects/{subject_id}/dienste")
+    def set_aktive_dienste(subject_id: str, body: AktiveDiensteIn):
+        """Welche optionalen Dienste (Register/Karteikarten/Bibelverse/Skripte) für dieses Fach eingeblendet
+        sind – steuert sowohl den Reiter in der Fach-Seite als auch die Kachel in der Übersicht."""
+        return subject_out(service.set_aktive_dienste(subject_id, body.dienste))
 
     @api.put("/subjects/{subject_id}/se")
     def set_se(subject_id: str, body: SeIn):

@@ -266,6 +266,27 @@ Sprache der Oberfläche und der Texte: Deutsch.
   darüber (Pillen-Leiste wie `AppNav.vue`, Reiter teilen sich die Breite gleichmäßig auf, `flex-1`) statt eines
   schmalen Unterstrich-Streifens, Symbole entsprechend größer (`h-6 w-6` statt `h-5 w-5`).
 
+- [fertig] Optionale Dienste und Übersicht aus Aufgaben: `Subject.aktive_dienste` (Kern) listet, welche der
+  optionalen Dienste (Register/Karteikarten/Bibelverse/Skripte, siehe `OPTIONAL_SERVICES` in `domain/status.js`)
+  für ein Fach eingeblendet sind – ohne Eintrag dort gibt es weder einen Reiter noch eine Kachel dafür. Aufgaben
+  und Lesenachweis sind fest, immer da. `PUT /api/subjects/{id}/dienste` setzt die Liste; die Übersicht
+  (`SubjectOverview.vue`) zeigt für inaktive optionale Dienste eine „+ hinzufügen“-Kachel, die den Dienst
+  freischaltet und sofort dorthin springt. Adressbuch erscheint hier absichtlich nie.
+  Die Übersicht besteht jetzt in erster Linie aus den Aufgaben (dem Umfang des Fachs) als Kacheln: ein
+  „Erledigt“/„Offen“-Feld, oder – ist die Aufgabe mit einem Lesenachweis-Pensum verknüpft (neues Feld
+  `Aufgabe.pensum_id`, in `AufgabenPanel.vue` je Aufgabe per Dropdown wählbar) – der echte Lesestatus
+  („Im Rückstand“ usw.) dieses Pensums statt eines einfachen Häkchens. `PUT /api/subjects/{id}/aufgaben/
+  {aufgabe_id}/pensum` setzt/löst die Verknüpfung.
+- [fertig] Fach-Kopf weiter minimalisiert: Titel größer, SE/Credits und der Status-Chip sind weg, nur noch ein
+  schlichter Farbbalken (Farbe nach Fach-Status, Breite nach Gesamtfortschritt) – auf ausdrückliche Nachfrage so
+  entschieden, nicht geraten. Die Reiter-Leiste zeigt entsprechend nur noch Übersicht/Aufgaben/Lesenachweis plus
+  die aktivierten optionalen Dienste, auch hier mit größeren Symbolen; die obere App-Navigation (`AppNav.vue`)
+  bekam ebenfalls größere Symbole.
+- [fertig] Register-Export (CSV/Text) lässt die Register-Spalte weg, wenn ein einzelnes, schon gefiltertes
+  Register exportiert wird (wie es die Oberfläche immer tut) – vorher stand in jeder Zeile derselbe Register-
+  Name noch einmal. Nur beim (bisher nicht über die Oberfläche erreichbaren) Export über alle Register eines
+  Fachs hinweg bleibt die Spalte zur Unterscheidung nötig (`entries_table(..., mit_register=register_id is None)`).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

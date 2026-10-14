@@ -115,7 +115,7 @@ def create_app(service: RegisterService) -> FastAPI:
         if sort == "stellen":
             header, rows = passages_table(service.by_passage(subject_id, register_id), names)
         else:
-            header, rows = entries_table(service.list_entries(subject_id, register_id, sort), names)
+            header, rows = entries_table(service.list_entries(subject_id, register_id, sort), names, mit_register=register_id is None)
         if format == "csv":
             body = to_csv(header, rows).encode("utf-8-sig")   # mit BOM, damit Excel Umlaute richtig liest
             media = "text/csv; charset=utf-8"

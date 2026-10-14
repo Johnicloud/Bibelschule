@@ -11,6 +11,8 @@ export function createSubjectService(api) {
     addAufgabe: (id, titel, frist, gewichtung) => api.addAufgabe(id, titel.trim(), frist, gewichtung),
     setAufgabeErledigt: (id, aufgabeId, erledigt) => api.setAufgabeErledigt(id, aufgabeId, erledigt),
     removeAufgabe: (id, aufgabeId) => api.deleteAufgabe(id, aufgabeId),
+    setAufgabePensum: (id, aufgabeId, pensumId) => api.setAufgabePensum(id, aufgabeId, pensumId),
+    setAktiveDienste: (id, dienste) => api.setAktiveDienste(id, dienste),
     services: () => api.services(),
     overview: () => api.overview(),
     overviewOf: (id) => api.subjectOverview(id), // Stand und Gesamtfortschritt eines Fachs

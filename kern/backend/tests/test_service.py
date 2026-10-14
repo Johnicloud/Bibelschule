@@ -194,6 +194,29 @@ def test_add_set_and_delete_aufgabe(svc):
         svc.set_aufgabe_erledigt(subject.id, "gibt-es-nicht", True)
 
 
+def test_set_aufgabe_pensum_links_and_unlinks(svc):
+    """Verknüpft eine Aufgabe mit einem Lesenachweis-Pensum (per Id) – die Übersicht zeigt dann dessen Lesestatus."""
+    subject, _ = svc.create_subject("Dogmatik")
+    aufgabe = svc.add_aufgabe(subject.id, "Lesen der Pflicht-Lektüre + Lesenachweis").aufgaben[0]
+
+    subject = svc.set_aufgabe_pensum(subject.id, aufgabe.id, "pensum-123")
+    assert subject.aufgaben[0].pensum_id == "pensum-123"
+
+    subject = svc.set_aufgabe_pensum(subject.id, aufgabe.id, None)
+    assert subject.aufgaben[0].pensum_id is None
+
+
+def test_set_aktive_dienste_speichert_liste_ohne_duplikate(svc):
+    subject, _ = svc.create_subject("Dogmatik")
+    assert subject.aktive_dienste == []
+
+    subject = svc.set_aktive_dienste(subject.id, ["register", "karteikarten", "register"])
+    assert subject.aktive_dienste == ["register", "karteikarten"]
+
+    subject = svc.set_aktive_dienste(subject.id, [])
+    assert subject.aktive_dienste == []
+
+
 def test_aufgaben_progress_counts_towards_overall_progress(svc, gw):
     """Der Umfang eines Fachs zählt wie jeder Dienst zum Gesamtfortschritt mit (Anteil erledigter Aufgaben)."""
     subject, _ = svc.create_subject("Dogmatik")
