@@ -3,10 +3,14 @@ import { inject, onMounted, ref } from 'vue'
 import TaskCard from './TaskCard.vue'
 import ReadingSummary from './ReadingSummary.vue'
 import EmptyState from '../ui/EmptyState.vue'
+import AppIcon from '../ui/AppIcon.vue'
+import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const reading = inject('reading')
+const subjects = inject('subjects')
+const pdfcreator = inject('pdfcreator')
 
 const tasks = ref([])
 const status = ref(null)
@@ -18,14 +22,36 @@ const form = ref(blank())
 const mehrereBuecher = ref(false)
 const buecher = ref([{ title: '', total: '' }])
 
+const subjectName = ref('')
+const exportieren = ref(false)
+// Vorbelegt aus dem eigenen Profil (Konto-Seite), bleibt aber änderbar – kein Pflichtfeld.
+const exportName = ref([profilVorname.value, profilNachname.value].filter(Boolean).join(' '))
+const exportGemeinde = ref(profilGemeinde.value)
+const exportError = ref('')
+const exportLaeuft = ref(false)
+
 async function load() {
   try {
-    ;[tasks.value, status.value] = await Promise.all([reading.list(props.subjectId), reading.status(props.subjectId)])
+    ;[tasks.value, status.value, { name: subjectName.value }] =
+      await Promise.all([reading.list(props.subjectId), reading.status(props.subjectId), subjects.get(props.subjectId)])
     loadError.value = ''
   }
   catch (e) { loadError.value = e.message }
 }
 async function refresh() { await load(); emit('changed') }
+async function exportierenAlsPdf() {
+  exportError.value = ''
+  exportLaeuft.value = true
+  try {
+    // Tatsächlich gelesene Seiten/Kapitel (b.done bzw. forecast.done), nicht der geplante Umfang (b.total/t.total).
+    const alleBuecher = tasks.value.flatMap((t) => t.buecher.length
+      ? t.buecher.map((b) => ({ titel: b.title, seiten: b.done }))
+      : [{ titel: t.title, seiten: t.forecast.done }])
+    await pdfcreator.lesenachweisExportieren(subjectName.value, exportName.value, exportGemeinde.value, alleBuecher)
+    exportieren.value = false
+  } catch (e) { exportError.value = e.message }
+  finally { exportLaeuft.value = false }
+}
 function addBuchFeld() { buecher.value.push({ title: '', total: '' }) }
 function removeBuchFeld(i) { buecher.value.splice(i, 1) }
 function abbrechen() {
@@ -50,10 +76,24 @@ onMounted(load)
   <ReadingSummary v-if="status && status.task_count" :status="status" class="mb-8" />
 
   <div class="mb-3 flex items-center justify-between">
-    <h2 class="text-lg font-semibold">Neues Lesepensum</h2>
-    <button v-if="!anlegen" type="button" class="btn btn-primary" @click="anlegen = true">+ Neues Pensum</button>
+    <h2 class="text-lg font-semibold">Pensen in diesem Fach</h2>
+    <div class="flex gap-2">
+      <button v-if="tasks.length" type="button" class="btn btn-outline !py-1.5" @click="exportieren = true">Als PDF exportieren</button>
+      <button v-if="!anlegen && tasks.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neues Pensum</button>
+    </div>
   </div>
-  <form v-if="anlegen" class="panel grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
+
+  <section v-if="exportieren" class="panel mb-4 grid gap-3 p-4 sm:grid-cols-2">
+    <input v-model="exportName" class="input" placeholder="Name (optional)" aria-label="Name" />
+    <input v-model="exportGemeinde" class="input" placeholder="Gemeinde (optional)" aria-label="Gemeinde" />
+    <div class="flex gap-2 sm:col-span-2">
+      <button class="btn btn-primary" :disabled="exportLaeuft" @click="exportierenAlsPdf">{{ exportLaeuft ? 'Erzeugt PDF …' : 'PDF erzeugen' }}</button>
+      <button type="button" class="btn btn-ghost" @click="exportieren = false">Abbrechen</button>
+      <span v-if="exportError" class="ml-1 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</span>
+    </div>
+  </section>
+
+  <form v-if="anlegen" class="panel mb-4 grid gap-3 p-4 sm:grid-cols-6" @submit.prevent="add">
     <input v-model="form.title" class="input sm:col-span-6" placeholder="Titel, z. B. Grundriss der Dogmatik / Pflicht-Lektüre" aria-label="Titel" />
 
     <label class="flex items-center gap-1.5 text-sm sm:col-span-6">
@@ -107,10 +147,18 @@ onMounted(load)
     </div>
   </form>
 
-  <h2 class="mb-3 mt-10 text-lg font-semibold">Pensen in diesem Fach</h2>
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
-  <ul v-else-if="tasks.length" class="grid gap-4">
-    <TaskCard v-for="t in tasks" :key="t.id" :task="t" @changed="refresh" />
+  <ul v-else-if="tasks.length" class="grid gap-4 sm:grid-cols-2">
+    <TaskCard v-for="t in tasks" :key="t.id" :task="t" :subject-name="subjectName" @changed="refresh" />
+    <li v-if="!anlegen">
+      <button class="panel flex h-full w-full flex-col items-center justify-center gap-2 p-5 text-sm font-medium opacity-70 hover:opacity-100"
+        @click="anlegen = true">
+        <AppIcon name="plus" class="h-6 w-6" />
+        Neues Pensum
+      </button>
+    </li>
   </ul>
-  <EmptyState v-else title="Noch kein Pensum" text="Lege oben ein Buch oder Skript mit Umfang und Frist an." />
+  <EmptyState v-else-if="!anlegen" title="Noch kein Pensum" text="Lege ein Buch oder Skript mit Umfang und Frist an.">
+    <button class="btn btn-primary" @click="anlegen = true">Erstes Pensum anlegen</button>
+  </EmptyState>
 </template>

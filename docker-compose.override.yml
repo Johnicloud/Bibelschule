@@ -28,16 +28,26 @@ services:
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://pdfcreator:8000
-      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     volumes:
       - ./data/pdfcreator:/app/data
+    networks: [default, ki]
     restart: unless-stopped
   aufgabenleser:
     build: ./aufgabenleser
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://aufgabenleser:8000
-      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    networks: [default, ki]
     restart: unless-stopped
+
+networks:
+  # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses
+  # Compose-Stacks). pdfcreator/aufgabenleser hängen zusätzlich an diesem Netzwerk, um ihn unter dem Namen
+  # "ollama" zu erreichen (OLLAMA_URL). Läuft Ollama bei dir stattdessen über host.docker.internal (eigene
+  # Ollama.app mit Portfreigabe), einfach OLLAMA_URL in .env setzen – das übersteuert diesen Default.
+  ki:
+    external: true

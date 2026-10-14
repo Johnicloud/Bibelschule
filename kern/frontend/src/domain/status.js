@@ -8,6 +8,13 @@ export const SERVICE_LABELS = {
 // Dienste mit eigener, eingebauter Oberfläche. Jeder andere Dienst erscheint über sein Manifest von selbst.
 export const NATIVE_SERVICES = ['karteikarten', 'lesenachweis', 'register']
 
+// Symbol je Reiter innerhalb eines Fachs (SubjectView.vue und die Übersicht darin, SubjectOverview.vue) –
+// an einer Stelle, damit beide dieselben Symbole zeigen. Name ohne Eintrag hier fällt auf 'baustein' zurück.
+export const TAB_ICONS = {
+  uebersicht: 'uebersicht', aufgaben: 'aufgaben', karteikarten: 'karten', lesenachweis: 'lesenachweis',
+  register: 'register', adressbuch: 'adressbuch', bibelverse: 'bibelverse', skripte: 'skripte',
+}
+
 export const READING_STATUS = {
   overdue: { label: 'Frist überschritten', tone: 'rose' },
   behind: { label: 'Im Rückstand', tone: 'rose' },

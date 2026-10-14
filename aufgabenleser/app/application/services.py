@@ -19,6 +19,20 @@ PROMPT = (
 )
 
 
+def _normalisiere_frist(frist: str) -> str | None:
+    """Ollama hält sich trotz Anweisung nicht immer ans JJJJ-MM-TT-Format (z. B. „20.12.2026“ wie im
+    Aufgabenblatt selbst). Erkennbare Formate werden umgerechnet; alles andere lieber weglassen als ein
+    Datum zeigen, das die Oberfläche (erwartet ISO) nicht lesen kann."""
+    frist = frist.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", frist):
+        return frist
+    match = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{4})\.?", frist)
+    if match:
+        tag, monat, jahr = match.groups()
+        return f"{jahr}-{int(monat):02d}-{int(tag):02d}"
+    return None
+
+
 def _parse_vorschlaege(antwort: str) -> list[AufgabeVorschlag]:
     """Ollama hält sich nicht immer ans reine JSON – nimmt den ersten Array-Abschnitt der Antwort.
     Ungültige oder unvollständige Einträge werden übersprungen statt die ganze Antwort zu verwerfen."""
@@ -37,10 +51,10 @@ def _parse_vorschlaege(antwort: str) -> list[AufgabeVorschlag]:
         if not titel:
             continue
         frist = eintrag.get("frist")
-        frist = str(frist).strip() if frist else None
+        frist = _normalisiere_frist(str(frist)) if frist else None
         gewichtung = eintrag.get("gewichtung")
         gewichtung = gewichtung if isinstance(gewichtung, (int, float)) and not isinstance(gewichtung, bool) else None
-        vorschlaege.append(AufgabeVorschlag(titel=titel, frist=frist or None, gewichtung=gewichtung))
+        vorschlaege.append(AufgabeVorschlag(titel=titel, frist=frist, gewichtung=gewichtung))
     return vorschlaege
 
 

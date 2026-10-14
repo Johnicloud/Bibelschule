@@ -20,11 +20,21 @@ const form = ref({ name: '', refs: '' })
 const nameInput = ref(null)
 const renaming = ref(false)
 const renameValue = ref('')
+const vorhandeneNamen = ref(new Set())
 
 const storeKey = computed(() => `bibelschule.register.${props.subjectId}`)
 const current = computed(() => registers.value.find((r) => r.id === selectedId.value) || null)
 const empty = computed(() => (view.value === 'stellen' ? !passages.value.length : !entries.value.length))
 const focusName = () => nextTick(() => nameInput.value?.focus())
+// Name im Register ist eindeutig (Groß/Klein egal) – bei Eingabe sofort zeigen, ob es ihn schon gibt
+// (dann ergänzt das Eintragen nur die Stellen), verschwindet sobald die Eingabe nicht mehr passt.
+const nameExistiertSchon = computed(() => vorhandeneNamen.value.has(form.value.name.trim().toLowerCase()))
+
+async function ladenNamen() {
+  if (!current.value) { vorhandeneNamen.value = new Set(); return }
+  try { vorhandeneNamen.value = new Set((await register.entries(selectedId.value, 'name')).map((e) => e.name.toLowerCase())) }
+  catch { /* Hinweis bleibt dann einfach aus */ }
+}
 
 // Das zuletzt benutzte Register des Fachs merkt sich der Browser.
 function remember(id) { try { localStorage.setItem(storeKey.value, id) } catch { /* Speicher gesperrt */ } }
@@ -82,7 +92,7 @@ async function add() {
   try {
     await register.add(selectedId.value, form.value)
     form.value = { name: '', refs: '' }
-    await Promise.all([loadRegisters(selectedId.value), loadEntries()]) // auch die Zahlen auf den Reitern
+    await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()]) // auch die Zahlen auf den Reitern
     emit('changed')
     focusName() // gleich der nächste Eintrag
   } catch (e) { error.value = e.message }
@@ -90,12 +100,18 @@ async function add() {
 async function removeEntry(entry) {
   if (!confirm(`„${entry.name}“ aus dem Register löschen?`)) return
   await register.removeEntry(entry.id)
-  await Promise.all([loadRegisters(selectedId.value), loadEntries()])
+  await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
   emit('changed')
 }
-const exportUrl = (format) => register.exportUrl(selectedId.value, { sort: view.value, format })
+const exportError = ref('')
+async function exportieren(format) {
+  exportError.value = ''
+  try {
+    await register.exportieren(selectedId.value, { sort: view.value, format }, `${current.value.name}-${view.value}.${format}`)
+  } catch (e) { exportError.value = e.message }
+}
 
-watch(selectedId, (id) => { if (id) remember(id); renaming.value = false; error.value = ''; loadEntries() })
+watch(selectedId, (id) => { if (id) remember(id); renaming.value = false; error.value = ''; loadEntries(); ladenNamen() })
 watch(view, loadEntries)
 onMounted(() => loadRegisters())
 </script>
@@ -127,8 +143,11 @@ onMounted(() => loadRegisters())
         </form>
       </div>
 
-      <form class="panel mt-3 grid gap-3 p-4 sm:grid-cols-[1fr_2fr_auto]" @submit.prevent="add">
-        <input ref="nameInput" v-model="form.name" class="input" placeholder="Name oder Begriff" aria-label="Name oder Begriff" />
+      <form class="panel mt-3 grid gap-3 p-4 sm:grid-cols-[1fr_2fr_auto] sm:items-start" @submit.prevent="add">
+        <div>
+          <input ref="nameInput" v-model="form.name" class="input" placeholder="Name oder Begriff" aria-label="Name oder Begriff" />
+          <p v-if="nameExistiertSchon" class="mt-1 text-xs text-amber-700 dark:text-amber-300">Gibt es schon – Stellen werden ergänzt.</p>
+        </div>
         <input v-model="form.refs" class="input" placeholder="Bibelstellen, z. B. 1Mo 12,1-3; Hebr 11,8" aria-label="Bibelstellen" />
         <button class="btn btn-primary">Eintragen</button>
         <p class="text-xs text-slate-500 dark:text-slate-400 sm:col-span-3">
@@ -146,10 +165,11 @@ onMounted(() => loadRegisters())
           <option value="stellen">Nach Bibelstelle</option>
         </select>
         <template v-if="!empty">
-          <a class="btn btn-outline !py-2" :href="exportUrl('csv')" :download="`${current.name}-${view}.csv`">Export CSV</a>
-          <a class="btn btn-outline !py-2" :href="exportUrl('txt')" :download="`${current.name}-${view}.txt`">Export Text</a>
+          <button type="button" class="btn btn-outline !py-2" @click="exportieren('csv')">Export CSV</button>
+          <button type="button" class="btn btn-outline !py-2" @click="exportieren('txt')">Export Text</button>
         </template>
       </div>
+      <p v-if="exportError" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</p>
 
       <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
       <EmptyState v-else-if="empty" title="Noch keine Einträge in diesem Register"

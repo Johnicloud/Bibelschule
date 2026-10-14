@@ -6,13 +6,12 @@ import ReadingPanel from '../components/reading/ReadingPanel.vue'
 import RegisterPanel from '../components/register/RegisterPanel.vue'
 import ExternalPanel from '../components/ui/ExternalPanel.vue'
 import ProgressPanel from '../components/ui/ProgressPanel.vue'
+import SubjectOverview from '../components/ui/SubjectOverview.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import DozentenAuswahl from '../components/ui/DozentenAuswahl.vue'
-import { FACH_STATUS, NATIVE_SERVICES, TONE_CLASSES } from '../domain/status'
+import { FACH_STATUS, NATIVE_SERVICES, TAB_ICONS, TONE_CLASSES } from '../domain/status'
 
-const TAB_ICONS = { aufgaben: 'aufgaben', karteikarten: 'karten', lesenachweis: 'lesenachweis', register: 'register' }
-
-const props = defineProps({ subjectId: String, tab: { type: String, default: 'aufgaben' } })
+const props = defineProps({ subjectId: String, tab: { type: String, default: 'uebersicht' } })
 defineEmits(['back', 'study', 'update:tab'])
 const subjects = inject('subjects')
 const adressbuch = inject('adressbuch')
@@ -34,8 +33,10 @@ let syncCredits = false
 watch(editSe, (v) => { if (syncCredits) return; syncCredits = true; editCredits.value = v === '' ? '' : (Number(v) * 1.5).toFixed(1); syncCredits = false })
 watch(editCredits, (v) => { if (syncCredits) return; syncCredits = true; editSe.value = v === '' ? '' : (Number(v) / 1.5).toFixed(1); syncCredits = false })
 
-// Reiter = Aufgaben (gehört zum Fach im Kern), die eingebauten Dienste und jeder Dienst mit eigener Seite (panel).
+// Reiter = Übersicht (Kurzüberblick, erster Reiter), Aufgaben (gehört zum Fach im Kern), die eingebauten
+// Dienste und jeder Dienst mit eigener Seite (panel).
 const tabs = computed(() => [
+  { name: 'uebersicht', label: 'Übersicht' },
   { name: 'aufgaben', label: 'Aufgaben' },
   ...services.value.filter((s) => NATIVE_SERVICES.includes(s.name) || s.panel),
 ])
@@ -112,22 +113,24 @@ onMounted(async () => {
       <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
     </form>
 
-    <ProgressPanel v-if="overview" :overview="overview" :services="services" class="mt-4" />
+    <ProgressPanel v-if="overview" :overview="overview" class="mt-4" />
 
     <div class="mt-6 flex gap-1 overflow-x-auto border-b border-highlight" role="tablist">
       <button v-for="t in tabs" :key="t.name" role="tab" :aria-selected="current.name === t.name"
-        class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition"
+        :title="t.label" :aria-label="t.label"
+        class="-mb-px flex shrink-0 items-center justify-center border-b-2 px-3.5 py-2.5 transition"
         :class="current.name === t.name
           ? 'border-primary text-primary'
           : 'border-transparent opacity-60 hover:opacity-100'"
         @click="$emit('update:tab', t.name)">
-        <AppIcon :name="TAB_ICONS[t.name] || 'baustein'" class="h-4 w-4" />
-        {{ t.label }}
+        <AppIcon :name="TAB_ICONS[t.name] || 'baustein'" class="h-5 w-5" />
       </button>
     </div>
 
     <div class="mt-6" role="tabpanel">
-      <AufgabenPanel v-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
+      <SubjectOverview v-if="current.name === 'uebersicht' && overview" :overview="overview" :services="services"
+        :tab-names="tabs.map((t) => t.name)" @go="(name) => $emit('update:tab', name)" />
+      <AufgabenPanel v-else-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
       <DeckPanel v-else-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
       <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />
       <RegisterPanel v-else-if="current.name === 'register'" :subject-id="subjectId" @changed="loadOverview" />

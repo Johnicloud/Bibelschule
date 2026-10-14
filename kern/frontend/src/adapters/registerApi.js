@@ -1,5 +1,6 @@
 // Ausgehender Adapter: Register-Dienst (über den Kern: /api/register).
 import { createCall } from './http'
+import { loggedIn } from '../state/auth'
 
 export function createRegisterApi(base = '/api/register') {
   const call = createCall(base)
@@ -13,8 +14,17 @@ export function createRegisterApi(base = '/api/register') {
     passages: (registerId) => call('GET', '/passages' + query({ register_id: registerId })),
     addEntry: (entry) => call('POST', '/entries', entry),
     deleteEntry: (id) => call('DELETE', `/entries/${id}`),
-    // Link zum Herunterladen (CSV oder Text) eines Registers, mit derselben Sortierung wie die Anzeige
-    exportUrl: (registerId, { sort = 'name', format = 'csv' } = {}) =>
-      base + '/export' + query({ register_id: registerId, sort, format }),
+    // Export (CSV oder Text) eines Registers, mit derselben Sortierung wie die Anzeige. Als Blob statt als
+    // einfacher <a href>-Link, damit eine abgelaufene Sitzung nicht als kaputte Datei heruntergeladen wird,
+    // sondern wie jeder andere Aufruf zur Anmeldeseite zurückführt.
+    exportieren: async (registerId, { sort = 'name', format = 'csv' } = {}) => {
+      const res = await fetch(`${base}/export` + query({ register_id: registerId, sort, format }))
+      if (res.status === 401) loggedIn.value = false
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(typeof err.detail === 'string' ? err.detail : 'Etwas ist schiefgelaufen.')
+      }
+      return res.blob()
+    },
   }
 }

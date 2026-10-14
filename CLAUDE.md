@@ -187,13 +187,78 @@ Sprache der Oberfläche und der Texte: Deutsch.
   ersten Versuch -> sofort als richtig bewertet, kurze Bestätigung, automatisch weiter. Vorher musste man extra
   auf „Prüfen“ und danach auf „Weiter“ klicken.
 
+- [fertig] Lesenachweis weiter ausgearbeitet:
+  - Pensen-Kacheln im Fach-Reiter jetzt wie die Fächer-Kacheln der Startseite angeordnet: zweispaltiges Grid,
+    „+ Neues Pensum“ als eigene Kachel am Ende, Anlege-/Export-Formular als Panel oberhalb statt dauerhaft offen.
+  - Buchbezogene Seiten: bei Pensen aus mehreren Büchern lässt sich jeder Leseeintrag einem Buch zuordnen
+    (`buch_id` an `ReadingEntry`, `ReadingTask.buch_done()`). Eintragsformular zeigt dann eine Buchauswahl,
+    die Büchliste je Pensum zeigt „gelesen/gesamt“ pro Buch.
+  - PDF-Export über den bestehenden `pdfcreator`-Dienst (Vorlage „Lesenachweis Pflichtlektüre“): Knopf „Als PDF
+    exportieren“ sowohl je einzelnem Pensum (dessen eigene Bücher) als auch für das ganze Fach (alle Bücher aller
+    Pensen zusammen, max. 6 Zeilen wie die Vorlage). Fragt nur Name/Gemeinde ab, Fach kommt vom Fach selbst. Reine
+    Frontend-Orchestrierung (`pdfcreatorService.js` ruft `/api/pdfcreator/vorlagen/{id}/fuellen` auf, liefert ein
+    PDF-Blob statt JSON – eigener Adapter ohne den gemeinsamen `createCall`, siehe `adapters/http.js`).
+
+- [fertig] Ollama-Aufgabenvorschläge erkennen Lesepensen: ein Vorschlag mit Mengenangabe im Titel (z. B.
+  „Pflicht-Lektüre 600 Seiten“, Muster `/(\d+)\s*(seiten|kapitel)/i`) wird im Aufgaben-Reiter als eigene Gruppe
+  „Lesepensen“ angezeigt (von den echten „Aufgaben“ getrennt) und beim Übernehmen automatisch als Lesenachweis-
+  Pensum angelegt (`reading.add(...)`) statt als Aufgabe. Reine Heuristik im Frontend (`AufgabenPanel.vue`) – der
+  `aufgabenleser`-Dienst selbst kennt den Lesenachweis nicht und bleibt bei reinen Titel/Frist/Gewichtung-Vorschlägen.
+
+- [fertig] Register-Export reparierte: Die Knöpfe „Export CSV“/„Export Text“ im Register-Reiter waren schon da,
+  liefen aber als einfache `<a href download>`-Links – bei abgelaufener Sitzung lud der Browser dadurch die
+  JSON-Fehlermeldung (`{"detail":"Bitte anmelden."}`) als vermeintliche CSV-Datei herunter, ohne dass das auffiel.
+  Jetzt wie der PDF-Export über `pdfcreator` (Vorbild `pdfcreatorService.js`): `registerApi.exportieren()` holt die
+  Datei per `fetch` als Blob, bei 401 greift dieselbe Weiche wie bei jedem anderen Aufruf (`loggedIn.value = false`,
+  zurück zur Anmeldeseite) statt einer kaputten Datei; echte Fehler zeigt eine Zeile unter den Export-Knöpfen.
+
+- [fertig] Eigenes Profil: `Account` (Kern) hat jetzt `vorname`/`nachname`/`gemeinde` (optional, `None`-Default,
+  wie bei `is_admin` ohne Migration – alte Konten lesen einfach `None`). `PUT /api/me` (`AuthService.update_profile`)
+  speichert sie, `GET /api/me` und `POST /api/login` liefern sie mit. Konto-Seite hat dafür einen neuen Abschnitt
+  „Profil“ oberhalb von „Passwort ändern“. Zweck: der Lesenachweis-PDF-Export (`ReadingPanel.vue`/`TaskCard.vue`)
+  füllt Name und Gemeinde jetzt aus diesen Profilwerten vor (`state/auth.js`: `vorname`/`nachname`/`gemeinde`,
+  gesetzt beim Login und bei `/me`), bleibt aber ein normales, überschreibbares Eingabefeld – kein Pflichtfeld,
+  kein Zwang zum Pflegen des Profils. Nebenbei behoben: `authService.createAccount(...)` nahm das dritte Argument
+  (`is_admin`) entgegen, reichte es aber nie an die API weiter – das Admin-Kästchen beim Benutzer-Anlegen wirkte
+  dadurch nie.
+- [fertig] Lesenachweis-PDF-Export füllt jetzt die TATSÄCHLICH gelesene Menge je Buch/Pensum (`b.done` bzw.
+  `forecast.done`, aus dem bereits vorhandenen `buch_done()`/`Forecast.done` der Lesenachweis-Domäne), nicht mehr
+  den geplanten/maximalen Umfang (`b.total`/`t.total`). Reiner Frontend-Fix (`ReadingPanel.vue`, `TaskCard.vue`),
+  die Backend-Daten dafür gab es schon.
+
+- [fertig] Adressbuch: Adresse jetzt in getrennten Feldern statt einer Freitextzeile – `strasse`/`plz`/`ort` am
+  `Dozent` (Kern-Regel „alte Felder nie ohne Migration umbenennen/löschen“: das alte `adresse`-Feld bleibt für
+  bestehende Daten erhalten, neue Dozenten füllen nur noch die drei neuen Felder). Anzeige bevorzugt die neuen
+  Felder, fällt für ältere Dozenten auf `adresse` zurück (`anschrift()` in `AdressbuchView.vue`).
+  Dozent-anlegen-Formular ist jetzt wie bei Fächern/Pensen hinter einem Knopf („+ Neuer Dozent“), dazu eine
+  „+“-Kachel am Ende der Liste.
+- [fertig] „Neuer Eintrag“-Formulare vereinheitlicht: Aufgaben (`AufgabenPanel.vue`) und Karteikarten
+  (`DeckPanel.vue`) öffnen ihr Anlege-Formular jetzt ebenfalls über einen Knopf („+ Neue Aufgabe“/„+ Neue Karte“)
+  statt es dauerhaft zu zeigen, wie bei Fächern/Pensen/Dozenten. Ausnahme bewusst: das Eintragsformular im
+  Register (`RegisterPanel.vue`) bleibt dauerhaft offen – dort ist das Absicht (siehe Register-Eintrag oben,
+  „Fokus bleibt im Namensfeld“), ein Knopf würde das schnelle Nacheinander-Eintragen nur erschweren.
+
+- [fertig] Neue Symbole für Adressbuch (schon vorhanden, nur noch nicht verdrahtet), Bibelverse (Lesezeichen)
+  und Skripte (Dokument) in `AppIcon.vue`. Navigation jetzt überall reine Symbole ohne Text, Name per
+  `title`/`aria-label` (Tooltip beim Hovern, weiterhin per Tastatur/Screenreader erreichbar): die globale
+  Pillen-Leiste (`AppNav.vue`) und die Reiter innerhalb eines Fachs (`SubjectView.vue`, `TAB_ICONS` um
+  `adressbuch`/`bibelverse`/`skripte` ergänzt, vorher fielen die drei auf das Baustein-Symbol zurück).
+
+- [fertig] Fach-Kopf aufgeräumt: `ProgressPanel.vue` zeigt nur noch die Gesamtfortschritt-Zahl mit Balken,
+  nicht mehr dauerhaft die Aufschlüsselung je Dienst darunter (war zu viel auf einmal direkt unter dem Titel).
+  Die Aufschlüsselung gibt es jetzt als eigener, erster Reiter „Übersicht“ (`SubjectOverview.vue`, Raster-Symbol):
+  je Dienst eine klickbare Kachel mit Fortschritt/Kurztext, ein Klick springt in den jeweiligen Reiter
+  (`@go` → `update:tab`). Alle Stellen, die ein Fach öffnen, springen jetzt auf `uebersicht` statt `aufgaben`
+  (`App.vue`, `HomeView.vue`, `SubjectsView.vue` über `App.vue`). `TAB_ICONS` zog dafür von `SubjectView.vue`
+  nach `domain/status.js` (eine Stelle für beide Komponenten, die Reiter-Symbole brauchen).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
 Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
 ## Später
-Lesenachweis als PDF ausfüllen (Vorlage nötig) · Skript und Fragen mit Ollama einlesen (Aufgabenblatt selbst
+Skript und Fragen mit Ollama einlesen (Aufgabenblatt selbst
 macht das schon der `aufgabenleser`-Dienst; Ollama läuft direkt auf dem Mac, Container erreichen es über
 host.docker.internal:11434; Ergebnisse immer nur Vorschlag, siehe Entscheidungen) ·
 Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für Aufgaben ·

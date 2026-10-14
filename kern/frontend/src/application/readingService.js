@@ -18,7 +18,7 @@ export function createReadingService(api) {
     add: (subjectId, t, buecher = null) => api.addTask({ subject_id: subjectId, ...taskBody(t, buecher) }),
     update: (id, t, buecher = null) => api.updateTask(id, taskBody(t, buecher)),
     remove: (id) => api.deleteTask(id),
-    log: (id, e) => api.log(id, { amount: Number(e.amount), day: e.day || null }),
+    log: (id, e) => api.log(id, { amount: Number(e.amount), day: e.day || null, buch_id: e.buchId || null }),
     deleteEntry: (id, entryId) => api.deleteEntry(id, entryId),
   }
 }

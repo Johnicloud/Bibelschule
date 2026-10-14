@@ -2,13 +2,16 @@
 import { computed, inject, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, forecastText, formatDate, num } from '../../domain/status'
+import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
-const props = defineProps({ task: Object })
+const props = defineProps({ task: Object, subjectName: String })
 const emit = defineEmits(['changed'])
 const reading = inject('reading')
+const pdfcreator = inject('pdfcreator')
 
 const amount = ref('')
 const day = ref('')
+const buchId = ref(props.task.buecher[0]?.id || '')
 const error = ref('')
 const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in der Zeit des Geräts
 
@@ -19,6 +22,13 @@ const editBuecher = ref([])
 const editError = ref('')
 const speichert = ref(false)
 
+const exportieren = ref(false)
+// Vorbelegt aus dem eigenen Profil (Konto-Seite), bleibt aber änderbar – kein Pflichtfeld.
+const exportName = ref([profilVorname.value, profilNachname.value].filter(Boolean).join(' '))
+const exportGemeinde = ref(profilGemeinde.value)
+const exportError = ref('')
+const exportLaeuft = ref(false)
+
 const f = computed(() => props.task.forecast)
 const status = computed(() => READING_STATUS[f.value.status])
 const heutigesZiel = computed(() => f.value.needed_per_day ?? f.value.plan_per_day)
@@ -28,11 +38,12 @@ const zeigeTagesziel = computed(() => f.value.status !== 'done' && !heuteSchonGe
 async function log() {
   error.value = ''
   try {
-    await reading.log(props.task.id, { amount: amount.value, day: day.value })
+    await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value })
     amount.value = ''
     emit('changed')
   } catch (e) { error.value = e.message }
 }
+function buchTitel(buchId) { return props.task.buecher.find((b) => b.id === buchId)?.title }
 async function removeEntry(entry) {
   await reading.deleteEntry(props.task.id, entry.id)
   emit('changed')
@@ -41,6 +52,19 @@ async function removeTask() {
   if (!confirm(`Pensum „${props.task.title}“ mit dem ganzen Leseprotokoll löschen?`)) return
   await reading.remove(props.task.id)
   emit('changed')
+}
+async function exportierenAlsPdf() {
+  exportError.value = ''
+  exportLaeuft.value = true
+  try {
+    // Tatsächlich gelesene Seiten/Kapitel (b.done bzw. forecast.done), nicht der geplante Umfang (b.total/task.total).
+    const buecher = props.task.buecher.length
+      ? props.task.buecher.map((b) => ({ titel: b.title, seiten: b.done }))
+      : [{ titel: props.task.title, seiten: props.task.forecast.done }]
+    await pdfcreator.lesenachweisExportieren(props.subjectName, exportName.value, exportGemeinde.value, buecher)
+    exportieren.value = false
+  } catch (e) { exportError.value = e.message }
+  finally { exportLaeuft.value = false }
 }
 
 function openEdit() {
@@ -82,7 +106,7 @@ async function saveEdit() {
           <template v-if="f.plan_per_day"> · Plan {{ num(f.plan_per_day) }} {{ task.unit }}/Tag</template>
         </p>
         <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          aus: {{ task.buecher.map((b) => `${b.title} (${num(b.total)})`).join(', ') }}
+          aus: {{ task.buecher.map((b) => `${b.title} (${num(b.done)}/${num(b.total)})`).join(', ') }}
         </p>
       </div>
       <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
@@ -158,7 +182,11 @@ async function saveEdit() {
       Heute noch nicht gelesen — Ziel: {{ num(heutigesZiel) }} {{ task.unit }}
     </p>
 
-    <form v-if="!bearbeiten" class="mt-4 grid gap-2 sm:grid-cols-[7rem_9rem_auto]" @submit.prevent="log">
+    <form v-if="!bearbeiten" class="mt-4 grid gap-2"
+      :class="task.buecher.length ? 'sm:grid-cols-[1fr_7rem_9rem_auto]' : 'sm:grid-cols-[7rem_9rem_auto]'" @submit.prevent="log">
+      <select v-if="task.buecher.length" v-model="buchId" class="input" aria-label="Buch">
+        <option v-for="b in task.buecher" :key="b.id" :value="b.id">{{ b.title }}</option>
+      </select>
       <input v-model="amount" type="number" min="1" class="input" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
       <input v-model="day" type="date" :max="today" class="input" aria-label="Datum (leer = heute)" />
       <button class="btn btn-primary">Eintragen</button>
@@ -173,13 +201,25 @@ async function saveEdit() {
         <li v-for="e in task.entries" :key="e.id" class="flex items-center gap-3 py-2">
           <span class="w-24 shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{{ formatDate(e.day) }}</span>
           <span class="w-28 shrink-0 tabular-nums">{{ num(e.amount) }} {{ task.unit }}</span>
-          <span class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ e.note }}</span>
+          <span v-if="e.buch_id" class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ buchTitel(e.buch_id) }}</span>
+          <span v-else class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ e.note }}</span>
           <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`Eintrag vom ${formatDate(e.day)} löschen`" @click="removeEntry(e)">Löschen</button>
         </li>
       </ul>
     </details>
 
-    <div v-if="!bearbeiten" class="mt-4 flex justify-end">
+    <form v-if="!bearbeiten && exportieren" class="mt-4 grid gap-2 border-t border-highlight pt-4 sm:grid-cols-2" @submit.prevent="exportierenAlsPdf">
+      <input v-model="exportName" class="input" placeholder="Name (optional)" aria-label="Name" />
+      <input v-model="exportGemeinde" class="input" placeholder="Gemeinde (optional)" aria-label="Gemeinde" />
+      <div class="flex gap-2 sm:col-span-2">
+        <button class="btn btn-primary !py-1.5" :disabled="exportLaeuft">{{ exportLaeuft ? 'Erzeugt PDF …' : 'PDF erzeugen' }}</button>
+        <button type="button" class="btn btn-ghost !py-1.5" @click="exportieren = false">Abbrechen</button>
+        <span v-if="exportError" class="ml-1 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</span>
+      </div>
+    </form>
+
+    <div v-if="!bearbeiten" class="mt-4 flex justify-between">
+      <button class="btn btn-outline !py-1.5" @click="exportieren = true">Als PDF exportieren</button>
       <button class="btn btn-danger !py-1.5" @click="removeTask">Pensum löschen</button>
     </div>
   </li>

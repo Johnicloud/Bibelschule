@@ -54,3 +54,13 @@ class AuthService:
             raise InvalidInput(f"Das neue Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen haben.")
         account.password_hash = hash_password(new_password)
         self.accounts.save(account)
+
+    def update_profile(self, account_id: str, vorname: str, nachname: str, gemeinde: str) -> Account:
+        account = next((a for a in self.accounts.list() if a.id == account_id), None)
+        if account is None:
+            raise Unauthorized("Bitte anmelden.")
+        account.vorname = (vorname or "").strip() or None
+        account.nachname = (nachname or "").strip() or None
+        account.gemeinde = (gemeinde or "").strip() or None
+        self.accounts.save(account)
+        return account

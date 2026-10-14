@@ -11,14 +11,14 @@ import StudyView from './views/StudyView.vue'
 import LoginView from './views/LoginView.vue'
 import ProfileView from './views/ProfileView.vue'
 import AdressbuchView from './views/AdressbuchView.vue'
-import { isAdmin, loggedIn, username } from './state/auth'
+import { gemeinde, isAdmin, loggedIn, nachname, username, vorname } from './state/auth'
 
 const IDLE_LOGOUT_MS = 15 * 60 * 1000   // wie beim Server (MemorySessionStore): 15 Minuten ohne Aktivität
 
 const auth = inject('auth')
 const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch'
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
-const tab = ref('aufgaben') // Reiter im Fach = Name des Dienstes (oder 'aufgaben' für den Umfang)
+const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'aufgaben'/'uebersicht')
 
 function go(next, id = null, nextTab = null) {
   view.value = next
@@ -51,6 +51,9 @@ onMounted(async () => {
     const me = await auth.me()
     username.value = me.username
     isAdmin.value = me.is_admin
+    vorname.value = me.vorname || ''
+    nachname.value = me.nachname || ''
+    gemeinde.value = me.gemeinde || ''
     loggedIn.value = true
     resetIdleTimer()
   } catch { loggedIn.value = false }
@@ -66,7 +69,7 @@ onMounted(async () => {
     </div>
     <main class="mx-auto max-w-5xl px-4 pb-24 pt-6">
       <HomeView v-if="view === 'home'" @open-subject="(id, t) => go('subject', id, t)" @study="go('study')" @nav="nav" />
-      <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'aufgaben')" />
+      <SubjectsView v-else-if="view === 'subjects'" @open-subject="(id) => go('subject', id, 'uebersicht')" />
       <SubjectView v-else-if="view === 'subject'" :key="subjectId" :subject-id="subjectId" v-model:tab="tab"
         @back="go('subjects')" @study="go('study', subjectId)" />
       <CardsView v-else-if="view === 'cards'" />

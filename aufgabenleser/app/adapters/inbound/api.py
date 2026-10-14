@@ -3,6 +3,7 @@ Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json"""
 from fastapi import APIRouter, FastAPI, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from app.application.services import AufgabenLeseService
 from app.domain.errors import InvalidInput, NotFound
@@ -36,8 +37,11 @@ def create_app(service: AufgabenLeseService) -> FastAPI:
 
     @api.post("/lesen")
     async def lesen(datei: UploadFile):
+        # service.lesen() ruft Ollama synchron auf und kann bis zu 180 Sekunden brauchen (siehe OllamaClient).
+        # Im Thread-Pool statt direkt im Event-Loop ausführen, sonst blockiert das den ganzen Dienst
+        # (auch /api/health) für die Dauer der Anfrage – dann meldet der Kern ihn fälschlich als nicht erreichbar.
         inhalt = await datei.read()
-        return service.lesen(inhalt)
+        return await run_in_threadpool(service.lesen, inhalt)
 
     # Fach-Hooks: der Dienst kennt kein einzelnes Fach (liest nur vor, speichert nichts) – nur die
     # Pflicht-Endpunkte, damit der Kern ihn wie jeden anderen Dienst abgleichen kann.

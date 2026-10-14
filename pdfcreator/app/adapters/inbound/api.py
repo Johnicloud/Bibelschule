@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from app.application.services import PdfService
 from app.domain.errors import InvalidInput, NotFound
@@ -57,8 +58,10 @@ def create_app(service: PdfService) -> FastAPI:
 
     @api.post("/vorlagen", status_code=201)
     async def hochladen(name: str = Form(...), datei: UploadFile = None):
+        # service.hochladen() kann Ollama synchron befragen (bis zu 180 Sekunden, siehe OllamaClient) – im
+        # Thread-Pool ausführen, sonst blockiert das den ganzen Dienst (auch /api/health) solange.
         inhalt = await datei.read()
-        return vorlage_out(service.hochladen(name, datei.filename or "", inhalt))
+        return vorlage_out(await run_in_threadpool(service.hochladen, name, datei.filename or "", inhalt))
 
     @api.delete("/vorlagen/{vorlage_id}", status_code=204)
     def delete(vorlage_id: str):

@@ -46,6 +46,22 @@ def test_lesen_falls_back_to_empty_list_when_answer_has_no_json():
     assert ergebnis["rohtext_ki"] == antwort
 
 
+def test_lesen_normalisiert_deutsches_datumsformat():
+    """Ollama hält sich trotz Anweisung nicht immer ans JJJJ-MM-TT-Format (beobachtet mit qwen2.5vl:3b
+    am echten Aufgabenblatt: „20.12.2026“ statt „2026-12-20“)."""
+    antwort = '[{"titel": "Klausur", "frist": "20.12.2026"}]'
+    svc = AufgabenLeseService(FakePdfText(), FakeKI(antwort))
+    ergebnis = svc.lesen(b"irgendein-pdf")
+    assert ergebnis["vorschlaege"] == [{"titel": "Klausur", "frist": "2026-12-20", "gewichtung": None}]
+
+
+def test_lesen_verwirft_nicht_erkennbares_datumsformat():
+    antwort = '[{"titel": "Klausur", "frist": "irgendwann im Winter"}]'
+    svc = AufgabenLeseService(FakePdfText(), FakeKI(antwort))
+    ergebnis = svc.lesen(b"irgendein-pdf")
+    assert ergebnis["vorschlaege"] == [{"titel": "Klausur", "frist": None, "gewichtung": None}]
+
+
 def test_lesen_skips_entries_without_titel():
     antwort = '[{"titel": ""}, {"frist": "2027-01-01"}, {"titel": "Echte Aufgabe"}]'
     svc = AufgabenLeseService(FakePdfText(), FakeKI(antwort))

@@ -1,6 +1,6 @@
 <script setup>
 import { inject, ref } from 'vue'
-import { isAdmin, loggedIn, username as currentUsername } from '../state/auth'
+import { gemeinde, isAdmin, loggedIn, nachname, username as currentUsername, vorname } from '../state/auth'
 
 const auth = inject('auth')
 const username = ref('')
@@ -15,6 +15,9 @@ async function submit() {
     const res = await auth.login(username.value, password.value)
     currentUsername.value = res.username
     isAdmin.value = res.is_admin
+    vorname.value = res.vorname || ''
+    nachname.value = res.nachname || ''
+    gemeinde.value = res.gemeinde || ''
     loggedIn.value = true
   } catch (e) { error.value = e.message }
   finally { busy.value = false }

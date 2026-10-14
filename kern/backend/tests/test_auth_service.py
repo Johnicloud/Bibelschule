@@ -92,3 +92,24 @@ def test_list_accounts_exposes_no_password_hashes(svc):
     svc.create_account("johannes", "geheim123")
     svc.create_account("maria", "geheim456")
     assert [a.username for a in svc.list_accounts()] == ["johannes", "maria"]
+
+
+def test_update_profile_sets_vorname_nachname_gemeinde(svc):
+    account = svc.create_account("johannes", "geheim123")
+    assert account.vorname is None and account.gemeinde is None
+    updated = svc.update_profile(account.id, "Johannes", "Löwen", "EFG Beispielstadt")
+    assert updated.vorname == "Johannes" and updated.nachname == "Löwen" and updated.gemeinde == "EFG Beispielstadt"
+    again = svc.current_account(svc.login("johannes", "geheim123"))
+    assert again.vorname == "Johannes" and again.gemeinde == "EFG Beispielstadt"
+
+
+def test_update_profile_trims_and_empty_becomes_none(svc):
+    account = svc.create_account("johannes", "geheim123")
+    svc.update_profile(account.id, "  Johannes  ", "", "  ")
+    found = svc.current_account(svc.login("johannes", "geheim123"))
+    assert found.vorname == "Johannes" and found.nachname is None and found.gemeinde is None
+
+
+def test_update_profile_rejects_unknown_account(svc):
+    with pytest.raises(Unauthorized):
+        svc.update_profile("gibt-es-nicht", "Johannes", "Löwen", "EFG")

@@ -25,10 +25,18 @@ def parse_services(text: str) -> dict[str, str]:
 
 class HttpServiceGateway(ServiceGateway):
     """Das Verzeichnis kommt aus zwei Quellen: fest eingetragene Dienste (SERVICES) und Dienste, die sich
-    selbst anmelden. Angemeldete bleiben in einer Datei erhalten, auch wenn der Kern neu startet."""
+    selbst anmelden. Angemeldete bleiben in einer Datei erhalten, auch wenn der Kern neu startet.
 
-    def __init__(self, seed: dict[str, str] | None = None, registry_file: Path | None = None, timeout: float = 3.0):
+    `timeout` gilt für die eigenen, schnellen Abfragen des Kerns (health/manifest/status) – die Startseite
+    fragt das parallel für jedes Fach und jeden Dienst ab, da soll ein ausgefallener Dienst nicht lange bremsen.
+    `forward_timeout` gilt nur für `forward()` (`/api/<dienst>/…`, von der Oberfläche durchgereicht): manche
+    Dienste brauchen deutlich länger, etwa der aufgabenleser-/pdfcreator-Dienst beim Befragen von Ollama
+    (bis zu 180 Sekunden, siehe dort) – ein kurzer Timeout hätte das fälschlich als „nicht erreichbar“ gemeldet."""
+
+    def __init__(self, seed: dict[str, str] | None = None, registry_file: Path | None = None,
+                 timeout: float = 3.0, forward_timeout: float = 200.0):
         self.timeout = timeout
+        self.forward_timeout = forward_timeout
         self.registry_file = Path(registry_file) if registry_file else None
         self._lock = threading.Lock()
         self._entries: dict[str, dict] = {}
@@ -53,9 +61,9 @@ class HttpServiceGateway(ServiceGateway):
     def _url(self, service: str) -> str:
         return self._entries[service]["url"]
 
-    def _request(self, service: str, method: str, path: str, **kw) -> httpx.Response | None:
+    def _request(self, service: str, method: str, path: str, timeout: float | None = None, **kw) -> httpx.Response | None:
         try:
-            return httpx.request(method, self._url(service) + path, timeout=self.timeout, **kw)
+            return httpx.request(method, self._url(service) + path, timeout=timeout or self.timeout, **kw)
         except httpx.HTTPError as e:
             log.warning("Dienst %s nicht erreichbar: %s", service, e)
             return None
@@ -95,7 +103,7 @@ class HttpServiceGateway(ServiceGateway):
                 content_type: str | None) -> tuple[int, bytes, str]:
         url = f"/api/{path}" + (f"?{query}" if query else "")
         headers = {"Content-Type": content_type} if content_type else None
-        r = self._request(service, method, url, content=body or None, headers=headers)
+        r = self._request(service, method, url, content=body or None, headers=headers, timeout=self.forward_timeout)
         if r is None:
             detail = json.dumps({"detail": f"Der Dienst „{service}“ ist gerade nicht erreichbar."}, ensure_ascii=False)
             return 502, detail.encode("utf-8"), "application/json"

@@ -59,6 +59,17 @@ class AccountIn(BaseModel):
     is_admin: bool = False
 
 
+class ProfileIn(BaseModel):
+    vorname: str = ""
+    nachname: str = ""
+    gemeinde: str = ""
+
+
+def account_out(account) -> dict:
+    return {"username": account.username, "is_admin": account.is_admin, "vorname": account.vorname,
+            "nachname": account.nachname, "gemeinde": account.gemeinde}
+
+
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
@@ -107,8 +118,7 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def login(body: LoginIn, response: Response):
         token = auth.login(body.username, body.password)
         response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 30)
-        account = auth.current_account(token)
-        return {"username": account.username, "is_admin": account.is_admin}
+        return account_out(auth.current_account(token))
 
     @api.post("/logout", status_code=204)
     def logout(request: Request, response: Response):
@@ -119,13 +129,18 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
 
     @api.get("/me")
     def me(request: Request):
-        account = auth.current_account(request.cookies.get(SESSION_COOKIE))
-        return {"username": account.username, "is_admin": account.is_admin}
+        return account_out(auth.current_account(request.cookies.get(SESSION_COOKIE)))
 
     @api.put("/me/password", status_code=204)
     def change_password(request: Request, body: PasswordIn):
         account = auth.current_account(request.cookies.get(SESSION_COOKIE))
         auth.change_password(account.id, body.old_password, body.new_password)
+
+    @api.put("/me")
+    def update_profile(request: Request, body: ProfileIn):
+        """Vorname/Nachname/Gemeinde fürs eigene Profil – u. a. Vorbelegung beim Lesenachweis-PDF-Export."""
+        account = auth.current_account(request.cookies.get(SESSION_COOKIE))
+        return account_out(auth.update_profile(account.id, body.vorname, body.nachname, body.gemeinde))
 
     def _require_admin(request: Request):
         account = auth.current_account(request.cookies.get(SESSION_COOKIE))

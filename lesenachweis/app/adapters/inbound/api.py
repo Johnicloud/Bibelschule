@@ -43,6 +43,7 @@ class EntryIn(BaseModel):
     amount: int
     day: date | None = None   # leer = heute
     note: str = ""
+    buch_id: str | None = None   # bei Pensen aus mehreren Büchern: auf welches Buch sich der Eintrag bezieht
 
 
 class SubjectIn(BaseModel):
@@ -69,11 +70,12 @@ def create_app(service: ReadingService) -> FastAPI:
         entries = sorted(t.entries, key=lambda e: (e.day, e.id), reverse=True)
         return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
                 "total": t.total, "passes": t.passes,
-                "buecher": [{"id": b.id, "title": b.title, "total": b.total} for b in t.buecher],
+                "buecher": [{"id": b.id, "title": b.title, "total": b.total, "done": t.buch_done(b.id)}
+                            for b in t.buecher],
                 "start": t.start.isoformat() if t.start else None,
                 "deadline": t.deadline.isoformat() if t.deadline else None,
-                "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note}
-                            for e in entries],
+                "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note,
+                             "buch_id": e.buch_id} for e in entries],
                 "forecast": forecast_out(service.forecast_for(t))}
 
     @app.exception_handler(NotFound)
@@ -120,7 +122,7 @@ def create_app(service: ReadingService) -> FastAPI:
 
     @api.post("/tasks/{task_id}/entries", status_code=201)
     def log_reading(task_id: str, body: EntryIn):
-        return task_out(service.log_reading(task_id, body.amount, body.day, body.note))
+        return task_out(service.log_reading(task_id, body.amount, body.day, body.note, body.buch_id))
 
     @api.delete("/tasks/{task_id}/entries/{entry_id}")
     def delete_entry(task_id: str, entry_id: str):

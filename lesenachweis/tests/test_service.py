@@ -113,6 +113,21 @@ def test_update_task_can_switch_to_buecher(svc):
     assert updated.total == 100 and [b.title for b in updated.buecher] == ["Buch A", "Buch B"]
 
 
+def test_log_reading_can_reference_a_buch(svc):
+    t = svc.add_task("f", "Lektüre", "Seiten", None, buecher=[
+        {"title": "Buch A", "total": 60}, {"title": "Buch B", "total": 40},
+    ])
+    buch_a, buch_b = t.buecher
+    svc.log_reading(t.id, 20, buch_id=buch_a.id)
+    svc.log_reading(t.id, 10, buch_id=buch_a.id)
+    svc.log_reading(t.id, 15, buch_id=buch_b.id)
+    t = svc.get_task(t.id)
+    assert t.buch_done(buch_a.id) == 30 and t.buch_done(buch_b.id) == 15
+    assert t.done == 45
+    with pytest.raises(InvalidInput):
+        svc.log_reading(t.id, 5, buch_id="gibt-es-nicht")
+
+
 def test_tasks_sorted_by_deadline(svc):
     svc.add_task("f", "Später", "Seiten", 10, deadline=date(2026, 12, 1))
     svc.add_task("f", "Ohne", "Seiten", 10)

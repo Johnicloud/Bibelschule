@@ -12,10 +12,12 @@ def new_id() -> str:
 
 @dataclass
 class ReadingEntry:
-    """Ein Eintrag im Leseprotokoll: an einem Tag wurde so viel gelesen."""
+    """Ein Eintrag im Leseprotokoll: an einem Tag wurde so viel gelesen.
+    `buch_id` ist gesetzt, wenn sich der Eintrag bei einem Pensum aus mehreren Büchern auf eines davon bezieht."""
     day: date
     amount: int
     note: str = ""
+    buch_id: str | None = None
     id: str = field(default_factory=new_id)
 
 
@@ -52,3 +54,9 @@ class ReadingTask:
 
     def get_entry(self, entry_id: str) -> ReadingEntry | None:
         return next((e for e in self.entries if e.id == entry_id), None)
+
+    def get_buch(self, buch_id: str) -> Buch | None:
+        return next((b for b in self.buecher if b.id == buch_id), None)
+
+    def buch_done(self, buch_id: str) -> int:
+        return sum(e.amount for e in self.entries if e.buch_id == buch_id)

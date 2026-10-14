@@ -62,7 +62,7 @@ onMounted(load)
       <li v-for="s in rows" :key="s.id" class="panel p-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <button class="text-left text-xl font-semibold hover:text-primary"
-            @click="$emit('open-subject', s.id, 'aufgaben')">{{ s.name }}</button>
+            @click="$emit('open-subject', s.id, 'uebersicht')">{{ s.name }}</button>
           <span v-if="FACH_STATUS[s.stufe]" class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[s.stufe].tone]">
             {{ FACH_STATUS[s.stufe].label }}
           </span>

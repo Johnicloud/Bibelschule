@@ -1,10 +1,27 @@
 <script setup>
 import { computed, inject, onMounted, ref } from 'vue'
-import { isAdmin, username as currentUsername } from '../state/auth'
+import { gemeinde, isAdmin, nachname, username as currentUsername, vorname } from '../state/auth'
 
 defineEmits(['back'])
 const auth = inject('auth')
 const subjects = inject('subjects')
+
+const profilVorname = ref(vorname.value)
+const profilNachname = ref(nachname.value)
+const profilGemeinde = ref(gemeinde.value)
+const profilError = ref('')
+const profilSuccess = ref(false)
+async function speichernProfil() {
+  profilError.value = ''
+  profilSuccess.value = false
+  try {
+    await auth.updateProfile(profilVorname.value, profilNachname.value, profilGemeinde.value)
+    vorname.value = profilVorname.value.trim()
+    nachname.value = profilNachname.value.trim()
+    gemeinde.value = profilGemeinde.value.trim()
+    profilSuccess.value = true
+  } catch (e) { profilError.value = e.message }
+}
 
 const accounts = ref([])
 const loadError = ref('')
@@ -75,6 +92,19 @@ onMounted(() => { load(); loadServices() })
   <button class="btn btn-ghost !px-2" @click="$emit('back')">Zurück</button>
   <h1 class="mt-2 text-3xl font-semibold tracking-tight">Konto</h1>
   <p class="mt-1 text-slate-500 dark:text-slate-400">Angemeldet als {{ currentUsername }}{{ isAdmin ? ' (Admin)' : '' }}.</p>
+
+  <section class="panel mt-6 p-5">
+    <h2 class="text-lg font-semibold">Profil</h2>
+    <p class="mt-1 text-sm opacity-70">Vorname, Name und Gemeinde füllen z. B. den Lesenachweis-PDF-Export vor.</p>
+    <form class="mt-4 grid gap-3 sm:max-w-sm" @submit.prevent="speichernProfil">
+      <input v-model="profilVorname" class="input" placeholder="Vorname" aria-label="Vorname" />
+      <input v-model="profilNachname" class="input" placeholder="Name" aria-label="Name" />
+      <input v-model="profilGemeinde" class="input" placeholder="Gemeinde" aria-label="Gemeinde" />
+      <button class="btn btn-primary justify-self-start">Speichern</button>
+      <p v-if="profilError" class="text-sm text-error">{{ profilError }}</p>
+      <p v-if="profilSuccess" class="text-sm text-teal-700 dark:text-teal-400">Gespeichert.</p>
+    </form>
+  </section>
 
   <section class="panel mt-6 p-5">
     <h2 class="text-lg font-semibold">Passwort ändern</h2>

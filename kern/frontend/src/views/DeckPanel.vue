@@ -9,12 +9,14 @@ const emit = defineEmits(['study', 'changed'])
 const service = inject('service')
 const deck = ref(null)
 const error = ref('')
+const anlegen = ref(false)
 
 async function load() {
   try { deck.value = await service.openDeck(props.subjectId); error.value = '' }
   catch (e) { error.value = 'Die Karteikarten kennen dieses Fach noch nicht. Gleiche die Dienste auf der Startseite ab.' }
 }
 async function refresh() { await load(); emit('changed') }
+async function hinzugefuegt() { anlegen.value = false; await refresh() }
 async function remove(card) {
   await service.deleteCard(props.subjectId, card.id)
   await refresh()
@@ -32,13 +34,21 @@ onMounted(load)
       </button>
     </div>
 
-    <h2 class="mb-3 mt-6 text-lg font-semibold">Neue Karte</h2>
-    <CardForm :deck-id="subjectId" @added="refresh" />
+    <div class="mb-3 mt-6 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">Karten in diesem Fach</h2>
+      <button v-if="!anlegen && deck.cards.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neue Karte</button>
+    </div>
 
-    <h2 class="mb-3 mt-10 text-lg font-semibold">Karten in diesem Fach</h2>
+    <div v-if="anlegen" class="mb-4">
+      <CardForm :deck-id="subjectId" @added="hinzugefuegt" />
+      <button type="button" class="btn btn-ghost mt-2" @click="anlegen = false">Abbrechen</button>
+    </div>
+
     <ul v-if="deck.cards.length" class="grid gap-3 md:grid-cols-2">
       <CardItem v-for="c in deck.cards" :key="c.id" :card="c" @delete="remove(c)" />
     </ul>
-    <EmptyState v-else title="Noch keine Karten" text="Lege oben die erste Karte an." />
+    <EmptyState v-else-if="!anlegen" title="Noch keine Karten" text="Lege die erste Karte an.">
+      <button class="btn btn-primary" @click="anlegen = true">Erste Karte anlegen</button>
+    </EmptyState>
   </template>
 </template>

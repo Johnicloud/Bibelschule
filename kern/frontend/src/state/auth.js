@@ -6,3 +6,6 @@ import { ref } from 'vue'
 export const loggedIn = ref(null)
 export const username = ref('')
 export const isAdmin = ref(false)
+export const vorname = ref('')
+export const nachname = ref('')
+export const gemeinde = ref('')

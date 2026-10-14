@@ -32,13 +32,18 @@ def test_add_and_list_sorted_by_name(svc):
 def test_update_and_delete(svc):
     d = svc.add_dozent("Sergi Panin", telefon="0123")
     updated = svc.update_dozent(d.id, "Sergi Panin", "sergi@example.com", "0456",
-                                 "Beverstr. 52, 59077 Hamm", "kennt Pneumatologie")
+                                 None, "Beverstr. 52", "59077", "Hamm", "kennt Pneumatologie")
     assert updated.email == "sergi@example.com" and updated.telefon == "0456"
-    assert updated.adresse == "Beverstr. 52, 59077 Hamm"
+    assert updated.strasse == "Beverstr. 52" and updated.plz == "59077" and updated.ort == "Hamm"
     svc.delete_dozent(d.id)
     assert svc.list_dozenten() == []
     with pytest.raises(NotFound):
         svc.delete_dozent(d.id)
+
+
+def test_add_dozent_with_structured_address(svc):
+    d = svc.add_dozent("Jana Reimer", strasse="Hauptstr. 1", plz="12345", ort="Berlin")
+    assert d.strasse == "Hauptstr. 1" and d.plz == "12345" and d.ort == "Berlin" and d.adresse is None
 
 
 def test_assign_and_unassign_subjects(svc):

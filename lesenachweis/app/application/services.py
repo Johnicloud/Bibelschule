@@ -96,14 +96,17 @@ class ReadingService:
         self._emit("reading.task_deleted", {"subject_id": task.subject_id, "task_id": task.id})
 
     # Leseprotokoll
-    def log_reading(self, task_id: str, amount: int, day: date | None = None, note: str = "") -> ReadingTask:
+    def log_reading(self, task_id: str, amount: int, day: date | None = None, note: str = "",
+                     buch_id: str | None = None) -> ReadingTask:
         task = self._task(task_id)
         day = day or self.today()
         if not isinstance(amount, int) or amount < 1:
             raise InvalidInput(f"Gib an, wie viel du gelesen hast (mindestens 1, in {task.unit}).")
         if day > self.today():
             raise InvalidInput("Das Datum liegt in der Zukunft.")
-        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip()))
+        if buch_id and task.get_buch(buch_id) is None:
+            raise InvalidInput("Dieses Buch gehört nicht zu diesem Pensum.")
+        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(), buch_id=buch_id or None))
         self.repo.save(task)
         self._emit("reading.logged", {"subject_id": task.subject_id, "task_id": task.id,
                                       "amount": amount, "done": task.done, "target": task.target})
