@@ -1,3 +1,4 @@
+import json
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -32,3 +33,29 @@ def test_entry_without_buch_id_stays_none_after_reload():
 
     geladen = r.get(task.id)
     assert geladen.entries[0].buch_id is None
+
+
+def test_entry_durchlauf_survives_a_save_and_reload():
+    r = repo()
+    task = ReadingTask(subject_id="f1", title="Apostelgeschichte", unit="Seiten", total=10, passes=3)
+    task.entries.append(ReadingEntry(day=date(2026, 10, 14), amount=5, durchlauf=1))
+    task.entries.append(ReadingEntry(day=date(2026, 10, 14), amount=7, durchlauf=2))
+    r.save(task)
+
+    geladen = r.get(task.id)
+    assert geladen.durchlauf_done(1) == 5 and geladen.durchlauf_done(2) == 7 and geladen.durchlauf_done(3) == 0
+
+
+def test_entry_without_durchlauf_defaults_to_1_after_reload():
+    """Alte Einträge von vor dieser Funktion haben kein durchlauf-Feld in der Datei – zählen zum ersten Durchgang."""
+    r = repo()
+    task = ReadingTask(subject_id="f1", title="Buch", unit="Seiten", total=10, passes=2)
+    task.entries.append(ReadingEntry(day=date(2026, 10, 14), amount=4))
+    r.save(task)
+    # Datei von Hand auf den alten Stand ohne "durchlauf" zurückstutzen, wie bei echten Altdaten
+    data = json.loads(r.path.read_text("utf-8"))
+    del data[0]["entries"][0]["durchlauf"]
+    r.path.write_text(json.dumps(data), "utf-8")
+
+    geladen = r.get(task.id)
+    assert geladen.entries[0].durchlauf == 1

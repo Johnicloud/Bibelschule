@@ -311,6 +311,16 @@ Sprache der Oberfläche und der Texte: Deutsch.
   gespeichert zu werden. Neuer Regressionstest `lesenachweis/tests/test_json_repository.py` (Speichern + Laden
   mit `buch_id`, bisher gab es keinen Test fürs Repository selbst, nur mit einem In-Memory-Fake).
 
+- [fertig] Lesenachweis: mehrere Durchgänge (passes > 1) jetzt mit je eigenem Stand, wie bei Büchern – im ersten
+  Durchgang auf Seite 5 stehen und gleichzeitig im zweiten auf Seite 7 ist jetzt möglich. `ReadingEntry.durchlauf`
+  (1-basiert, Default 1) hält fest, zu welchem Durchgang ein Eintrag gehört; `ReadingTask.durchlauf_done(n)` und
+  `aktiver_durchlauf()` (der erste noch nicht abgeschlossene) in der Domäne. API liefert je Pensum eine
+  `durchlaeufe`-Liste (`{nummer, done, total, abgeschlossen, aktiv}`). Oberfläche (`TaskCard.vue`): abgeschlossene
+  Durchgänge nur als Zahl oben zusammengefasst („2 von 4 Durchgängen abgeschlossen“), nur der gerade laufende
+  bekommt eine eigene Statusleiste, künftige (noch nicht erreichte) Durchgänge erscheinen gar nicht erst.
+  Eintragen-Formular bekommt bei passes > 1 ein Durchgang-Dropdown (anders als beim Buch bewusst mit einer
+  Vorauswahl – dem aus echten Daten berechneten aktiven Durchgang, kein Zufallswert).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
