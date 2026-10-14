@@ -71,6 +71,30 @@ def test_validation(svc):
         svc.get_deck("x")
 
 
+def test_druckbogen_needs_cards_and_a_renderer(svc):
+    deck = svc.create_deck("Bio")
+    with pytest.raises(InvalidInput):
+        svc.druckbogen(deck.id)   # keine Karten
+    svc.add_card(deck.id, "classic", "a", "b")
+    with pytest.raises(InvalidInput):
+        svc.druckbogen(deck.id)   # kein Renderer verdrahtet
+    with pytest.raises(NotFound):
+        svc.druckbogen("unbekannt")
+
+
+def test_druckbogen_calls_the_renderer_with_the_decks_cards():
+    class FakeRenderer:
+        def druckbogen(self, cards):
+            self.cards = cards
+            return b"%PDF-fake"
+    renderer = FakeRenderer()
+    svc = FlashcardService(InMemoryRepo(), printer=renderer)
+    deck = svc.create_deck("Bio")
+    svc.add_card(deck.id, "classic", "a", "b")
+    assert svc.druckbogen(deck.id) == b"%PDF-fake"
+    assert len(renderer.cards) == 1 and renderer.cards[0].front == "a"
+
+
 def test_subject_hooks(svc, events):
     deck = svc.ensure_deck("fach1", "Dogmatik")
     assert deck.id == "fach1" and events.sent == ["deck.created"]

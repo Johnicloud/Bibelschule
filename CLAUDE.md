@@ -482,6 +482,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+- [fertig] PDFs direkt im Browser drucken UND herunterladen (statt nur erzwungenem Download): gemeinsame
+  Funktion `kern/frontend/src/application/pdf.js` (`fensterOeffnen`/`pdfZeigen`) – öffnet die PDF-Datei in
+  einem neuen Reiter, wo der Browser seine eigene PDF-Ansicht mit Drucken- und Herunterladen-Knopf mitbringt,
+  statt sie wie bisher sofort als Datei zu speichern. Das Fenster muss schon offen sein, BEVOR die Datei beim
+  Server abgeholt wird (`fensterOeffnen()` synchron im Klick-Handler, bevor das `await` der eigentlichen
+  PDF-Erzeugung läuft) – sonst blocken Safari und manche Pop-up-Blocker das Fenster, weil die „Nutzeraktion“ mit
+  der ersten asynchronen Anfrage als verbraucht gilt. Blockt der Browser trotzdem, lädt `pdfZeigen` ersatzweise
+  herunter (nichts geht verloren). Eingesetzt bei Karteikarten-Druckbogen (`DeckPanel.vue`) und beim
+  Lesenachweis-PDF-Export (`TaskCard.vue`, `ReadingPanel.vue`).
+  Dabei auch den bisher nur lokal (nicht committeten) Karteikarten-Druckbogen fertiggestellt: eigener
+  `PrintRenderer`-Port, `ReportlabPrintRenderer` zeichnet 2×4-Raster je Bogen, Vorder-/Rückseiten im Wechsel
+  (Rückseite spaltenverkehrt je Zeile, passt zu „Wenden an der langen Kante“), `GET /api/karteikarten/decks/
+  {id}/druckbogen`.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

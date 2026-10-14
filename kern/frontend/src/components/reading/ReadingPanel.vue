@@ -4,6 +4,7 @@ import TaskCard from './TaskCard.vue'
 import ReadingSummary from './ReadingSummary.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import AppIcon from '../ui/AppIcon.vue'
+import { fensterOeffnen } from '../../application/pdf'
 import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
 const props = defineProps({ subjectId: String })
@@ -42,14 +43,15 @@ async function refresh() { await load(); emit('changed') }
 async function exportierenAlsPdf() {
   exportError.value = ''
   exportLaeuft.value = true
+  const fenster = fensterOeffnen()   // sofort im Klick öffnen, bevor die PDF geladen ist (siehe pdf.js)
   try {
     // Tatsächlich gelesene Seiten/Kapitel (b.done bzw. forecast.done), nicht der geplante Umfang (b.total/t.total).
     const alleBuecher = tasks.value.flatMap((t) => t.buecher.length
       ? t.buecher.map((b) => ({ titel: b.title, seiten: b.done }))
       : [{ titel: t.title, seiten: t.forecast.done }])
-    await pdfcreator.lesenachweisExportieren(subjectName.value, exportName.value, exportGemeinde.value, alleBuecher)
+    await pdfcreator.lesenachweisExportieren(subjectName.value, exportName.value, exportGemeinde.value, alleBuecher, fenster)
     exportieren.value = false
-  } catch (e) { exportError.value = e.message }
+  } catch (e) { exportError.value = e.message; fenster?.close() }
   finally { exportLaeuft.value = false }
 }
 function addBuchFeld() { buecher.value.push({ title: '', total: '' }) }
@@ -148,10 +150,10 @@ onMounted(load)
   </form>
 
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
-  <ul v-else-if="tasks.length" class="grid gap-4 sm:grid-cols-2">
+  <ul v-else-if="tasks.length" class="grid items-start gap-4 sm:grid-cols-2">
     <TaskCard v-for="t in tasks" :key="t.id" :task="t" :subject-name="subjectName" @changed="refresh" />
     <li v-if="!anlegen">
-      <button class="panel flex h-full w-full flex-col items-center justify-center gap-2 p-5 text-sm font-medium opacity-70 hover:opacity-100"
+      <button class="panel flex min-h-32 w-full flex-col items-center justify-center gap-2 p-5 text-sm font-medium opacity-70 hover:opacity-100"
         @click="anlegen = true">
         <AppIcon name="plus" class="h-6 w-6" />
         Neues Pensum

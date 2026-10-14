@@ -1,4 +1,6 @@
 // Anwendungsschicht der UI: kennt nur den "api"-Port (ein Objekt mit diesen Methoden), nicht HTTP.
+import { pdfZeigen } from './pdf'
+
 export function createFlashcardService(api) {
   return {
     listDecks: () => api.listDecks(),
@@ -15,5 +17,9 @@ export function createFlashcardService(api) {
     deleteCard: (id, cardId) => api.deleteCard(id, cardId),
     startSession: (deckId) => api.dueCards(deckId), // deckId leer = alle Fächer
     answer: (deckId, cardId, correct) => api.review(deckId, cardId, correct),
+    async drucken(deckId, deckName, fenster) {
+      const blob = await api.druckbogen(deckId)
+      pdfZeigen(fenster, blob, `Karteikarten ${deckName}.pdf`)
+    },
   }
 }
