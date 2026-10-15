@@ -1,6 +1,7 @@
 <script setup>
 import { inject, onMounted, ref } from 'vue'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { zielBibelstelle } from '../state/bibelNavigation'
 
 // Globale Volltextsuche: fragt alle Dienste mit größeren Textbeständen parallel ab (Bibel, Skripte,
 // Bibliothek) und zeigt die Treffer gruppiert – reine Frontend-Orchestrierung, die Dienste kennen sich
@@ -42,11 +43,8 @@ async function suchen() {
   suchend.value = false
 }
 
-async function bibelOeffnen(treffer) {
-  try {
-    const ort = await bibel.stelle(`${treffer.buch} ${treffer.kapitel}`)
-    window.open(bibel.dateiUrl(ort.seite), '_blank')
-  } catch (e) { fehler.value = e.message }
+function bibelOeffnen(treffer) {
+  zielBibelstelle.value = `${treffer.name} ${treffer.kapitel},${treffer.vers}`
 }
 
 const keineTreffer = () =>

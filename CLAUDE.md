@@ -398,9 +398,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
     `/api/health`, wie der Ollama-Aufruf bei `pdfcreator`), das Herauslesen der Verse läuft zusätzlich als
     eigener, nicht abgewarteter Hintergrund-Thread – die Antwort auf das Hochladen kommt sofort mit den
     erkannten Buch-Seiten, `hat_verse` in der Antwort zeigt, ob die Verse schon fertig sind.
-  - **Verknüpfung im Register**: Die Bibelstellen-Chips im Register-Reiter (`RegisterPanel.vue`) sind jetzt
-    Knöpfe statt reiner Anzeige – ein Klick löst `GET /api/bibel/stelle?text=…` auf und öffnet
-    `/api/bibel/datei#page=N` in einem neuen Tab (PDF-Fragment, vom Browser nativ unterstützt).
+  - **Verknüpfung im Register**: Die Bibelstellen-Chips im Register-Reiter (`RegisterPanel.vue`) sind
+    Knöpfe statt reiner Anzeige. Ursprünglich öffnete ein Klick die rohe PDF an der passenden Seite
+    (`stelle` + `#page=N`); jetzt springt er stattdessen in den Bibel-Reiter und schlägt die Stelle dort als
+    Text nach (`BibelView.vue`, Abschnitt „Lesen“), genau wie die Treffer der Bibelsuche (siehe unten) – über
+    `state/bibelNavigation.js` (`zielBibelstelle`, ein geteilter Ref): jede Komponente, die auf eine
+    Bibelstelle verweist, setzt ihn, `App.vue` beobachtet ihn und wechselt in den Bibel-Reiter, `BibelView.vue`
+    liest ihn aus und ruft `nachschlagen()` auf. Kein Emit-Durchreichen durch mehrere Komponenten-Ebenen
+    nötig (Register liegt tief in `SubjectView.vue`, die globale Suche ist ein eigener Reiter) – ein einfacher
+    geteilter Ref reicht, da das rein Frontend-intern ist (keine Dienst-Grenze).
 
 - [fertig] Bibel als Grundlage für Verknüpfungen bis auf Wortebene (auf Wunsch vorbereitet, noch ohne eigene
   Oberfläche dafür): jeder Vers hat jetzt eine stabile, kanonische Adresse (`domain/bible.py`, `Stelle.format()`,

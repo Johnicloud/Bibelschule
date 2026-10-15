@@ -2,11 +2,11 @@
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import RegisterTabs from './RegisterTabs.vue'
 import EmptyState from '../ui/EmptyState.vue'
+import { zielBibelstelle } from '../../state/bibelNavigation'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const register = inject('register')
-const bibel = inject('bibel')
 
 const registers = ref([])
 const selectedId = ref('')
@@ -104,13 +104,8 @@ async function removeEntry(entry) {
   await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
   emit('changed')
 }
-const bibelFehler = ref('')
-async function inBibelOeffnen(text) {
-  bibelFehler.value = ''
-  try {
-    const { seite } = await bibel.stelle(text)
-    window.open(bibel.dateiUrl(seite), '_blank')
-  } catch (e) { bibelFehler.value = `${text}: ${e.message}` }
+function inBibelOeffnen(text) {
+  zielBibelstelle.value = text
 }
 
 const exportError = ref('')
@@ -180,7 +175,6 @@ onMounted(() => loadRegisters())
         </template>
       </div>
       <p v-if="exportError" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</p>
-      <p v-if="bibelFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ bibelFehler }}</p>
 
       <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
       <EmptyState v-else-if="empty" title="Noch keine Einträge in diesem Register"

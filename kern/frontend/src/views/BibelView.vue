@@ -1,7 +1,8 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { inject, onMounted, ref, watch } from 'vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
+import { zielBibelstelle } from '../state/bibelNavigation'
 
 const bibel = inject('bibel')
 const index = ref(null)
@@ -39,11 +40,9 @@ async function suchen() {
   finally { suchLaedt.value = false }
 }
 
-async function zurSeite(treffer) {
-  try {
-    const ort = await bibel.stelle(`${treffer.buch} ${treffer.kapitel}`)
-    window.open(bibel.dateiUrl(ort.seite), '_blank')
-  } catch (e) { suchFehler.value = e.message }
+function zumVers(treffer) {
+  sucheText.value = `${treffer.name} ${treffer.kapitel},${treffer.vers}`
+  nachschlagen()
 }
 
 async function load() {
@@ -119,6 +118,14 @@ async function saveEdit(buch) {
 }
 
 onMounted(load)
+
+// Verweis von anderswo (Register, globale Suche): statt der rohen PDF wird die Stelle hier nachgeschlagen.
+watch(zielBibelstelle, (stelle) => {
+  if (!stelle) return
+  sucheText.value = stelle
+  nachschlagen()
+  zielBibelstelle.value = null
+}, { immediate: true })
 </script>
 
 <template>
@@ -210,7 +217,7 @@ onMounted(load)
     </p>
     <ul v-else-if="suchTreffer" class="mt-3 grid gap-2">
       <li v-for="t in suchTreffer" :key="t.id" class="panel p-3">
-        <button class="text-left" @click="zurSeite(t)">
+        <button class="text-left" @click="zumVers(t)">
           <span class="font-medium text-primary hover:underline">{{ t.name }} {{ t.kapitel }},{{ t.vers }}</span>
           <span class="ml-2 text-sm text-slate-600 dark:text-slate-300">{{ t.text }}</span>
         </button>

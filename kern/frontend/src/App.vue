@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppHeader from './components/ui/AppHeader.vue'
 import AppNav from './components/ui/AppNav.vue'
 import StudyFab from './components/ui/StudyFab.vue'
@@ -17,6 +17,7 @@ import BibliothekView from './views/BibliothekView.vue'
 import SucheView from './views/SucheView.vue'
 import PasswortAendernPflichtView from './views/PasswortAendernPflichtView.vue'
 import { abmeldeHinweis, gemeinde, isAdmin, loggedIn, mussPasswortAendern, nachname, username, vorname } from './state/auth'
+import { zielBibelstelle } from './state/bibelNavigation'
 
 const IDLE_LOGOUT_MINUTEN = 15   // wie beim Server (MemorySessionStore): 15 Minuten ohne Aktivität
 const IDLE_LOGOUT_MS = IDLE_LOGOUT_MINUTEN * 60 * 1000
@@ -40,6 +41,10 @@ async function idleLogout() {
   abmeldeHinweis.value = `Du wurdest nach ${IDLE_LOGOUT_MINUTEN} Minuten ohne Benutzung abgemeldet.`
 }
 const active = computed(() => (view.value === 'subject' ? 'subjects' : view.value))
+
+// Jeder Verweis auf eine Bibelstelle (Register, globale Suche, …) setzt zielBibelstelle statt die PDF zu
+// öffnen – hier wird daraus der Wechsel in den Bibel-Reiter, BibelView.vue liest die Stelle selbst aus.
+watch(zielBibelstelle, (stelle) => { if (stelle && view.value !== 'bibel') go('bibel') })
 
 // Automatische Abmeldung nach Inaktivität (wie bei einer Finanz-App): irgendeine Nutzereingabe setzt den
 // Timer zurück; läuft er ab, wird wie bei einer abgelaufenen Sitzung abgemeldet.
