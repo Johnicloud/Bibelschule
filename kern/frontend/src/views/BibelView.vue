@@ -5,6 +5,7 @@ import EmptyState from '../components/ui/EmptyState.vue'
 import { zielBibelstelle } from '../state/bibelNavigation'
 
 const bibel = inject('bibel')
+const vorlesen = inject('vorlesen')
 const index = ref(null)
 const loadError = ref('')
 const laedtHoch = ref(false)
@@ -24,6 +25,29 @@ const kapitelLaedt = ref(false)
 const gelesenesKapitel = ref(null)
 const gewaehltesBuch = ref('')
 const gewaehlteKapitelnummer = ref(1)
+
+// Vorlesen des gerade angezeigten Kapitels (lokale KI-Stimme, siehe vorlesen-Dienst) – reiner Text, der
+// Dienst kennt die Bibel nicht, bekommt nur den schon geladenen Verstext.
+const vorlesenLaeuft = ref(false)
+const vorlesenFehler = ref('')
+const vorlesenAudioUrl = ref('')
+
+function vorlesenZuruecksetzen() {
+  if (vorlesenAudioUrl.value) URL.revokeObjectURL(vorlesenAudioUrl.value)
+  vorlesenAudioUrl.value = ''
+  vorlesenFehler.value = ''
+}
+
+async function kapitelVorlesen() {
+  if (!gelesenesKapitel.value || gelesenesKapitel.value.verse.length === 0) return
+  vorlesenZuruecksetzen()
+  vorlesenLaeuft.value = true
+  try {
+    const text = gelesenesKapitel.value.verse.map((v) => v.text).join(' ')
+    vorlesenAudioUrl.value = URL.createObjectURL(await vorlesen.text(text))
+  } catch (e) { vorlesenFehler.value = e.message }
+  finally { vorlesenLaeuft.value = false }
+}
 
 // Volltextsuche: findet Verse nach Inhalt (nicht nach Bibelstelle wie beim Nachschlagen oben).
 const suchwort = ref('')
@@ -53,6 +77,7 @@ async function load() {
 async function nachschlagen() {
   if (!sucheText.value.trim()) return
   sucheFehler.value = ''
+  vorlesenZuruecksetzen()
   kapitelLaedt.value = true
   try {
     const ergebnis = await bibel.nachschlagen(sucheText.value)
@@ -65,6 +90,7 @@ async function nachschlagen() {
 
 async function kapitelLesen(buch, nummer) {
   sucheFehler.value = ''
+  vorlesenZuruecksetzen()
   kapitelLaedt.value = true
   try {
     const ergebnis = await bibel.kapitel(buch, nummer)
@@ -197,12 +223,20 @@ watch(zielBibelstelle, (stelle) => {
         <p v-if="gelesenesKapitel.verse.length === 0" class="text-sm text-slate-500 dark:text-slate-400">
           Für dieses Kapitel ist noch kein Verstext eingelesen.
         </p>
-        <p v-else class="font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">
-          <span v-for="v in gelesenesKapitel.verse" :key="v.id"
-                :class="v.vers === gelesenesKapitel.markiert ? 'rounded bg-primary/15 px-1 py-0.5 ring-1 ring-primary/30' : ''">
-            <sup class="mr-0.5 font-sans text-xs font-semibold text-primary">{{ v.vers }}</sup>{{ v.text }}{{ ' ' }}
-          </span>
-        </p>
+        <template v-else>
+          <button class="btn btn-outline mb-4 inline-flex items-center gap-2" :disabled="vorlesenLaeuft" @click="kapitelVorlesen">
+            <AppIcon name="vorlesen" class="h-4 w-4" />
+            {{ vorlesenLaeuft ? 'Erzeugt Audio …' : 'Kapitel vorlesen' }}
+          </button>
+          <p v-if="vorlesenFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ vorlesenFehler }}</p>
+          <audio v-if="vorlesenAudioUrl" :src="vorlesenAudioUrl" controls autoplay class="mb-4 w-full"></audio>
+          <p class="font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">
+            <span v-for="v in gelesenesKapitel.verse" :key="v.id"
+                  :class="v.vers === gelesenesKapitel.markiert ? 'rounded bg-primary/15 px-1 py-0.5 ring-1 ring-primary/30' : ''">
+              <sup class="mr-0.5 font-sans text-xs font-semibold text-primary">{{ v.vers }}</sup>{{ v.text }}{{ ' ' }}
+            </span>
+          </p>
+        </template>
       </div>
     </div>
 

@@ -498,13 +498,16 @@ Sprache der Oberfläche und der Texte: Deutsch.
   `./data`-Volume –, nur die drei Pflicht-Endpunkte). Zwei Endpunkte: `POST /api/text` (reiner Text) und
   `POST /api/pdf` (PDF-Datei, Text per `pypdf` wie beim `aufgabenleser`-Dienst herausgelesen), beide geben WAV
   zurück. Höchstens 20 000 Zeichen je Durchlauf (längere Texte brauchen auf der CPU sehr lange).
-  Zwei Zugänge in der Oberfläche: ein globaler Reiter „Vorlesen“ (`VorlesenView.vue`, freier Text einfügen,
-  Audio spielt automatisch) und ein „Vorlesen“-Knopf je Datei im Skripte-Reiter (`skripte/.../ui.html`) – holt
+  Drei Zugänge in der Oberfläche: ein globaler Reiter „Vorlesen“ (`VorlesenView.vue`, freier Text einfügen,
+  Audio spielt automatisch), ein „Vorlesen“-Knopf je Datei im Skripte-Reiter (`skripte/.../ui.html`) – holt
   die Datei über die schon vorhandene `/datei`-Vorschau-URL und schickt sie an `vorlesen` weiter, rein im
   Browser, ohne dass ein Dienst einen anderen Dienst serverseitig aufruft (es gibt dafür noch kein Vorbild im
   Projekt; der Kern leitet nur Oberfläche-zu-Dienst weiter, nie Dienst-zu-Dienst, siehe Entscheidungen). Aufruf
   eines fremden Diensts aus der eigenen `ui.html` darum bewusst mit absolutem Pfad (`/api/vorlesen/pdf`), nicht
-  relativ (relativ träfe sonst den eigenen Dienst, siehe Entscheidungen zum relativen Aufruf).
+  relativ (relativ träfe sonst den eigenen Dienst, siehe Entscheidungen zum relativen Aufruf). Dazu ein
+  „Kapitel vorlesen“-Knopf im Bibel-Reiter (`BibelView.vue`, Abschnitt „Lesen“): schickt den schon geladenen
+  Verstext des gerade angezeigten Kapitels (nicht die PDF) an `vorlesen.text()` – dieselbe Frontend-
+  Orchestrierung wie beim Skripte-Knopf, der `bibel`-Dienst kennt `vorlesen` ebenso wenig wie umgekehrt.
   Nebenbei `neuer-dienst.sh` repariert: trug neue Dienste bisher ans Ende von `docker-compose.override.yml`
   an, landete nach dem ersten Ollama-Dienst (der einen `networks:`-Block anhängt) fälschlich dort statt bei
   den übrigen Diensten (ist `bibel` und beim Anlegen von `vorlesen` selbst genau so passiert, von Hand
