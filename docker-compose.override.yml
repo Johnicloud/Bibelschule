@@ -43,6 +43,12 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     networks: [default, ki]
     restart: unless-stopped
+  vorlesen:
+    build: ./vorlesen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://vorlesen:8000
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses

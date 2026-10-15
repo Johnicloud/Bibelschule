@@ -25,16 +25,27 @@ find "$name" -type f \( -name '*.py' -o -name '*.html' -o -name '*.txt' -o -name
 find "$name" -name '*.bak' -type f -delete
 
 [ -f docker-compose.override.yml ] || printf 'services:\n' > docker-compose.override.yml
-cat >> docker-compose.override.yml <<YML
-  $name:
+block="  $name:
     build: ./$name
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://$name:8000
     volumes:
       - ./data/$name:/app/data
-    restart: unless-stopped
-YML
+    restart: unless-stopped"
+# Direkt nach "services:" einfügen, nicht ans Dateiende anhängen: steht danach noch ein "networks:"-Block
+# (für Ollama, siehe dort), landet ein reines Anhängen sonst fälschlich darin statt bei den Diensten.
+eingefuegt=0
+{
+  while IFS= read -r zeile || [ -n "$zeile" ]; do
+    printf '%s\n' "$zeile"
+    if [ "$zeile" = "services:" ] && [ "$eingefuegt" = 0 ]; then
+      printf '%s\n' "$block"
+      eingefuegt=1
+    fi
+  done < docker-compose.override.yml
+} > docker-compose.override.yml.neu
+mv docker-compose.override.yml.neu docker-compose.override.yml
 
 echo "Dienst \"$label\" liegt in ./$name und ist in docker-compose.override.yml eingetragen."
 echo "Starten: docker compose up --build -d"

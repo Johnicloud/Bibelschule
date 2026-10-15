@@ -6,6 +6,7 @@ defineEmits(['nav'])
 const tabs = [
   { id: 'subjects', label: 'Fächer', icon: 'faecher' },
   { id: 'cards', label: 'Karten', icon: 'karten' },
+  { id: 'vorlesen', label: 'Vorlesen', icon: 'vorlesen' },
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>
