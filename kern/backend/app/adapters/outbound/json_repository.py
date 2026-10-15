@@ -27,13 +27,13 @@ class JsonSubjectRepository(SubjectRepository):
         if not self.path.exists():
             return {}
         return {d["id"]: Subject(id=d["id"], name=d["name"], aufgaben=[_aufgabe_in(a) for a in d.get("aufgaben", [])],
-                                  se=d.get("se"), aktive_dienste=d.get("aktive_dienste", []))
+                                  se=d.get("se"), note=d.get("note"), aktive_dienste=d.get("aktive_dienste", []))
                 for d in json.loads(self.path.read_text("utf-8"))}
 
     def _write(self, subjects: dict[str, Subject]) -> None:
         daily_backup(self.path)
         data = [{"id": s.id, "name": s.name, "aufgaben": [_aufgabe_out(a) for a in s.aufgaben], "se": s.se,
-                  "aktive_dienste": s.aktive_dienste}
+                  "note": s.note, "aktive_dienste": s.aktive_dienste}
                 for s in subjects.values()]
         atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=2))
 

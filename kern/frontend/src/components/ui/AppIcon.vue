@@ -21,6 +21,8 @@ const PATHS = {
   zurueck: 'M19 12H5M12 19l-7-7 7-7',
   haken: 'M20 6 9 17l-5-5',
   kalender: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  noten: 'M4 20h3v-6H4v6zM10.5 20h3V9h-3v11zM17 20h3V4h-3v16z',
+  buch: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
   x: 'M6 6l12 12M18 6 6 18',
 }
 

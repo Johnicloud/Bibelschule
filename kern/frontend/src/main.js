@@ -5,6 +5,7 @@ import './style.css'
 import { createAdressbuchApi } from './adapters/adressbuchApi'
 import { createAufgabenleserApi } from './adapters/aufgabenleserApi'
 import { createAuthApi } from './adapters/authApi'
+import { createBibelApi } from './adapters/bibelApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
@@ -13,6 +14,7 @@ import { createRegisterApi } from './adapters/registerApi'
 import { createAdressbuchService } from './application/adressbuchService'
 import { createAufgabenLeseService } from './application/aufgabenLeseService'
 import { createAuthService } from './application/authService'
+import { createBibelService } from './application/bibelService'
 import { createFlashcardService } from './application/flashcardService'
 import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createSubjectService } from './application/subjectService'
@@ -28,4 +30,5 @@ createApp(App)
   .provide('adressbuch', createAdressbuchService(createAdressbuchApi('/api/adressbuch')))
   .provide('aufgabenleser', createAufgabenLeseService(createAufgabenleserApi('/api/aufgabenleser')))
   .provide('pdfcreator', createPdfcreatorService(createPdfcreatorApi('/api/pdfcreator')))
+  .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .mount('#app')

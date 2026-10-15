@@ -6,6 +6,7 @@ import EmptyState from '../ui/EmptyState.vue'
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const register = inject('register')
+const bibel = inject('bibel')
 
 const registers = ref([])
 const selectedId = ref('')
@@ -103,6 +104,15 @@ async function removeEntry(entry) {
   await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
   emit('changed')
 }
+const bibelFehler = ref('')
+async function inBibelOeffnen(text) {
+  bibelFehler.value = ''
+  try {
+    const { seite } = await bibel.stelle(text)
+    window.open(bibel.dateiUrl(seite), '_blank')
+  } catch (e) { bibelFehler.value = `${text}: ${e.message}` }
+}
+
 const exportError = ref('')
 async function exportieren(format) {
   exportError.value = ''
@@ -170,6 +180,7 @@ onMounted(() => loadRegisters())
         </template>
       </div>
       <p v-if="exportError" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</p>
+      <p v-if="bibelFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ bibelFehler }}</p>
 
       <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
       <EmptyState v-else-if="empty" title="Noch keine Einträge in diesem Register"
@@ -182,17 +193,19 @@ onMounted(() => loadRegisters())
             <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="removeEntry(e)">Löschen</button>
           </div>
           <div class="mt-3 flex flex-wrap gap-1.5">
-            <span v-for="r in e.refs" :key="r.text" :title="r.book_name"
-              class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 dark:bg-teal-500/10 dark:text-teal-300">
+            <button v-for="r in e.refs" :key="r.text" type="button" :title="`${r.book_name} – in der Bibel öffnen`"
+              class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 transition hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:hover:bg-teal-500/20"
+              @click="inBibelOeffnen(r.text)">
               {{ r.text }}
-            </span>
+            </button>
           </div>
         </li>
       </ul>
 
       <ul v-else class="panel divide-y divide-slate-200 dark:divide-slate-800">
         <li v-for="p in passages" :key="p.text" class="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <span class="w-32 shrink-0 font-medium tabular-nums" :title="p.book_name">{{ p.text }}</span>
+          <button type="button" class="w-32 shrink-0 text-left font-medium tabular-nums text-primary hover:underline"
+            :title="`${p.book_name} – in der Bibel öffnen`" @click="inBibelOeffnen(p.text)">{{ p.text }}</button>
           <span class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
             <span v-for="e in p.entries" :key="e.id">{{ e.name }}</span>
           </span>

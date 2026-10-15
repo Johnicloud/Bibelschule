@@ -43,6 +43,14 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     networks: [default, ki]
     restart: unless-stopped
+  bibel:
+    build: ./bibel
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibel:8000
+    volumes:
+      - ./data/bibel:/app/data
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses

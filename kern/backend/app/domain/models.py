@@ -27,6 +27,7 @@ class Subject:
     id: str = field(default_factory=new_id)
     aufgaben: list[Aufgabe] = field(default_factory=list)
     se: float | None = None   # Studieneinheiten (alt); Credits = se * 1.5 (neues System, wird nicht gespeichert)
+    note: float | None = None   # Abschlussnote des Fachs, deutsche Notenskala 1,0 (sehr gut) bis 5,0 (nicht ausreichend)
     # Optionale Dienste (Register/Karteikarten/Bibelverse/Skripte), die für dieses Fach eingeblendet wurden –
     # ohne das hier zu stehen, erscheinen sie weder als Reiter noch als Kachel in der Übersicht (Aufgaben und
     # Lesenachweis sind fest, kein Fach ohne die beiden).

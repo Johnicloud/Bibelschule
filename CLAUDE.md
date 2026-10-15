@@ -351,6 +351,57 @@ Sprache der Oberfläche und der Texte: Deutsch.
   der automatischen Abmeldung noch einen Bestätigungsdialog beim manuellen Abmelden – beides bewusst nicht
   nachgebaut, das „Abmelden wie bei der Finanzapp“ bezog sich recherchiert auf genau diesen Hinweistext.
 
+- [fertig] Noten: `note` (deutsche Notenskala 1,0 bis 5,0, optional) ist ein Feld am Fach im Kern (wie `se`,
+  dieselbe Begründung: gehört zum Fach selbst, kein eigener Dienst nötig). Eintragbar im Fach-Bearbeiten-Formular
+  (neben SE/Credits) und direkt im neuen globalen Reiter „Noten“ (`NotenView.vue`, Stift-Symbol je Fach-Kachel).
+  Allgemeine Auswertung `GET /api/noten` (`SubjectService.notenuebersicht`): Durchschnitt über alle benoteten
+  Fächer, gewichtet nach SE (Fach ohne SE zählt wie eine SE – dieselbe Regel wie bei der Aufgaben-Gewichtung:
+  vorhandene Gewichte zählen mehr, fehlende wie ein normaler Anteil). „Noten“ steht in `RESERVED`, kein Dienst
+  darf sich so nennen.
+
+- [fertig] Neuer Dienst `bibel`: eine Bibel als PDF hinterlegen, auf die Bibelstellen in der ganzen App
+  verweisen können – ein Klick führt direkt zur passenden Seite. Fachübergreifend wie `pdfcreator`/
+  `aufgabenleser` (kein `panel`, kein Fach-Bezug), eigene Oberfläche `BibelView.vue` als globaler Reiter
+  „Bibel“ im Kern-Frontend (nicht als iframe-`ui.html`, weil Upload + Seiten-Tabelle mehr Interaktion
+  brauchen, als das UI-Kit der Dienst-Vorlage hergibt).
+  - **Seiten-Erkennung** (`pdf_text.py`, `PypdfText.buchseiten_erkennen`): beim Hochladen zweistufig automatisch
+    erkannt, auf welcher PDF-Seite jedes der 66 Bücher beginnt. 1) Jede Seite trägt in ihrer Kopfzeile die
+    gedruckte Seitenzahl (z. B. „183“ oder bei einer Doppelseite „482 483“) – daraus eine Zuordnung gedruckte
+    Seitenzahl → PDF-Seite; fehlt sie (Buch-Titelseiten zeigen oft keine eigene Seitenzahl), wird auf die
+    nächstgelegene bekannte Seitenzahl hochgerechnet (höchstens 5 Seiten Abstand). 2) Ein „Inhaltsverzeichnis
+    und Abkürzungen der Bücher des Alten/Neuen Testaments“ listet je Buch Name, Kurzname und gedruckte
+    Seitenzahl – daraus mit Schritt 1 die PDF-Seite je Buch. Gegen die echte Schlachter-2000-PDF des Nutzers
+    geprüft: alle 66 Bücher korrekt gefunden. Nur ein Vorschlag (wie die KI-Ergebnisse bei `pdfcreator`/
+    `aufgabenleser`, siehe Entscheidungen) – von Hand korrigierbar über `PUT /api/bibel/buecher/{index}`,
+    in `BibelView.vue` je Buch ein Stift-Symbol wie bei Fach/Pensum/Dozent.
+  - **Verstext** (`verse_extractor.py`, `PypdfVerseExtractor`): liest zusätzlich den eigentlichen Bibeltext
+    heraus, Buch für Buch innerhalb seines erkannten Seitenbereichs. Reine Textbereinigung, keine KI: Seitenzahl-
+    Kopfzeilen, Fußnotenzeilen („a (1,26) hebr. …“) und Querverweiszeilen („Ps 104,2; Jos 45,7; 2Kor 4,6“)
+    werden herausgefiltert (Letzteres über `find_book` – eine Zeile, die nur aus Buch+Zahl-Häppchen besteht,
+    ist kein echter Verstext), Ligaturen (ﬂ, ﬁ, …) und Trennungen am Zeilenumbruch repariert. Versgrenzen
+    erkennt man an der Zahl, die jeden Vers einleitet (Zeilenanfang oder nach Satzzeichen + 1-2 Leerzeichen
+    mitten in der Zeile); ein unplausibler Zahlensprung (> 15, z. B. „782 Jahre“ in einem Stammbaum-Kapitel,
+    wo auf das großgeschriebene deutsche Nomen ein falscher Treffer folgen könnte) zählt nicht als Versgrenze.
+    **Bekannte Lücke:** Vers 1 eines Kapitels steht im Druck nie mit eigener Zahl da; am Kapitelwechsel gibt es
+    dafür keine im Text sichtbare Markierung (Zwischenüberschriften lassen sich ohne Schriftart-Information aus
+    der PDF nicht zuverlässig erkennen) – der unnummerierte Vers 1 jedes Kapitels (außer dem ersten eines
+    Buches) hängt darum am Ende des letzten Verses des vorigen Kapitels, statt eine eigene Zeile zu sein.
+    Gegen die echte Datei geprüft: Johannes korrekt in 21 Kapitel zerlegt, Joh 3,16 wortgenau extrahiert,
+    insgesamt rund 25 000 von etwa 31 000 Versen gefunden (~82 %) – ein „Gerüst zum Prüfen und Nachbessern“,
+    wie vom Nutzer so gewünscht, keine redaktionell geprüfte Ausgabe.
+  - **Kapitel-Seite, wenn Vers 1 nicht bekannt ist**: Kapitel 1 eines Buches liegt genau auf dessen Startseite;
+    andere Kapitel sind proportional zwischen dieser und der Startseite des nächsten Buches verteilt (nach
+    Kapitelanteil, `Buch.chapters` – eine fest hinterlegte, bekannte Zahl je Buch) – nah dran, aber nicht exakt.
+  - **Geschwindigkeit**: Das Herauslesen der Verse einer ganzen Bibel (hier 1396 Seiten) dauert 1-2 Minuten,
+    zu lang für eine Antwort auf `POST /api/bibel/hochladen` (Proxy-Timeouts). Die Seiten-Erkennung selbst
+    läuft darum im Thread-Pool (dauert nur Sekunden, blockiert aber sonst den ganzen Dienst, auch
+    `/api/health`, wie der Ollama-Aufruf bei `pdfcreator`), das Herauslesen der Verse läuft zusätzlich als
+    eigener, nicht abgewarteter Hintergrund-Thread – die Antwort auf das Hochladen kommt sofort mit den
+    erkannten Buch-Seiten, `hat_verse` in der Antwort zeigt, ob die Verse schon fertig sind.
+  - **Verknüpfung im Register**: Die Bibelstellen-Chips im Register-Reiter (`RegisterPanel.vue`) sind jetzt
+    Knöpfe statt reiner Anzeige – ein Klick löst `GET /api/bibel/stelle?text=…` auf und öffnet
+    `/api/bibel/datei#page=N` in einem neuen Tab (PDF-Fragment, vom Browser nativ unterstützt).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -369,6 +420,8 @@ Fächer, Volltextsuche, Notizen/Logbuch.
 - Der Kern ist der einzige Eingang der Oberfläche; er reicht Aufrufe an die Dienste weiter.
 - Tempo für die Prognose: Durchschnitt der letzten 14 Tage. „Knapp“ = Tempo unter 115 % des Bedarfs.
 - Bibelbücher: 66, evangelische Reihenfolge, Kurznamen nach Lutherbibel; Bücher mit einem Kapitel (Obd, Phlm, 2Joh, 3Joh, Jud): „Jud 5“ = Vers 5.
+  Jeder Dienst, der Bibelstellen kennt (Register, `bibel`), hat eine eigene Kopie der Buchliste/des Parsers (`domain/bible.py`) –
+  Dienste teilen keinen Code, nur die Fach-ID (siehe Regeln); Kurznamen und Reihenfolge bewusst überall identisch gehalten.
 - Löscht der Kern ein Fach, während ein Dienst offline ist, bleibt dessen Datenrest liegen und wird beim nächsten Abgleich als Fach zurückgeholt (lieber nichts verlieren).
 - Fachnamen führt nur der Kern; Lesenachweis und Register kennen nur die Fach-ID.
 - Gesamtfortschritt eines Fachs = Mittel der `progress`-Werte aller erreichbaren Dienste, die einen melden (`GET /api/subjects/{id}/overview`, `parts` zeigt die Teile).

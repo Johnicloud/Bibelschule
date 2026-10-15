@@ -23,6 +23,7 @@ const bearbeiten = ref(false)
 const editName = ref('')
 const editSe = ref('')
 const editCredits = ref('')
+const editNote = ref('')
 const alleDozenten = ref([])
 const ausgewaehlteDozenten = ref([])
 const editError = ref('')
@@ -61,6 +62,7 @@ async function openEdit() {
   editName.value = subject.value.name
   editSe.value = subject.value.se ?? ''
   editCredits.value = subject.value.credits ?? ''
+  editNote.value = subject.value.note ?? ''
   try { alleDozenten.value = await adressbuch.dozenten() } catch { alleDozenten.value = [] }
   ausgewaehlteDozenten.value = alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id)
   bearbeiten.value = true
@@ -71,6 +73,7 @@ async function saveEdit() {
   try {
     if (editName.value.trim() !== subject.value.name) await subjects.rename(props.subjectId, editName.value)
     subject.value = await subjects.setSe(props.subjectId, editSe.value)
+    subject.value = await subjects.setNote(props.subjectId, editNote.value)
     const vorher = new Set(alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id))
     const nachher = new Set(ausgewaehlteDozenten.value)
     await Promise.all([
@@ -102,6 +105,7 @@ onMounted(async () => {
             {{ FACH_STATUS[overview.stufe].label }}
           </span>
           <span v-if="overview && overview.progress != null" class="text-sm tabular-nums opacity-70">{{ overview.progress }} %</span>
+          <span v-if="subject.note != null" class="text-sm tabular-nums opacity-70">Note {{ subject.note.toFixed(1).replace('.', ',') }}</span>
           <button class="btn btn-ghost !p-2 ml-auto" aria-label="Fach bearbeiten" @click="openEdit">
             <AppIcon name="stift" class="h-4 w-4" />
           </button>
@@ -120,6 +124,7 @@ onMounted(async () => {
           <div class="flex gap-2">
             <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
             <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
+            <input v-model="editNote" type="number" min="1" max="5" step="0.1" class="input !w-24" placeholder="Note" aria-label="Note (1,0 bis 5,0)" />
           </div>
           <DozentenAuswahl v-model="ausgewaehlteDozenten" :dozenten="alleDozenten" class="flex-1" />
         </div>
