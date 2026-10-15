@@ -25,16 +25,19 @@ find "$name" -type f \( -name '*.py' -o -name '*.html' -o -name '*.txt' -o -name
 find "$name" -name '*.bak' -type f -delete
 
 [ -f docker-compose.override.yml ] || printf 'services:\n' > docker-compose.override.yml
-cat >> docker-compose.override.yml <<YML
-  $name:
+block="  $name:
     build: ./$name
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://$name:8000
     volumes:
       - ./data/$name:/app/data
-    restart: unless-stopped
-YML
+    restart: unless-stopped"
+# Direkt nach "services:" einfügen, nicht ans Dateiende anhängen – sonst landet der neue Dienst unter einem
+# späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML).
+awk -v block="$block" '{print} /^services:/ && !done {print block; done=1}' \
+  docker-compose.override.yml > docker-compose.override.yml.tmp
+mv docker-compose.override.yml.tmp docker-compose.override.yml
 
 echo "Dienst \"$label\" liegt in ./$name und ist in docker-compose.override.yml eingetragen."
 echo "Starten: docker compose up --build -d"

@@ -460,6 +460,24 @@ Sprache der Oberfläche und der Texte: Deutsch.
     mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
     tatsächlich auffindbar ist).
 
+- [fertig] Neuer Dienst `schnelllesen`: Speedreading-Training nach der 3-2-1-Methode – dasselbe Bibelkapitel
+  dreimal lesen, mit sinkender Zielzeit (3, dann 2, dann 1 Minute), man übt dadurch, denselben Text immer
+  schneller zu lesen. Fachübergreifend wie `bibel` (kein `panel`, eigene Oberfläche `SchnelllesenView.vue`
+  als globaler Reiter, Symbol `stoppuhr`). Eigene, gekürzte Kopie von `domain/bible.py` (nur Buch + Kapitelzahl,
+  siehe Entscheidungen) – Buch/Kapitel-Auswahl kommt darüber aus dem Dienst selbst (`GET /api/buecher`).
+  Holt sich den Verstext eines Kapitels direkt vom Bibel-Dienst (`HttpBibelQuelle`, `BIBEL_URL`, Default
+  `http://bibel:8000`) – ein direkter Dienst-zu-Dienst-Aufruf im Docker-Netz wie bei `pdfcreator`/
+  `aufgabenleser` zu Ollama, nicht über den Kern (der Login verlangt). Eine Trainingseinheit (`Einheit`)
+  hält den geholten Text und bis zu drei `Durchgang`-Einträge (Runde, gebrauchte Sekunden, Zielsekunden);
+  `wpm` (Wörter pro Minute) wird aus der gespeicherten Wortzahl berechnet, nicht erneut vom Bibel-Dienst
+  nachgefragt – bleibt so auch stabil, falls sich dessen Text später ändert. Die Oberfläche misst die Zeit
+  selbst (Start-/Fertig-Knopf, Timer im Browser) und schickt nur die gebrauchten Sekunden; kein serverseitiger
+  Countdown nötig. Verlauf vergangener Einheiten mit Lösch-Knopf unterhalb des laufenden Trainings.
+  `neuer-dienst.sh` nebenbei repariert: es hängte den neuen Dienst immer ans Dateiende von
+  `docker-compose.override.yml` an, was bei einem bestehenden `networks:`-Schlüssel am Dateiende (wie bei `ki`
+  durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
+  fügt jetzt direkt nach `services:` ein.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

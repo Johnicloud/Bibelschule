@@ -62,6 +62,15 @@ services:
       - ./data/bibliothek:/app/data
     networks: [default, ki]
     restart: unless-stopped
+  schnelllesen:
+    build: ./schnelllesen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://schnelllesen:8000
+      BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
+    volumes:
+      - ./data/schnelllesen:/app/data
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses

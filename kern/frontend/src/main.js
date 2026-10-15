@@ -12,6 +12,7 @@ import { createKernApi } from './adapters/kernApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
 import { createReadingApi } from './adapters/readingApi'
 import { createRegisterApi } from './adapters/registerApi'
+import { createSchnelllesenApi } from './adapters/schnelllesenApi'
 import { createAdressbuchService } from './application/adressbuchService'
 import { createAufgabenLeseService } from './application/aufgabenLeseService'
 import { createAuthService } from './application/authService'
@@ -22,6 +23,7 @@ import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createSubjectService } from './application/subjectService'
 import { createReadingService } from './application/readingService'
 import { createRegisterService } from './application/registerService'
+import { createSchnelllesenService } from './application/schnelllesenService'
 
 createApp(App)
   .provide('auth', createAuthService(createAuthApi('/api')))
@@ -34,4 +36,5 @@ createApp(App)
   .provide('pdfcreator', createPdfcreatorService(createPdfcreatorApi('/api/pdfcreator')))
   .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
+  .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
   .mount('#app')
