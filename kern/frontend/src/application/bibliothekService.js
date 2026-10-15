@@ -14,6 +14,7 @@ function buchBody(buch) {
 export function createBibliothekService(api) {
   return {
     buecher: () => api.buecher(),
+    suche: (text) => api.suche(text),
     add: (buch) => api.add(buchBody(buch)),
     update: (id, buch) => api.update(id, buchBody(buch)),
     remove: (id) => api.remove(id),

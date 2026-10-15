@@ -61,6 +61,10 @@ def create_app(service: BibliothekService) -> FastAPI:
     def list_buecher():
         return [buch_out(b) for b in service.list_buecher()]
 
+    @api.get("/suche")
+    def suche(text: str):
+        return service.suche(text)
+
     @api.post("/buecher", status_code=201)
     def add_buch(body: BuchIn):
         return buch_out(service.add_buch(body.titel, body.autor, body.verlag, body.jahr, body.isbn,

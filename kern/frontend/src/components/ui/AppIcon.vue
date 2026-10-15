@@ -26,6 +26,7 @@ const PATHS = {
   buch: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
   bibliothek: 'M3 21h18M4 21V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v16M10 21V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v12M16 21V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v14',
   x: 'M6 6l12 12M18 6 6 18',
+  lupe: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
 }
 
 const path = () => PATHS[props.name] || PATHS.baustein

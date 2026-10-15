@@ -1,5 +1,5 @@
 import pytest
-from app.application.ports import BildExtraktor, BuchRepository, DateiSpeicher, OcrKI, TextPdfBauer
+from app.application.ports import BildExtraktor, BuchRepository, DateiSpeicher, OcrKI, TextLeser, TextPdfBauer
 from app.application.services import BibliothekService
 from app.domain.errors import InvalidInput, NotFound
 
@@ -38,9 +38,16 @@ class FakeTextPdfBauer(TextPdfBauer):
         return b"TEXT-PDF:" + "|".join(text_je_seite).encode()
 
 
+class FakeTextLeser(TextLeser):
+    """Tut so, als stünde in der Text-PDF genau ihr eigener Inhalt als Text (kein echtes PDF-Parsing nötig)."""
+    def text(self, pdf):
+        return pdf.decode()
+
+
 @pytest.fixture
 def svc():
-    return BibliothekService(InMemoryRepo(), InMemoryDateien(), FakeBilder(), FakeOcr(), FakeTextPdfBauer())
+    return BibliothekService(InMemoryRepo(), InMemoryDateien(), FakeBilder(), FakeOcr(), FakeTextPdfBauer(),
+                             FakeTextLeser())
 
 
 def test_add_buch_requires_a_title(svc):
@@ -144,3 +151,33 @@ def test_text_erkennen_without_uploaded_file_does_nothing(svc):
     b = svc.add_buch("Buch ohne Datei")
     svc.text_erkennen(b.id)
     assert svc.text_datei(b.id) is None
+
+
+def test_suche_findet_treffer_nur_in_buechern_mit_text_erkennung(svc):
+    b1 = svc.add_buch("Mit Text")
+    svc.datei_hochladen(b1.id, b"%PDF-fake")
+    svc.dateien.speichere_text(b1.id, b"Hier geht es um die Gnade Gottes.")
+    svc.repo.get(b1.id).text_erkannt = True
+    b2 = svc.add_buch("Ohne Erkennung")
+    svc.datei_hochladen(b2.id, b"%PDF-fake")
+    treffer = svc.suche("Gnade")
+    assert len(treffer) == 1 and treffer[0]["titel"] == "Mit Text" and "Gnade" in treffer[0]["ausschnitt"]
+
+
+def test_suche_ist_case_insensitive(svc):
+    b = svc.add_buch("Buch")
+    svc.datei_hochladen(b.id, b"%PDF-fake")
+    svc.dateien.speichere_text(b.id, b"Grosse Gnade")
+    svc.repo.get(b.id).text_erkannt = True
+    assert len(svc.suche("GNADE")) == 1
+
+
+def test_suche_rejects_zu_kurzen_text(svc):
+    with pytest.raises(InvalidInput):
+        svc.suche("a")
+
+
+def test_suche_without_wiring_returns_empty():
+    svc = BibliothekService(InMemoryRepo())   # keine Datei-Ablage/kein TextLeser
+    svc.add_buch("Buch")
+    assert svc.suche("Gnade") == []

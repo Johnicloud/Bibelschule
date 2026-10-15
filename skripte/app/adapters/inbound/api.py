@@ -49,6 +49,10 @@ def create_app(service: SkriptService) -> FastAPI:
     def list_skripte(subject_id: str | None = None):
         return [skript_out(s) for s in service.list_skripte(subject_id)]
 
+    @api.get("/suche")
+    def suche(text: str, subject_id: str | None = None):
+        return service.suche(text, subject_id)
+
     @api.post("/skripte", status_code=201)
     async def upload(subject_id: str = Form(...), datei: UploadFile = None):
         inhalt = await datei.read()

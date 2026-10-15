@@ -1,7 +1,17 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
-from app.application.ports import BildExtraktor, BuchRepository, DateiSpeicher, OcrKI, TextPdfBauer
+from app.application.ports import BildExtraktor, BuchRepository, DateiSpeicher, OcrKI, TextLeser, TextPdfBauer
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import Buch
+
+MAX_TREFFER = 50
+_AUSSCHNITT_RADIUS = 80   # Zeichen vor/nach dem Fundort, für eine lesbare Vorschau im Suchergebnis
+
+
+def _ausschnitt(text: str, pos: int, laenge: int) -> str:
+    von = max(0, pos - _AUSSCHNITT_RADIUS)
+    bis = min(len(text), pos + laenge + _AUSSCHNITT_RADIUS)
+    stueck = " ".join(text[von:bis].split())
+    return ("…" if von > 0 else "") + stueck + ("…" if bis < len(text) else "")
 
 
 def _clean(text: str) -> str:
@@ -21,12 +31,13 @@ def _clean_an(text: str) -> str:
 class BibliothekService:
     def __init__(self, repo: BuchRepository, dateien: DateiSpeicher | None = None,
                  bilder: BildExtraktor | None = None, ocr: OcrKI | None = None,
-                 text_pdf_bauer: TextPdfBauer | None = None):
+                 text_pdf_bauer: TextPdfBauer | None = None, text_leser: TextLeser | None = None):
         self.repo = repo
         self.dateien = dateien
         self.bilder = bilder
         self.ocr = ocr
         self.text_pdf_bauer = text_pdf_bauer
+        self.text_leser = text_leser
 
     def _buch(self, buch_id: str) -> Buch:
         buch = self.repo.get(buch_id)
@@ -136,3 +147,29 @@ class BibliothekService:
         if buch is not None:
             buch.text_erkannt = True
             self.repo.save(buch)
+
+    def suche(self, text: str) -> list[dict]:
+        """Volltextsuche über die Bücher mit fertiger Text-Erkennung (`text_erkannt`, siehe `text_erkennen`) –
+        liest ihre Text-PDF neu und sucht darin, kein eigener Speicher für den Text (reiner Textvergleich wie
+        bei der Bibel- und Skripte-Suche, keine KI)."""
+        text = (text or "").strip()
+        if len(text) < 2:
+            raise InvalidInput("Bitte mindestens 2 Zeichen eingeben.")
+        if self.text_leser is None or self.dateien is None:
+            return []
+        gesucht = text.lower()
+        treffer = []
+        for buch in self.list_buecher():
+            if not buch.text_erkannt:
+                continue
+            text_pdf = self.dateien.text_pdf(buch.id)
+            if text_pdf is None:
+                continue
+            inhalt_text = self.text_leser.text(text_pdf)
+            pos = inhalt_text.lower().find(gesucht)
+            if pos >= 0:
+                treffer.append({"id": buch.id, "titel": buch.titel,
+                                "ausschnitt": _ausschnitt(inhalt_text, pos, len(text))})
+            if len(treffer) >= MAX_TREFFER:
+                break
+        return treffer

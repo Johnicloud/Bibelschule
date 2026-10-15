@@ -9,6 +9,7 @@ from app.adapters.outbound.file_repository import FileSystemDateiSpeicher
 from app.adapters.outbound.json_repository import JsonBuchRepository
 from app.adapters.outbound.ollama_vision import NullOcrKI, OllamaOcrKI
 from app.adapters.outbound.registration import register_with_kern
+from app.adapters.outbound.text_leser import PypdfTextLeser
 from app.adapters.outbound.text_pdf_bauer import ReportlabTextPdfBauer
 from app.application.services import BibliothekService
 
@@ -26,7 +27,7 @@ ollama_vision_model = os.getenv("OLLAMA_VISION_MODEL", "llama3.2-vision")
 repo = JsonBuchRepository(data_dir / "buecher.json")
 dateien = FileSystemDateiSpeicher(data_dir / "dateien")
 ocr = OllamaOcrKI(ollama_url, ollama_vision_model) if ollama_url else NullOcrKI()
-service = BibliothekService(repo, dateien, PypdfBildExtraktor(), ocr, ReportlabTextPdfBauer())
+service = BibliothekService(repo, dateien, PypdfBildExtraktor(), ocr, ReportlabTextPdfBauer(), PypdfTextLeser())
 app = create_app(service)
 
 if kern_url:

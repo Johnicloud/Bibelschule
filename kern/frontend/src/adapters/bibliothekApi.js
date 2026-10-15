@@ -7,6 +7,7 @@ export function createBibliothekApi(base = '/api/bibliothek') {
   const call = createCall(base)
   return {
     buecher: () => call('GET', '/buecher'),
+    suche: (text) => call('GET', `/suche?text=${encodeURIComponent(text)}`),
     add: (buch) => call('POST', '/buecher', buch),
     update: (id, buch) => call('PUT', `/buecher/${id}`, buch),
     remove: (id) => call('DELETE', `/buecher/${id}`),

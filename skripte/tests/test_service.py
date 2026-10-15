@@ -1,5 +1,5 @@
 import pytest
-from app.application.ports import DateiSpeicher, SkriptRepository
+from app.application.ports import DateiSpeicher, PdfText, SkriptRepository
 from app.application.services import MAX_BYTES, SkriptService
 from app.domain.errors import InvalidInput, NotFound
 
@@ -23,9 +23,15 @@ class InMemoryDateien(DateiSpeicher):
     def loesche(self, i): self.d.pop(i, None)
 
 
+class FakePdfText(PdfText):
+    """Tut so, als stünde in jeder PDF-Datei genau ihr Inhalt als Text (kein echtes PDF-Parsing nötig)."""
+    def text(self, pdf):
+        return pdf.decode("utf-8")
+
+
 @pytest.fixture
 def svc():
-    return SkriptService(InMemoryRepo(), InMemoryDateien())
+    return SkriptService(InMemoryRepo(), InMemoryDateien(), FakePdfText())
 
 
 def test_upload_requires_a_filename(svc):
@@ -61,6 +67,40 @@ def test_discard_subject_removes_all_its_skripte(svc):
     svc.discard_subject("fach-1")
     assert svc.list_skripte("fach-1") == []
     assert len(svc.list_skripte("fach-2")) == 1
+
+
+def test_suche_findet_treffer_in_pdf_dateien(svc):
+    svc.upload("fach-1", "a.pdf", "application/pdf", b"Hier geht es um die Gnade Gottes.")
+    svc.upload("fach-1", "b.pdf", "application/pdf", b"Nichts Passendes hier drin.")
+    treffer = svc.suche("Gnade")
+    assert len(treffer) == 1 and treffer[0]["dateiname"] == "a.pdf" and "Gnade" in treffer[0]["ausschnitt"]
+
+
+def test_suche_ist_case_insensitive(svc):
+    svc.upload("fach-1", "a.pdf", "application/pdf", b"Grosse Gnade")
+    assert len(svc.suche("GNADE")) == 1
+
+
+def test_suche_ignoriert_dateien_ohne_pdf_content_type(svc):
+    svc.upload("fach-1", "bild.png", "image/png", b"Gnade")
+    assert svc.suche("Gnade") == []
+
+
+def test_suche_kann_auf_ein_fach_eingeschraenkt_werden(svc):
+    svc.upload("fach-1", "a.pdf", "application/pdf", b"Gnade")
+    svc.upload("fach-2", "b.pdf", "application/pdf", b"Gnade")
+    assert len(svc.suche("Gnade", "fach-1")) == 1
+
+
+def test_suche_rejects_zu_kurzen_text(svc):
+    with pytest.raises(InvalidInput):
+        svc.suche("a")
+
+
+def test_suche_without_pdf_text_wiring_returns_empty():
+    svc = SkriptService(InMemoryRepo(), InMemoryDateien())   # kein PdfText
+    svc.upload("fach-1", "a.pdf", "application/pdf", b"Gnade")
+    assert svc.suche("Gnade") == []
 
 
 def test_subject_status_counts_skripte(svc):

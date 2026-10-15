@@ -35,3 +35,10 @@ class DateiSpeicher(ABC):
 
     @abstractmethod
     def loesche(self, skript_id: str) -> None: ...
+
+
+class PdfText(ABC):
+    """Ausgehender Port: liest den Text einer PDF-Datei (für die Volltextsuche; nicht jede hochgeladene
+    Datei ist eine PDF, siehe `SkriptService.suche`)."""
+    @abstractmethod
+    def text(self, pdf: bytes) -> str: ...

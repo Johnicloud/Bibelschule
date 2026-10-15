@@ -4,6 +4,7 @@ import AppIcon from './AppIcon.vue'
 defineProps({ active: String })
 defineEmits(['nav'])
 const tabs = [
+  { id: 'suche', label: 'Suche', icon: 'lupe' },
   { id: 'subjects', label: 'Fächer', icon: 'faecher' },
   { id: 'cards', label: 'Karten', icon: 'karten' },
   { id: 'noten', label: 'Noten', icon: 'noten' },

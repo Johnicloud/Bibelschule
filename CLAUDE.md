@@ -460,13 +460,27 @@ Sprache der Oberfläche und der Texte: Deutsch.
     mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
     tatsächlich auffindbar ist).
 
-- [fertig] Bibelsuche: `GET /api/bibel/suche?text=…` (`BibelService.suche`, `VersRepository.suche`) findet jeden
-  herausgelesenen Vers, dessen Text die gesuchte Zeichenkette enthält (Groß/Kleinschreibung egal), in Bibelreihenfolge
-  sortiert, auf 100 Treffer begrenzt. Reine Volltextsuche nach Inhalt, kein Bibelstellen-Parser wie `stelle`
-  (der löst umgekehrt eine Stelle wie „Joh 3,16“ zur PDF-Seite auf). Mindestens 2 Zeichen, sonst `InvalidInput`.
-  Oberfläche (`BibelView.vue`): eigenes Suchformular, erscheint erst, sobald die Verse eingelesen sind
-  (`index.hat_verse`); je Treffer Buch/Kapitel/Vers + Text, ein Klick löst wie bei den Register-Chips `stelle`
-  auf und öffnet die PDF an der passenden Seite in einem neuen Tab.
+- [fertig] Volltextsuche überall, wo schon Text vorliegt: Bibel, Skripte, Bibliothek – je Dienst ein eigener
+  `/suche`-Endpunkt (keine KI, reiner Textvergleich, Groß/Kleinschreibung egal, mindestens 2 Zeichen sonst
+  `InvalidInput`), dazu ein neuer globaler Reiter „Suche“ (`SucheView.vue`, Lupe-Symbol in `AppNav.vue`), der
+  alle drei parallel abfragt (`Promise.allSettled`, ein einzelner nicht erreichbarer Dienst blockiert die
+  anderen Treffer nicht) und gruppiert anzeigt – reine Frontend-Orchestrierung, die Dienste kennen sich
+  weiterhin nicht (siehe Entscheidungen).
+  - `GET /api/bibel/suche?text=…` (`BibelService.suche`, `VersRepository.suche`): jeder herausgelesene Vers,
+    dessen Text die Zeichenkette enthält, in Bibelreihenfolge sortiert, auf 100 Treffer begrenzt. Kein
+    Bibelstellen-Parser wie `stelle` (der löst umgekehrt eine Stelle wie „Joh 3,16“ zur PDF-Seite auf). Auch
+    direkt im Bibel-Reiter selbst nutzbar (eigenes Suchformular unterhalb von „Lesen“).
+  - `GET /api/skripte/suche?text=…&subject_id=` (optional, sonst über alle Fächer): liest bei jedem Aufruf
+    den Text der hochgeladenen PDF-Skripte neu heraus (`PdfText`/`PypdfText`, neuer Port+Adapter, kein eigener
+    Textspeicher – für den üblichen Bestand schnell genug), andere Dateitypen (Bilder u. Ä.) liefern keinen
+    Text und werden übersprungen. Treffer mit Dateiname + kurzem Ausschnitt um die Fundstelle.
+  - `GET /api/bibliothek/suche?text=…`: durchsucht nur Bücher mit fertiger Text-Erkennung (`text_erkannt`,
+    siehe oben), liest dafür ihre Text-PDF neu (`TextLeser`/`PypdfTextLeser`, neuer Port+Adapter). Treffer mit
+    Buchtitel + Ausschnitt, Klick öffnet die durchsuchbare Text-PDF.
+  - Beide neuen `PdfText`/`TextLeser`-Adapter sind bewusst eigene, einfache Kopien (kein gemeinsamer Code
+    zwischen Diensten, siehe Regeln) – inhaltlich identisch zur Bibel-Lösung, aber nicht derselbe Code.
+  - Skripte hatte bisher keinen eigenen Vue-Adapter (nur das UI-Kit-iframe) – `skripteApi.js`/`skripteService.js`
+    decken jetzt nur, was die globale Suche braucht (Suche + Datei-Link), nicht die volle Verwaltung.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

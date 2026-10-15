@@ -58,3 +58,10 @@ class TextPdfBauer(ABC):
     Seiten – das Bild bleibt sichtbar wie im Original, die PDF wird aber durchsuchbar/kopierbar."""
     @abstractmethod
     def baue(self, original_pdf: bytes, text_je_seite: list[str]) -> bytes: ...
+
+
+class TextLeser(ABC):
+    """Ausgehender Port: liest den Text aus einer PDF zurück (für die Volltextsuche über die Text-PDF,
+    die `TextPdfBauer` gebaut hat)."""
+    @abstractmethod
+    def text(self, pdf: bytes) -> str: ...
