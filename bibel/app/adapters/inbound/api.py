@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.application.services import BibelService
 from app.domain.bible import BOOKS
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Bibelindex
+from app.domain.models import Bibelindex, Verweis
 
 
 class SeiteIn(BaseModel):
@@ -19,6 +19,17 @@ class SeiteIn(BaseModel):
 
 class SubjectIn(BaseModel):
     name: str
+
+
+class VerweisIn(BaseModel):
+    stelle: str            # kanonische Adresse, z. B. "Joh.3.16" oder "Joh.3.16.5" (Wort 5)
+    art: str                # frei, z. B. "register-eintrag", "notiz", "frage" – keine feste Liste
+    referenz: str           # eine ID oder Kurzbeschreibung des verweisenden Dings
+    titel: str | None = None
+
+
+def verweis_out(v: Verweis) -> dict:
+    return {"id": v.id, "stelle": v.stelle, "art": v.art, "referenz": v.referenz, "titel": v.titel}
 
 
 def index_out(index: Bibelindex, hat_verse: bool = False) -> dict:
@@ -82,6 +93,22 @@ def create_app(service: BibelService) -> FastAPI:
     @api.get("/kapitel")
     def kapitel(buch: str, nummer: int):
         return service.kapitel(buch, nummer)
+
+    @api.get("/wort")
+    def wort(stelle: str):
+        return service.wort(stelle)
+
+    @api.post("/verweise", status_code=201)
+    def verweis_anlegen(body: VerweisIn):
+        return verweis_out(service.verweis_anlegen(body.stelle, body.art, body.referenz, body.titel))
+
+    @api.get("/verweise")
+    def verweise(stelle: str):
+        return [verweis_out(v) for v in service.verweise_zu(stelle)]
+
+    @api.delete("/verweise/{verweis_id}", status_code=204)
+    def verweis_loeschen(verweis_id: str):
+        service.verweis_loeschen(verweis_id)
 
     # Fach-Hooks: fachübergreifend, trotzdem die drei Pflicht-Endpunkte, damit der Kern beim Abgleich
     # keine Ausnahme braucht (wie bei pdfcreator/aufgabenleser).

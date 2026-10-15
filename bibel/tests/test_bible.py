@@ -1,5 +1,5 @@
 import pytest
-from app.domain.bible import BOOKS, find_book, parse_ref
+from app.domain.bible import BOOKS, Stelle, find_book, parse_ref, parse_stelle
 from app.domain.errors import InvalidInput
 
 
@@ -38,3 +38,29 @@ def test_parse_ref_rejects_chapter_beyond_the_book():
 def test_all_66_books_present_in_evangelical_order():
     assert len(BOOKS) == 66
     assert BOOKS[0].short == "1Mo" and BOOKS[65].short == "Offb"
+
+
+def test_stelle_format_roundtrip():
+    joh = find_book("Joh")
+    assert Stelle(joh.index, 3, 16).format() == "Joh.3.16"
+    assert Stelle(joh.index, 3, 16, word=5).format() == "Joh.3.16.5"
+
+
+def test_parse_stelle_reads_verse_and_optional_word():
+    s = parse_stelle("Joh.3.16")
+    assert BOOKS[s.book].short == "Joh" and s.chapter == 3 and s.verse == 16 and s.word is None
+    s = parse_stelle("Joh.3.16.5")
+    assert s.word == 5
+
+
+def test_parse_stelle_rejects_bad_input():
+    with pytest.raises(InvalidInput):
+        parse_stelle("Joh 3,16")          # kein Punkt-Format
+    with pytest.raises(InvalidInput):
+        parse_stelle("Xyz.1.1")           # unbekanntes Buch
+    with pytest.raises(InvalidInput):
+        parse_stelle("Joh.99.1")          # Johannes hat nur 21 Kapitel
+    with pytest.raises(InvalidInput):
+        parse_stelle("Joh.3.0")           # Verse beginnen bei 1
+    with pytest.raises(InvalidInput):
+        parse_stelle("Joh.3.16.0")        # Wörter beginnen bei 1

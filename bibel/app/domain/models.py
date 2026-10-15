@@ -1,9 +1,17 @@
-"""Domäne: wo im hinterlegten Bibel-PDF ein Buch beginnt.
+"""Domäne: wo im hinterlegten Bibel-PDF ein Buch beginnt, die herausgelesenen Verse, und Verweise, die von
+irgendwo in der App auf eine Bibelstelle (bis auf Wortebene) zeigen – die Bibel als Grundlage, an die sich
+alles andere anknüpfen lässt (siehe Projektnotizen).
 
 Nur Buch-genau gespeichert (66 Einträge), nicht Kapitel-genau (1189 Kapitel wären von Hand kaum zu pflegen).
 Die Seite eines Kapitels wird daraus errechnet: gleichmäßig zwischen der Startseite dieses Buches und der
 des nächsten verteilt, nach Kapitelanteil (`Buch.chapters`) – nicht exakt, aber nah dran, siehe Entscheidungen."""
+import re
 from dataclasses import dataclass, field
+from uuid import uuid4
+
+
+def new_id() -> str:
+    return uuid4().hex
 
 
 @dataclass
@@ -26,9 +34,21 @@ class Bibelindex:
         return next((b for b in self.buchseiten if b.buch_index == buch_index), None)
 
 
+_WORT = re.compile(r"\S+")
+
+
+def woerter(text: str) -> list[str]:
+    """Zerlegt einen Verstext in Wörter (an Leerraum, Satzzeichen bleiben am Wort) – die Grundlage für die
+    Wort-genaue Adresse (`Stelle.word`). Einfache, stabile Regel statt echter Sprachanalyse: dieselbe Zahl
+    Wörter kommt bei jedem Aufruf heraus, auch nach erneutem Hochladen derselben Datei."""
+    return _WORT.findall(text or "")
+
+
 @dataclass
 class Vers:
     """Ein einzelner Bibelvers, automatisch aus der hochgeladenen PDF herausgelesen (siehe verse_extractor.py).
+    `id` ist die kanonische, stabile Adresse (`Stelle.format()`, z. B. „Joh.3.16“) – darüber verknüpft sich
+    alles andere mit diesem Vers (siehe `Verweis`), nicht über die Datenbank-Reihenfolge.
     Kein Anspruch auf Perfektion: der erste (unnummerierte) Vers eines Kapitels landet beim Herauslesen manchmal
     am Ende des letzten Verses des vorigen Kapitels (siehe dortiger Modul-Docstring) – ein „Gerüst zum Prüfen
     und Nachbessern“, keine fertige, redaktionell geprüfte Bibelausgabe."""
@@ -36,3 +56,25 @@ class Vers:
     kapitel: int
     vers: int
     text: str
+    id: str = ""
+
+    def woerter(self) -> list[str]:
+        return woerter(self.text)
+
+    def wort(self, index: int) -> str | None:
+        w = self.woerter()
+        return w[index - 1] if 1 <= index <= len(w) else None
+
+
+@dataclass
+class Verweis:
+    """Ein Verweis von irgendwo in der App auf eine Bibelstelle (Vers oder einzelnes Wort) – der generische
+    Anknüpfungspunkt: `art` sagt, was für eine Art Verweis es ist (z. B. „register-eintrag“, „notiz“,
+    „frage“, „wortstudie“ – offen für alles Künftige, keine feste Liste), `referenz` ist frei (eine ID oder
+    Kurzbeschreibung des verweisenden Dings, dieser Dienst kennt die anderen Dienste nicht), `titel` eine
+    kurze, für Menschen lesbare Beschriftung."""
+    stelle: str   # Stelle.format(), z. B. "Joh.3.16" oder "Joh.3.16.5"
+    art: str
+    referenz: str
+    titel: str | None = None
+    id: str = field(default_factory=new_id)

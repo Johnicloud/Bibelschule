@@ -1,5 +1,6 @@
 import pytest
-from app.application.ports import DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor
+from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor,
+                                   VerweisRepository)
 from app.application.services import BibelService
 from app.domain.bible import BOOKS, find_book
 from app.domain.errors import InvalidInput, NotFound
@@ -18,7 +19,17 @@ class InMemoryVersRepo(VersRepository):
     def kapitel(self, buch_index, kapitel):
         return sorted((v for v in self.verse if v.buch_index == buch_index and v.kapitel == kapitel),
                      key=lambda v: v.vers)
+    def vers(self, buch_index, kapitel, vers):
+        return next((v for v in self.verse if v.buch_index == buch_index and v.kapitel == kapitel
+                    and v.vers == vers), None)
     def hat_verse(self): return bool(self.verse)
+
+
+class InMemoryVerweisRepo(VerweisRepository):
+    def __init__(self): self.d = {}
+    def speichere(self, verweis): self.d[verweis.id] = verweis
+    def zu_stelle(self, stelle): return [v for v in self.d.values() if v.stelle == stelle]
+    def loesche(self, verweis_id): self.d.pop(verweis_id, None)
 
 
 class InMemoryDateien(DateiSpeicher):
@@ -41,7 +52,8 @@ class FakeExtractor(VerseExtractor):
 
 @pytest.fixture
 def svc():
-    return BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText(), InMemoryVersRepo(), FakeExtractor())
+    return BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText(), InMemoryVersRepo(), FakeExtractor(),
+                        InMemoryVerweisRepo())
 
 
 def test_hochladen_speichert_datei_und_erkannte_seiten(svc):
@@ -142,3 +154,69 @@ def test_hochladen_without_extractor_wiring_skips_verses_silently():
     svc = BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText())   # kein verse_repo/extractor
     index = svc.hochladen("b.pdf", b"x")
     assert index.dateiname == "b.pdf"   # Seiten-Erkennung funktioniert weiterhin ohne Verse
+
+
+def test_kapitel_output_carries_the_stable_id_per_vers(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    verse = svc.kapitel("1Mo", 1)["verse"]
+    assert [v["id"] for v in verse] == ["1Mo.1.1", "1Mo.1.2"]
+
+
+def test_wort_resolves_a_single_word_within_its_verse(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    ergebnis = svc.wort("1Mo.1.1.3")
+    assert ergebnis["wort"] == "schuf" and ergebnis["vers_id"] == "1Mo.1.1"
+    assert ergebnis["vers_text"].startswith("Im Anfang schuf Gott")
+
+
+def test_wort_without_word_part_returns_the_whole_verse(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    ergebnis = svc.wort("1Mo.1.1")
+    assert ergebnis["wort"] is None and ergebnis["vers_id"] == "1Mo.1.1"
+
+
+def test_wort_rejects_a_word_index_beyond_the_verse(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    with pytest.raises(InvalidInput):
+        svc.wort("1Mo.1.1.999")
+
+
+def test_wort_raises_when_the_verse_itself_is_not_read_yet(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    with pytest.raises(NotFound):
+        svc.wort("1Mo.5.1")   # nur Kapitel 1 hat die FakeExtractor-Verse
+
+
+def test_verweis_anlegen_und_wieder_finden(svc):
+    v = svc.verweis_anlegen("1Mo.1.1", "register-eintrag", "register-service:entry-42", "Schöpfung")
+    assert v.stelle == "1Mo.1.1" and v.titel == "Schöpfung"
+    gefunden = svc.verweise_zu("1Mo.1.1")
+    assert len(gefunden) == 1 and gefunden[0].id == v.id
+    assert svc.verweise_zu("1Mo.1.2") == []
+
+
+def test_verweis_anlegen_validates(svc):
+    with pytest.raises(InvalidInput):
+        svc.verweis_anlegen("keine gueltige stelle", "notiz", "x", None)
+    with pytest.raises(InvalidInput):
+        svc.verweis_anlegen("1Mo.1.1", "  ", "x", None)
+    with pytest.raises(InvalidInput):
+        svc.verweis_anlegen("1Mo.1.1", "notiz", "  ", None)
+
+
+def test_verweis_loeschen(svc):
+    v = svc.verweis_anlegen("1Mo.1.1", "notiz", "x", None)
+    svc.verweis_loeschen(v.id)
+    assert svc.verweise_zu("1Mo.1.1") == []
+
+
+def test_verweise_without_wiring_are_harmless():
+    svc = BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText())   # kein verweis_repo
+    assert svc.verweise_zu("1Mo.1.1") == []
+    with pytest.raises(InvalidInput):
+        svc.verweis_anlegen("1Mo.1.1", "notiz", "x", None)

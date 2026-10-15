@@ -1,18 +1,21 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
-from app.application.ports import DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor
-from app.domain.bible import BOOKS, find_book, parse_ref
+from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor,
+                                   VerweisRepository)
+from app.domain.bible import BOOKS, Stelle, find_book, parse_ref, parse_stelle
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Bibelindex, Buchseite, Vers
+from app.domain.models import Bibelindex, Buchseite, Vers, Verweis
 
 
 class BibelService:
     def __init__(self, index_repo: IndexRepository, dateien: DateiSpeicher, text: PdfText,
-                 verse_repo: VersRepository | None = None, extractor: VerseExtractor | None = None):
+                 verse_repo: VersRepository | None = None, extractor: VerseExtractor | None = None,
+                 verweis_repo: VerweisRepository | None = None):
         self.index_repo = index_repo
         self.dateien = dateien
         self.text = text
         self.verse_repo = verse_repo
         self.extractor = extractor
+        self.verweis_repo = verweis_repo
 
     def index(self) -> Bibelindex:
         gespeichert = self.index_repo.get()
@@ -59,7 +62,9 @@ class BibelService:
             bis = self._naechste_startseite(index, buchseite.buch_index)
             ende = (bis - 1) if bis is not None else None
             for kapitel, vers_nr, vers_text in self.extractor.buch_verse(inhalt, buchseite.seite, ende):
-                verse.append(Vers(buch_index=buchseite.buch_index, kapitel=kapitel, vers=vers_nr, text=vers_text))
+                stelle_id = Stelle(buchseite.buch_index, kapitel, vers_nr).format()
+                verse.append(Vers(buch_index=buchseite.buch_index, kapitel=kapitel, vers=vers_nr, text=vers_text,
+                                  id=stelle_id))
         return verse
 
     def seite_setzen(self, buch_index: int, seite: int | None) -> Bibelindex:
@@ -108,7 +113,48 @@ class BibelService:
             raise InvalidInput(f"{buch.name} hat nur {buch.chapters} Kapitel.")
         verse = self.verse_repo.kapitel(buch.index, kapitel) if self.verse_repo else []
         return {"buch": buch.short, "name": buch.name, "kapitel": kapitel, "kapitel_gesamt": buch.chapters,
-                "verse": [{"vers": v.vers, "text": v.text} for v in verse]}
+                "verse": [{"id": v.id, "vers": v.vers, "text": v.text} for v in verse]}
+
+    def wort(self, stelle_text: str) -> dict:
+        """Löst eine Wort-genaue Stelle ('Joh.3.16.5') zum einzelnen Wort auf, samt dem ganzen Vers als
+        Zusammenhang. Ohne Wort-Teil ('Joh.3.16') ist das Ergebnis derselbe Vers, nur ohne `wort`."""
+        stelle = parse_stelle(stelle_text)
+        if self.verse_repo is None:
+            raise NotFound("Es sind noch keine Verse eingelesen.")
+        vers = self.verse_repo.vers(stelle.book, stelle.chapter, stelle.verse)
+        if vers is None:
+            raise NotFound(f"Für {stelle.format()} ist noch kein Vers eingelesen.")
+        wort_text = None
+        if stelle.word is not None:
+            wort_text = vers.wort(stelle.word)
+            if wort_text is None:
+                raise InvalidInput(f"{vers.id} hat nur {len(vers.woerter())} Wörter.")
+        return {"stelle": stelle.format(), "vers_id": vers.id, "vers_text": vers.text, "wort": wort_text}
+
+    # Verweise: irgendetwas in der App zeigt auf eine Bibelstelle (Vers oder Wort) – der generische
+    # Anknüpfungspunkt, siehe domain/models.py.
+    def verweis_anlegen(self, stelle_text: str, art: str, referenz: str, titel: str | None) -> Verweis:
+        if self.verweis_repo is None:
+            raise InvalidInput("Verweise sind gerade nicht verfügbar.")
+        stelle = parse_stelle(stelle_text)   # wirft InvalidInput, wenn die Stelle nicht stimmt
+        if not (art or "").strip():
+            raise InvalidInput("Die Art des Verweises darf nicht leer sein.")
+        if not (referenz or "").strip():
+            raise InvalidInput("Die Referenz darf nicht leer sein.")
+        verweis = Verweis(stelle=stelle.format(), art=art.strip(), referenz=referenz.strip(),
+                          titel=(titel or "").strip() or None)
+        self.verweis_repo.speichere(verweis)
+        return verweis
+
+    def verweise_zu(self, stelle_text: str) -> list[Verweis]:
+        if self.verweis_repo is None:
+            return []
+        stelle = parse_stelle(stelle_text)
+        return self.verweis_repo.zu_stelle(stelle.format())
+
+    def verweis_loeschen(self, verweis_id: str) -> None:
+        if self.verweis_repo is not None:
+            self.verweis_repo.loesche(verweis_id)
 
     def _naechste_startseite(self, idx: Bibelindex, buch_index: int) -> int | None:
         for i in range(buch_index + 1, len(BOOKS)):

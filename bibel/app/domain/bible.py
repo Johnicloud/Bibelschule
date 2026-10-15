@@ -138,3 +138,44 @@ def parse_ref(text: str) -> BibleRef:
     if not 1 <= chapter <= book.chapters:
         raise InvalidInput(f"{book.name} hat nur {book.chapters} Kapitel („{text.strip()}“).")
     return BibleRef(book.index, chapter)
+
+
+@dataclass(frozen=True)
+class Stelle:
+    """Eine genaue, stabile Adresse bis auf Wortebene – die Grundlage, an die alles Mögliche anknüpfen kann
+    (Register, Notizen, Fragen, Wortstudien, …), siehe Projektnotizen. `wort` ist das 1-basierte Wort
+    innerhalb des Verses, None = der ganze Vers ist gemeint."""
+    book: int
+    chapter: int
+    verse: int
+    word: int | None = None
+
+    def format(self) -> str:
+        teile = [BOOKS[self.book].short, str(self.chapter), str(self.verse)]
+        if self.word is not None:
+            teile.append(str(self.word))
+        return ".".join(teile)
+
+
+_STELLE = re.compile(r"^\s*(?P<book>[^.]+)\.(?P<chapter>\d+)\.(?P<verse>\d+)(?:\.(?P<word>\d+))?\s*$")
+
+
+def parse_stelle(text: str) -> Stelle:
+    """Die kanonische, maschinenlesbare Adress-Schreibweise 'Joh.3.16' (Vers) oder 'Joh.3.16.5' (5. Wort
+    dieses Verses) – anders als `parse_ref` (freie Texteingabe wie 'Joh 3,16-18') IMMER mit Vers, nie ein
+    Bereich: eine Stelle, an die man etwas anknüpft, ist immer genau eine Stelle."""
+    m = _STELLE.match(text or "")
+    if not m:
+        raise InvalidInput(f"Die Stelle „{(text or '').strip()}“ habe ich nicht verstanden (erwartet z. B. „Joh.3.16“).")
+    book = find_book(m["book"])
+    if book is None:
+        raise InvalidInput(f"Das Bibelbuch „{m['book'].strip()}“ kenne ich nicht („{text.strip()}“).")
+    chapter, verse = int(m["chapter"]), int(m["verse"])
+    word = int(m["word"]) if m["word"] else None
+    if not 1 <= chapter <= book.chapters:
+        raise InvalidInput(f"{book.name} hat nur {book.chapters} Kapitel („{text.strip()}“).")
+    if verse < 1:
+        raise InvalidInput(f"Verse beginnen bei 1 („{text.strip()}“).")
+    if word is not None and word < 1:
+        raise InvalidInput(f"Wörter beginnen bei 1 („{text.strip()}“).")
+    return Stelle(book.index, chapter, verse, word)

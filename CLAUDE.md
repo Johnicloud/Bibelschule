@@ -402,6 +402,27 @@ Sprache der Oberfläche und der Texte: Deutsch.
     Knöpfe statt reiner Anzeige – ein Klick löst `GET /api/bibel/stelle?text=…` auf und öffnet
     `/api/bibel/datei#page=N` in einem neuen Tab (PDF-Fragment, vom Browser nativ unterstützt).
 
+- [fertig] Bibel als Grundlage für Verknüpfungen bis auf Wortebene (auf Wunsch vorbereitet, noch ohne eigene
+  Oberfläche dafür): jeder Vers hat jetzt eine stabile, kanonische Adresse (`domain/bible.py`, `Stelle.format()`,
+  z. B. `Joh.3.16`; mit Wort `Joh.3.16.5` = 5. Wort dieses Verses) – `Vers.id` trägt sie, `parse_stelle()`
+  liest sie wieder ein (anders als `parse_ref()`, das freien Text wie „Joh 3,16-18“ für die Seitensuche
+  versteht, erwartet `parse_stelle()` immer genau diese Punkt-Schreibweise, nie einen Bereich: eine Stelle,
+  an die man etwas anknüpft, ist immer genau eine Stelle).
+  - `GET /api/bibel/wort?stelle=Joh.3.16.5` löst ein einzelnes Wort auf (samt dem ganzen Vers als Zusammenhang).
+    Wörter werden nicht gespeichert, sondern bei Bedarf aus `Vers.text` zerlegt (`domain/models.py`, `woerter()`
+    – an Leerraum, Satzzeichen bleiben am Wort), damit sich die Zahl nicht ändert, wenn man dieselbe Datei
+    erneut hochlädt.
+  - Neuer genereller **Verweis**-Mechanismus (`domain/models.py`, `Verweis`; `VerweisRepository`): ein Verweis
+    hat `stelle` (die kanonische Adresse), `art` (freier Text, keine feste Liste – „register-eintrag“, „notiz“,
+    „frage“, „wortstudie“, was auch künftig dazukommt), `referenz` (eine ID/Kurzbeschreibung des verweisenden
+    Dings – der `bibel`-Dienst kennt die anderen Dienste nicht, siehe Regeln) und optional `titel`.
+    `POST /api/bibel/verweise`, `GET /api/bibel/verweise?stelle=…` (Rückwärtssuche: was zeigt hierher?),
+    `DELETE /api/bibel/verweise/{id}`. Bewusst noch nicht ans Register oder sonst wohin angeschlossen (reine
+    Vorbereitung) – das Register verlinkt weiterhin nur zur Seite, nicht als `Verweis`-Eintrag.
+  - 38 Bibel-Dienst-Tests grün (15 neue: `Stelle`-Format/Parsing, `woerter()`/`Vers.wort()`, `wort()`- und
+    `verweis_*`-Anwendungsfälle). Gegen die echte Schlachter-PDF nachgerechnet: `Joh.3.16.5` löst korrekt zu
+    „Gott“ auf.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

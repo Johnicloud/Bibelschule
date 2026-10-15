@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from app.domain.models import Bibelindex, Vers
+from app.domain.models import Bibelindex, Vers, Verweis
 
 
 class IndexRepository(ABC):
@@ -24,7 +24,22 @@ class VersRepository(ABC):
     def kapitel(self, buch_index: int, kapitel: int) -> list[Vers]: ...
 
     @abstractmethod
+    def vers(self, buch_index: int, kapitel: int, vers: int) -> Vers | None: ...
+
+    @abstractmethod
     def hat_verse(self) -> bool: ...
+
+
+class VerweisRepository(ABC):
+    """Ausgehender Port: Verweise von irgendwo in der App auf eine Bibelstelle (siehe domain/models.py)."""
+    @abstractmethod
+    def speichere(self, verweis: Verweis) -> None: ...
+
+    @abstractmethod
+    def zu_stelle(self, stelle: str) -> list[Verweis]: ...
+
+    @abstractmethod
+    def loesche(self, verweis_id: str) -> None: ...
 
 
 class DateiSpeicher(ABC):
