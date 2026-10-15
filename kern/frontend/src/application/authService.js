@@ -9,5 +9,7 @@ export function createAuthService(api) {
       api.updateProfile((vorname || '').trim(), (nachname || '').trim(), (gemeinde || '').trim()),
     accounts: () => api.accounts(),
     createAccount: (username, password, isAdmin) => api.createAccount(username.trim(), password, isAdmin),
+    setAdmin: (username, isAdmin) => api.setAdmin(username, isAdmin),
+    resetPassword: (username) => api.resetPassword(username),
   }
 }

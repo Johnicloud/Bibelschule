@@ -43,6 +43,34 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     networks: [default, ki]
     restart: unless-stopped
+  bibel:
+    build: ./bibel
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibel:8000
+    volumes:
+      - ./data/bibel:/app/data
+    restart: unless-stopped
+  bibliothek:
+    build: ./bibliothek
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibliothek:8000
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llama3.2-vision}
+    volumes:
+      - ./data/bibliothek:/app/data
+    networks: [default, ki]
+    restart: unless-stopped
+  schnelllesen:
+    build: ./schnelllesen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://schnelllesen:8000
+      BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
+    volumes:
+      - ./data/schnelllesen:/app/data
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses

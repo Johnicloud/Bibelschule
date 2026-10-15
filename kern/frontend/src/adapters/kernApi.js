@@ -9,6 +9,8 @@ export function createKernApi(base = '/api') {
     createSubject: (name, aufgaben = [], se = null) => call('POST', '/subjects', { name, aufgaben, se }),
     renameSubject: (id, name) => call('PUT', `/subjects/${id}`, { name }),
     setSe: (id, se) => call('PUT', `/subjects/${id}/se`, { se }),
+    setNote: (id, note) => call('PUT', `/subjects/${id}/note`, { note }),
+    noten: () => call('GET', '/noten'),
     deleteSubject: (id) => call('DELETE', `/subjects/${id}`),
     addAufgabe: (id, titel, frist, gewichtung) =>
       call('POST', `/subjects/${id}/aufgaben`, { titel, frist: frist || null, gewichtung: gewichtung === '' || gewichtung == null ? null : Number(gewichtung) }),

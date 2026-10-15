@@ -9,7 +9,7 @@ from app.domain.models import Aufgabe, Subject
 
 
 # Diese Namen gehören dem Kern selbst und dürfen kein Dienst sein.
-RESERVED = {"subjects", "services", "sync", "overview", "registry", "health", "docs", "openapi.json", "redoc"}
+RESERVED = {"subjects", "services", "sync", "overview", "registry", "health", "docs", "openapi.json", "redoc", "noten"}
 SERVICE_NAME = re.compile(r"^[a-z][a-z0-9-]{1,30}$")
 
 
@@ -75,6 +75,27 @@ class SubjectService:
         subject.se = se
         self.subjects.save(subject)
         return subject
+
+    def set_note(self, subject_id: str, note: float | None) -> Subject:
+        """Abschlussnote des Fachs, deutsche Notenskala 1,0 (sehr gut) bis 5,0 (nicht ausreichend)."""
+        if note is not None and not 1.0 <= note <= 5.0:
+            raise InvalidInput("Die Note liegt zwischen 1,0 und 5,0.")
+        subject = self._subject(subject_id)
+        subject.note = note
+        self.subjects.save(subject)
+        return subject
+
+    def notenuebersicht(self) -> dict:
+        """Allgemeine Auswertung aller benoteten Fächer: Durchschnitt gewichtet nach Studieneinheiten (SE);
+        Fächer ohne SE zählen dabei wie ein Fach mit einer SE (gleiches Vorgehen wie bei der Aufgaben-Gewichtung:
+        vorhandene Gewichte zählen entsprechend mehr, fehlende wie ein normaler Anteil)."""
+        benotet = [s for s in self.subjects.list() if s.note is not None]
+        gewicht = lambda s: s.se if s.se else 1
+        summe_gewicht = sum(gewicht(s) for s in benotet)
+        durchschnitt = round(sum(s.note * gewicht(s) for s in benotet) / summe_gewicht, 2) if benotet else None
+        faecher = sorted(({"id": s.id, "name": s.name, "note": s.note, "se": s.se} for s in benotet),
+                         key=lambda f: _sort_key(f["name"]))
+        return {"durchschnitt": durchschnitt, "anzahl": len(benotet), "faecher": faecher}
 
     def delete_subject(self, subject_id: str) -> dict[str, bool]:
         subject = self._subject(subject_id)

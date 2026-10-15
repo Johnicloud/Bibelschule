@@ -287,6 +287,197 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Name noch einmal. Nur beim (bisher nicht über die Oberfläche erreichbaren) Export über alle Register eines
   Fachs hinweg bleibt die Spalte zur Unterscheidung nötig (`entries_table(..., mit_register=register_id is None)`).
 
+- [fertig] Fach-Kopf: Status-Chip und Prozentzahl stehen jetzt doch wieder neben dem Titel (nur der Farbbalken
+  allein war zu wenig), SE/Credits bleiben aber weg. Aufgaben-Erledigt ist jetzt ein runder Haken-Knopf
+  (`AppIcon name="haken"`, gefüllt/teal wenn erledigt, nur Umriss wenn offen) statt einer schlichten Checkbox.
+  „PDF auswählen“ (Aufgabenblatt einlesen) steht als Knopf direkt neben „+ Neue Aufgabe“ im Kopf von „Umfang
+  dieses Fachs“, die frühere eigene Einleitungsbox mit Erklärungstext fiel weg.
+- [fertig] Workflow-Wechsel (auf Wunsch): Änderungen an diesem Projekt laufen ab jetzt über einen eigenen
+  Branch + Pull Request + Review, nicht mehr direkt auf `main`. `gh` (GitHub-CLI) wurde dafür installiert.
+
+- [fertig] Pensum-Kachel (`TaskCard.vue`) weiter ausgearbeitet: Eintragen-Formular zeigt den Buchnamen jetzt
+  komplett (statt abgeschnitten), Seiten-Feld dafür schmaler, Datum nur noch ein Kalender-Symbol (öffnet den
+  nativen Datumswähler über `showPicker()`), Eintragen ein Haken-Symbol statt Textknopf. Kopf zeigt nur noch
+  Status (Frist fiel weg). Die reine „aus: Buch (x/y), …“-Textzeile ist jetzt je Buch eine eigene, schlichte
+  Statusleiste mit Seitenzahl darüber; Einträge ohne Buch-Zuordnung (z. B. aus der Zeit vor einer Aufteilung in
+  mehrere Bücher) laufen nicht mehr spurlos in den Gesamtfortschritt ein, sondern erscheinen sichtbar als „Ohne
+  Buch zugeordnet“ mit ihrer Menge.
+
+- [fertig] Bug behoben: `buch_id` eines Leseeintrags ging beim Speichern verloren (`JsonReadingRepository._to_dict`/
+  `_from_dict` kannten das Feld nicht, obwohl Domäne/API es längst hatten) – ein Eintrag landete nach dem
+  nächsten Laden immer bei „ohne Buch zugeordnet“, egal welches Buch beim Eintragen gewählt wurde. Dazu als
+  Absicherung in `TaskCard.vue`: die Buch-Auswahl hat keine stille Vorauswahl mehr („Buch wählen“ als
+  Pflicht-Option), Eintragen ohne gewähltes Buch wird jetzt abgelehnt statt stillschweigend ohne Zuordnung
+  gespeichert zu werden. Neuer Regressionstest `lesenachweis/tests/test_json_repository.py` (Speichern + Laden
+  mit `buch_id`, bisher gab es keinen Test fürs Repository selbst, nur mit einem In-Memory-Fake).
+
+- [fertig] Lesenachweis: mehrere Durchgänge (passes > 1) jetzt mit je eigenem Stand, wie bei Büchern – im ersten
+  Durchgang auf Seite 5 stehen und gleichzeitig im zweiten auf Seite 7 ist jetzt möglich. `ReadingEntry.durchlauf`
+  (1-basiert, Default 1) hält fest, zu welchem Durchgang ein Eintrag gehört; `ReadingTask.durchlauf_done(n)` und
+  `aktiver_durchlauf()` (der erste noch nicht abgeschlossene) in der Domäne. API liefert je Pensum eine
+  `durchlaeufe`-Liste (`{nummer, done, total, abgeschlossen, aktiv}`). Oberfläche (`TaskCard.vue`): abgeschlossene
+  Durchgänge nur als Zahl oben zusammengefasst („2 von 4 Durchgängen abgeschlossen“), nur der gerade laufende
+  bekommt eine eigene Statusleiste, künftige (noch nicht erreichte) Durchgänge erscheinen gar nicht erst.
+  Eintragen-Formular bekommt bei passes > 1 ein Durchgang-Dropdown (anders als beim Buch bewusst mit einer
+  Vorauswahl – dem aus echten Daten berechneten aktiven Durchgang, kein Zufallswert).
+
+- [fertig] Karteikarten doppelseitig drucken: `GET /api/karteikarten/decks/{id}/druckbogen` baut aus den Karten
+  eines Fachs eine neue PDF-Seite mit reportlab (eigener Port `PrintRenderer`/Adapter `ReportlabPrintRenderer`,
+  kein Overlay wie bei `pdfcreator` – hier wird von Grund auf gezeichnet). Raster 2×4 Karten je Bogen, je zwei
+  PDF-Seiten im Wechsel (erst alle Vorderseiten des Bogens, dann alle Rückseiten) – beim doppelseitigen Drucken
+  liegen so aufeinanderfolgende Seiten direkt richtig. Rückseite ist je Zeile spaltenverkehrt gezeichnet (passt
+  zu „Wenden an der langen Kante“, der üblichen Standardeinstellung – bei „kurzer Kante“ zur Probe erst mit
+  wenigen Karten drucken). `card.back` ist für alle Kartentypen schon der richtige Antworttext (bei Multiple
+  Choice/Richtig-Falsch die richtige Antwort, nicht die Optionenliste), daher keine Sonderfälle im Renderer nötig.
+  Dünne gestrichelte Schnittlinien je Karte. Oberfläche: Knopf „Als PDF drucken“ im Fach-Reiter Karteikarten,
+  wie der PDF-Export beim Lesenachweis als Browser-Download (`flashcardService.drucken()`, eigener Fetch-Aufruf
+  für die Binärdatei statt des gemeinsamen `createCall`, siehe `httpApi.js`).
+
+- [fertig] Benutzerverwaltung wie bei der Finanzapp (`/Users/admin/finanzapp`, Vorbild begutachtet): auf der
+  Konto-Seite ist das Admin-Recht jetzt eine Checkbox je Benutzer (statt nur beim Anlegen setzbar und danach
+  ein reiner Anzeige-Chip) – `PUT /api/accounts/{username}/admin`, `AuthService.set_is_admin`. Der letzte Admin
+  kann sich sein Admin-Recht nicht selbst nehmen (serverseitig erzwungen, wie bei der Finanzapp). Dazu „Passwort
+  neu setzen“ je Benutzer: `POST /api/accounts/{username}/reset-password` erzeugt ein zufälliges temporäres
+  Passwort, meldet das Konto überall ab (`SessionStore.delete_for_account`, neue Pflichtmethode am Port) und
+  setzt `Account.muss_passwort_aendern`. Das temporäre Passwort steht einmalig in der Oberfläche (nicht
+  geloggt) – der Admin kennt nie das endgültige Passwort, das sich der Benutzer selbst setzt. Beim nächsten
+  Anmelden zeigt die Oberfläche statt der App erst `PasswortAendernPflichtView.vue` (temporäres Passwort als
+  „bisheriges“ + neues zweimal, nutzt denselben `PUT /api/me/password`-Weg wie die normale Passwort-Änderung,
+  die dabei das Flag löscht).
+  Zusätzlich wie bei der Finanzapp: nach automatischer Abmeldung durch Inaktivität zeigt die Anmeldeseite jetzt
+  einen Hinweis („Du wurdest nach 15 Minuten ohne Benutzung abgemeldet.“) statt kommentarlos zum leeren
+  Login-Formular zurückzuspringen (`state/auth.js` `abmeldeHinweis`, gesetzt in `App.vue` `idleLogout()`,
+  geleert beim nächsten erfolgreichen Login). Finanzapp selbst hat weder einen Vorab-Countdown/Warn-Dialog vor
+  der automatischen Abmeldung noch einen Bestätigungsdialog beim manuellen Abmelden – beides bewusst nicht
+  nachgebaut, das „Abmelden wie bei der Finanzapp“ bezog sich recherchiert auf genau diesen Hinweistext.
+
+- [fertig] Noten: `note` (deutsche Notenskala 1,0 bis 5,0, optional) ist ein Feld am Fach im Kern (wie `se`,
+  dieselbe Begründung: gehört zum Fach selbst, kein eigener Dienst nötig). Eintragbar im Fach-Bearbeiten-Formular
+  (neben SE/Credits) und direkt im neuen globalen Reiter „Noten“ (`NotenView.vue`, Stift-Symbol je Fach-Kachel).
+  Allgemeine Auswertung `GET /api/noten` (`SubjectService.notenuebersicht`): Durchschnitt über alle benoteten
+  Fächer, gewichtet nach SE (Fach ohne SE zählt wie eine SE – dieselbe Regel wie bei der Aufgaben-Gewichtung:
+  vorhandene Gewichte zählen mehr, fehlende wie ein normaler Anteil). „Noten“ steht in `RESERVED`, kein Dienst
+  darf sich so nennen.
+
+- [fertig] Neuer Dienst `bibel`: eine Bibel als PDF hinterlegen, auf die Bibelstellen in der ganzen App
+  verweisen können – ein Klick führt direkt zur passenden Seite. Fachübergreifend wie `pdfcreator`/
+  `aufgabenleser` (kein `panel`, kein Fach-Bezug), eigene Oberfläche `BibelView.vue` als globaler Reiter
+  „Bibel“ im Kern-Frontend (nicht als iframe-`ui.html`, weil Upload + Seiten-Tabelle mehr Interaktion
+  brauchen, als das UI-Kit der Dienst-Vorlage hergibt).
+  - **Seiten-Erkennung** (`pdf_text.py`, `PypdfText.buchseiten_erkennen`): beim Hochladen zweistufig automatisch
+    erkannt, auf welcher PDF-Seite jedes der 66 Bücher beginnt. 1) Jede Seite trägt in ihrer Kopfzeile die
+    gedruckte Seitenzahl (z. B. „183“ oder bei einer Doppelseite „482 483“) – daraus eine Zuordnung gedruckte
+    Seitenzahl → PDF-Seite; fehlt sie (Buch-Titelseiten zeigen oft keine eigene Seitenzahl), wird auf die
+    nächstgelegene bekannte Seitenzahl hochgerechnet (höchstens 5 Seiten Abstand). 2) Ein „Inhaltsverzeichnis
+    und Abkürzungen der Bücher des Alten/Neuen Testaments“ listet je Buch Name, Kurzname und gedruckte
+    Seitenzahl – daraus mit Schritt 1 die PDF-Seite je Buch. Gegen die echte Schlachter-2000-PDF des Nutzers
+    geprüft: alle 66 Bücher korrekt gefunden. Nur ein Vorschlag (wie die KI-Ergebnisse bei `pdfcreator`/
+    `aufgabenleser`, siehe Entscheidungen) – von Hand korrigierbar über `PUT /api/bibel/buecher/{index}`,
+    in `BibelView.vue` je Buch ein Stift-Symbol wie bei Fach/Pensum/Dozent.
+  - **Verstext** (`verse_extractor.py`, `PypdfVerseExtractor`): liest zusätzlich den eigentlichen Bibeltext
+    heraus, Buch für Buch innerhalb seines erkannten Seitenbereichs. Reine Textbereinigung, keine KI: Seitenzahl-
+    Kopfzeilen, Fußnotenzeilen („a (1,26) hebr. …“) und Querverweiszeilen („Ps 104,2; Jos 45,7; 2Kor 4,6“)
+    werden herausgefiltert (Letzteres über `find_book` – eine Zeile, die nur aus Buch+Zahl-Häppchen besteht,
+    ist kein echter Verstext), Ligaturen (ﬂ, ﬁ, …) und Trennungen am Zeilenumbruch repariert. Versgrenzen
+    erkennt man an der Zahl, die jeden Vers einleitet (Zeilenanfang oder nach Satzzeichen + 1-2 Leerzeichen
+    mitten in der Zeile); ein unplausibler Zahlensprung (> 15, z. B. „782 Jahre“ in einem Stammbaum-Kapitel,
+    wo auf das großgeschriebene deutsche Nomen ein falscher Treffer folgen könnte) zählt nicht als Versgrenze.
+    **Bekannte Lücke:** Vers 1 eines Kapitels steht im Druck nie mit eigener Zahl da; am Kapitelwechsel gibt es
+    dafür keine im Text sichtbare Markierung (Zwischenüberschriften lassen sich ohne Schriftart-Information aus
+    der PDF nicht zuverlässig erkennen) – der unnummerierte Vers 1 jedes Kapitels (außer dem ersten eines
+    Buches) hängt darum am Ende des letzten Verses des vorigen Kapitels, statt eine eigene Zeile zu sein.
+    Gegen die echte Datei geprüft: Johannes korrekt in 21 Kapitel zerlegt, Joh 3,16 wortgenau extrahiert,
+    insgesamt rund 25 000 von etwa 31 000 Versen gefunden (~82 %) – ein „Gerüst zum Prüfen und Nachbessern“,
+    wie vom Nutzer so gewünscht, keine redaktionell geprüfte Ausgabe.
+  - **Kapitel-Seite, wenn Vers 1 nicht bekannt ist**: Kapitel 1 eines Buches liegt genau auf dessen Startseite;
+    andere Kapitel sind proportional zwischen dieser und der Startseite des nächsten Buches verteilt (nach
+    Kapitelanteil, `Buch.chapters` – eine fest hinterlegte, bekannte Zahl je Buch) – nah dran, aber nicht exakt.
+  - **Geschwindigkeit**: Das Herauslesen der Verse einer ganzen Bibel (hier 1396 Seiten) dauert 1-2 Minuten,
+    zu lang für eine Antwort auf `POST /api/bibel/hochladen` (Proxy-Timeouts). Die Seiten-Erkennung selbst
+    läuft darum im Thread-Pool (dauert nur Sekunden, blockiert aber sonst den ganzen Dienst, auch
+    `/api/health`, wie der Ollama-Aufruf bei `pdfcreator`), das Herauslesen der Verse läuft zusätzlich als
+    eigener, nicht abgewarteter Hintergrund-Thread – die Antwort auf das Hochladen kommt sofort mit den
+    erkannten Buch-Seiten, `hat_verse` in der Antwort zeigt, ob die Verse schon fertig sind.
+  - **Verknüpfung im Register**: Die Bibelstellen-Chips im Register-Reiter (`RegisterPanel.vue`) sind jetzt
+    Knöpfe statt reiner Anzeige – ein Klick löst `GET /api/bibel/stelle?text=…` auf und öffnet
+    `/api/bibel/datei#page=N` in einem neuen Tab (PDF-Fragment, vom Browser nativ unterstützt).
+
+- [fertig] Bibel als Grundlage für Verknüpfungen bis auf Wortebene (auf Wunsch vorbereitet, noch ohne eigene
+  Oberfläche dafür): jeder Vers hat jetzt eine stabile, kanonische Adresse (`domain/bible.py`, `Stelle.format()`,
+  z. B. `Joh.3.16`; mit Wort `Joh.3.16.5` = 5. Wort dieses Verses) – `Vers.id` trägt sie, `parse_stelle()`
+  liest sie wieder ein (anders als `parse_ref()`, das freien Text wie „Joh 3,16-18“ für die Seitensuche
+  versteht, erwartet `parse_stelle()` immer genau diese Punkt-Schreibweise, nie einen Bereich: eine Stelle,
+  an die man etwas anknüpft, ist immer genau eine Stelle).
+  - `GET /api/bibel/wort?stelle=Joh.3.16.5` löst ein einzelnes Wort auf (samt dem ganzen Vers als Zusammenhang).
+    Wörter werden nicht gespeichert, sondern bei Bedarf aus `Vers.text` zerlegt (`domain/models.py`, `woerter()`
+    – an Leerraum, Satzzeichen bleiben am Wort), damit sich die Zahl nicht ändert, wenn man dieselbe Datei
+    erneut hochlädt.
+  - Neuer genereller **Verweis**-Mechanismus (`domain/models.py`, `Verweis`; `VerweisRepository`): ein Verweis
+    hat `stelle` (die kanonische Adresse), `art` (freier Text, keine feste Liste – „register-eintrag“, „notiz“,
+    „frage“, „wortstudie“, was auch künftig dazukommt), `referenz` (eine ID/Kurzbeschreibung des verweisenden
+    Dings – der `bibel`-Dienst kennt die anderen Dienste nicht, siehe Regeln) und optional `titel`.
+    `POST /api/bibel/verweise`, `GET /api/bibel/verweise?stelle=…` (Rückwärtssuche: was zeigt hierher?),
+    `DELETE /api/bibel/verweise/{id}`. Bewusst noch nicht ans Register oder sonst wohin angeschlossen (reine
+    Vorbereitung) – das Register verlinkt weiterhin nur zur Seite, nicht als `Verweis`-Eintrag.
+  - 38 Bibel-Dienst-Tests grün (15 neue: `Stelle`-Format/Parsing, `woerter()`/`Vers.wort()`, `wort()`- und
+    `verweis_*`-Anwendungsfälle). Gegen die echte Schlachter-PDF nachgerechnet: `Joh.3.16.5` löst korrekt zu
+    „Gott“ auf.
+
+- [fertig] Bibel lesen (die Bibel als Grundlage, nicht nur als PDF-Seitenlink): neuer Anwendungsfall
+  `BibelService.nachschlagen(text)` (`application/services.py`) löst eine frei eingegebene Stelle wie
+  „Joh 3,16“ über `parse_ref` + das schon vorhandene `kapitel()` auf und liefert das GANZE Kapitel mit
+  Verstext dazu `markiert` – der angefragte Vers zum Hervorheben, `None` bei einer reinen Kapitelangabe
+  („Ps 23“). Dafür kennt `BibleRef` (`domain/bible.py`) jetzt auch den ersten genannten Vers; nebenbei einen
+  bis dahin unbemerkten Fehler behoben: bei den `SINGLE_CHAPTER`-Büchern (Obd, Phlm, 2Joh, 3Joh, Jud) wurde
+  die einzige Zahl („Jud 5“ = Vers 5) zwar richtig als Kapitel 1 erkannt, der Vers selbst aber verworfen.
+  Route `GET /api/bibel/nachschlagen`. Zeigt bewusst den Text selbst, nie eine PDF-Seite – `stelle()`/
+  `GET /api/bibel/stelle` bleiben unverändert für den Seiten-Link aus dem Register.
+  Oberfläche (`BibelView.vue`, Abschnitt „Lesen“, nur sichtbar sobald Verse eingelesen sind): Eingabefeld für
+  eine Bibelstelle (ruft `nachschlagen`) und ein Buch-Dropdown zum Durchlesen ab Kapitel 1 (ruft `kapitel`,
+  ohne Markierung); das gefundene Kapitel steht direkt auf der Seite in eigener, gut lesbarer Typografie
+  (Serifenschrift, große Zeilenhöhe, Verszahlen als kleine hochgestellte Ziffern, der nachgeschlagene Vers
+  farblich hervorgehoben) – kein PDF-Embed. Pfeile links/rechts blättern Kapitel für Kapitel innerhalb des
+  gewählten Buchs (am Buchanfang/-ende deaktiviert).
+
+- [fertig] Neuer Dienst `bibliothek`: eigener Bücherbestand (Bücherkatalog), unabhängig vom Fach – Titel,
+  Autor, Verlag, Jahr, ISBN, Standort, Notiz; beliebig vielen Fächern zuordenbar (wie Dozenten im Adressbuch:
+  eigene Zuordnungsliste je Buch, löscht der Kern ein Fach, bleibt das Buch). Ausleihe: `ausleihen_an`/
+  `ausleihen`/`zurueckgeben` (wer ein Buch hat, einfacher Name statt eigenem Konto). Fachübergreifend wie
+  `pdfcreator`/`aufgabenleser` (kein `panel`, eigene Oberfläche `BibliothekView.vue` als globaler Reiter).
+  - **Gescannte Bücher per KI durchsuchbar machen**: Original-PDF hochladen (`POST /api/bibliothek/buecher/{id}/datei`,
+    multipart, über `FileSystemDateiSpeicher`/`storage.py` wie bei `skripte`), dann „Text erkennen“ (`POST
+    .../text-erkennen`) – liest je Seite das größte eingebettete Bild heraus (`PypdfBildExtraktor`), schickt es
+    an ein Ollama-Vision-Modell (`OllamaOcrKI`, eigener `OLLAMA_VISION_MODEL`, Default `llama3.2-vision` – ein
+    reines Textmodell wie bei `pdfcreator`/`aufgabenleser` versteht keine Bilder), und legt den erkannten Text
+    als unsichtbare Textebene über die Original-Seite (`ReportlabTextPdfBauer`, `reportlab` `beginText()` +
+    `setTextRenderMode(3)`, dann mit `pypdf` zusammengeführt) – Original bleibt optisch unverändert, die neue
+    Text-PDF (`GET .../text-datei`) ist durchsuchbar/kopierbar. Wie bei der Bibel-Verse-Erkennung läuft das
+    Erkennen (ein KI-Aufruf je Seite, dauert bei einem ganzen Buch mehrere Minuten) als eigener, nicht
+    abgewarteter Hintergrund-Thread (`threading.Thread(daemon=True)`), die Antwort auf das Auslösen kommt sofort
+    (202); kein Live-Fortschritt in der Oberfläche, man lädt nach ein paar Minuten neu. Ohne `OLLAMA_URL` bleibt
+    es bei `NullOcrKI` (Fehlermeldung bei Aufruf) – wie bei `pdfcreator` ist das Hochladen selbst davon unberührt.
+  - 17 Dienst-Tests grün (Service mit In-Memory-Fakes + Adapter-Tests gegen echte, synthetisch erzeugte PDFs
+    mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
+    tatsächlich auffindbar ist).
+
+- [fertig] Neuer Dienst `schnelllesen`: Speedreading-Training nach der 3-2-1-Methode – dasselbe Bibelkapitel
+  dreimal lesen, mit sinkender Zielzeit (3, dann 2, dann 1 Minute), man übt dadurch, denselben Text immer
+  schneller zu lesen. Fachübergreifend wie `bibel` (kein `panel`, eigene Oberfläche `SchnelllesenView.vue`
+  als globaler Reiter, Symbol `stoppuhr`). Eigene, gekürzte Kopie von `domain/bible.py` (nur Buch + Kapitelzahl,
+  siehe Entscheidungen) – Buch/Kapitel-Auswahl kommt darüber aus dem Dienst selbst (`GET /api/buecher`).
+  Holt sich den Verstext eines Kapitels direkt vom Bibel-Dienst (`HttpBibelQuelle`, `BIBEL_URL`, Default
+  `http://bibel:8000`) – ein direkter Dienst-zu-Dienst-Aufruf im Docker-Netz wie bei `pdfcreator`/
+  `aufgabenleser` zu Ollama, nicht über den Kern (der Login verlangt). Eine Trainingseinheit (`Einheit`)
+  hält den geholten Text und bis zu drei `Durchgang`-Einträge (Runde, gebrauchte Sekunden, Zielsekunden);
+  `wpm` (Wörter pro Minute) wird aus der gespeicherten Wortzahl berechnet, nicht erneut vom Bibel-Dienst
+  nachgefragt – bleibt so auch stabil, falls sich dessen Text später ändert. Die Oberfläche misst die Zeit
+  selbst (Start-/Fertig-Knopf, Timer im Browser) und schickt nur die gebrauchten Sekunden; kein serverseitiger
+  Countdown nötig. Verlauf vergangener Einheiten mit Lösch-Knopf unterhalb des laufenden Trainings.
+  `neuer-dienst.sh` nebenbei repariert: es hängte den neuen Dienst immer ans Dateiende von
+  `docker-compose.override.yml` an, was bei einem bestehenden `networks:`-Schlüssel am Dateiende (wie bei `ki`
+  durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
+  fügt jetzt direkt nach `services:` ein.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -305,6 +496,8 @@ Fächer, Volltextsuche, Notizen/Logbuch.
 - Der Kern ist der einzige Eingang der Oberfläche; er reicht Aufrufe an die Dienste weiter.
 - Tempo für die Prognose: Durchschnitt der letzten 14 Tage. „Knapp“ = Tempo unter 115 % des Bedarfs.
 - Bibelbücher: 66, evangelische Reihenfolge, Kurznamen nach Lutherbibel; Bücher mit einem Kapitel (Obd, Phlm, 2Joh, 3Joh, Jud): „Jud 5“ = Vers 5.
+  Jeder Dienst, der Bibelstellen kennt (Register, `bibel`), hat eine eigene Kopie der Buchliste/des Parsers (`domain/bible.py`) –
+  Dienste teilen keinen Code, nur die Fach-ID (siehe Regeln); Kurznamen und Reihenfolge bewusst überall identisch gehalten.
 - Löscht der Kern ein Fach, während ein Dienst offline ist, bleibt dessen Datenrest liegen und wird beim nächsten Abgleich als Fach zurückgeholt (lieber nichts verlieren).
 - Fachnamen führt nur der Kern; Lesenachweis und Register kennen nur die Fach-ID.
 - Gesamtfortschritt eines Fachs = Mittel der `progress`-Werte aller erreichbaren Dienste, die einen melden (`GET /api/subjects/{id}/overview`, `parts` zeigt die Teile).
@@ -341,3 +534,8 @@ Fächer, Volltextsuche, Notizen/Logbuch.
 - Der Kern reicht beim Weiterleiten (`/api/<dienst>/...`) nur `content-type` durch, keine weiteren Antwort-Header
   (z. B. `Content-Disposition` geht verloren). Für Dateinamen beim Herunterladen das `download`-Attribut des
   `<a>`-Tags nutzen, nicht auf den Header verlassen.
+- Gleiche Falle wie bei `list(...)`, aber auf Instanz-Ebene statt Klasse: ein Attribut `self.original = {}` in
+  `__init__` überschreibt in derselben Klasse stillschweigend eine Methode `def original(self, ...)` für diese
+  Instanz (`TypeError: 'dict' object is not callable` beim nächsten Aufruf) – passiert leicht in Test-Fakes, die
+  Port-Methodennamen als naheliegende Attributnamen wiederverwenden. Abhilfe: Attribut anders nennen (z. B.
+  `self._original`), nie denselben Namen wie eine Methode der Klasse.

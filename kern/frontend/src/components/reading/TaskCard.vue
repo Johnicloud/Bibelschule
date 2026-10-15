@@ -11,9 +11,16 @@ const pdfcreator = inject('pdfcreator')
 
 const amount = ref('')
 const day = ref('')
-const buchId = ref(props.task.buecher[0]?.id || '')
+const dayInput = ref(null)
+// Bewusst keine stille Vorauswahl des ersten Buches mehr: dadurch landeten Einträge unbemerkt beim falschen
+// (nämlich dem per Zufall vorausgewählten) Buch, wenn das Dropdown nicht tatsächlich angefasst wurde.
+const buchId = ref('')
+// Durchgang: hier ist eine Vorauswahl unproblematisch (anders als beim Buch), weil der „aktive“ Durchgang aus
+// echten Daten berechnet ist (der erste noch nicht abgeschlossene), nicht nur zufällig der erste in einer Liste.
+const durchlauf = ref(props.task.durchlaeufe?.find((d) => d.aktiv)?.nummer || 1)
 const error = ref('')
 const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in der Zeit des Geräts
+function dayPickerOeffnen() { dayInput.value?.showPicker ? dayInput.value.showPicker() : dayInput.value?.click() }
 
 const bearbeiten = ref(false)
 const editForm = ref(null)
@@ -34,11 +41,20 @@ const status = computed(() => READING_STATUS[f.value.status])
 const heutigesZiel = computed(() => f.value.needed_per_day ?? f.value.plan_per_day)
 const heuteSchonGelesen = computed(() => props.task.entries.some((e) => e.day === today))
 const zeigeTagesziel = computed(() => f.value.status !== 'done' && !heuteSchonGelesen.value && heutigesZiel.value)
+// Einträge ohne Buch-Zuordnung (z. B. aus der Zeit vor der Aufteilung in mehrere Bücher) zählen zwar zum
+// Gesamtfortschritt des Pensums, aber zu keinem einzelnen Buch – sonst verschwände die Menge sonst spurlos.
+const ohneBuchGelesen = computed(() => props.task.buecher.length
+  ? f.value.done - props.task.buecher.reduce((n, b) => n + b.done, 0) : 0)
+// Mehrere Durchgänge: abgeschlossene oben nur als Zahl zusammenfassen, künftige (noch nicht erreichte) gar
+// nicht erst zeigen – nur der gerade laufende Durchgang bekommt seine eigene Statusleiste.
+const abgeschlosseneDurchlaeufeAnzahl = computed(() => (props.task.durchlaeufe || []).filter((d) => d.abgeschlossen).length)
+const laufenderDurchlauf = computed(() => (props.task.durchlaeufe || []).find((d) => d.aktiv && !d.abgeschlossen))
 
 async function log() {
   error.value = ''
+  if (props.task.buecher.length && !buchId.value) { error.value = 'Bitte zuerst ein Buch auswählen.'; return }
   try {
-    await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value })
+    await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value, durchlauf: durchlauf.value })
     amount.value = ''
     emit('changed')
   } catch (e) { error.value = e.message }
@@ -98,16 +114,12 @@ async function saveEdit() {
           <AppIcon name="stift" class="h-3.5 w-3.5" />
         </button>
       </div>
-      <!-- Minimalistisch auf Wunsch: nur Status, Frist und das Tagesziel als eine Zahl bleiben auf den ersten
-           Blick sichtbar; der ausführliche Prognose-Satz und Start/Plan-Details fielen weg. -->
+      <!-- Minimalistisch auf Wunsch: nur Status (keine Frist mehr) und das Tagesziel als eine Zahl bleiben auf
+           den ersten Blick sichtbar; der ausführliche Prognose-Satz und Start/Plan-Details fielen weg. -->
       <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
-        <span v-if="task.deadline" class="opacity-70">Frist {{ formatDate(task.deadline) }}</span>
         <span v-if="zeigeTagesziel" class="font-medium text-amber-700 dark:text-amber-300">{{ num(heutigesZiel) }} {{ task.unit }}/Tag nötig</span>
       </div>
-      <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        aus: {{ task.buecher.map((b) => `${b.title} (${num(b.done)}/${num(b.total)})`).join(', ') }}
-      </p>
     </div>
 
     <form v-else class="grid gap-3 sm:grid-cols-6" @submit.prevent="saveEdit">
@@ -164,19 +176,70 @@ async function saveEdit() {
       <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-6">{{ editError }}</p>
     </form>
 
-    <div v-if="!bearbeiten" class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar"
+    <div v-if="!bearbeiten" class="mt-3 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
       :aria-valuenow="f.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="`${num(f.percent)} % gelesen`">
       <div class="h-full rounded-full" :class="BAR_CLASSES[status.tone]" :style="{ width: f.percent + '%' }"></div>
     </div>
 
-    <form v-if="!bearbeiten" class="mt-4 grid gap-2"
-      :class="task.buecher.length ? 'sm:grid-cols-[1fr_7rem_9rem_auto]' : 'sm:grid-cols-[7rem_9rem_auto]'" @submit.prevent="log">
-      <select v-if="task.buecher.length" v-model="buchId" class="input" aria-label="Buch">
+    <!-- Eigene, schlichte Statusleiste je Buch (Seitenzahl darüber), statt einer reinen Textzeile. -->
+    <div v-if="!bearbeiten && task.buecher.length" class="mt-3 grid gap-2">
+      <div v-for="b in task.buecher" :key="b.id">
+        <div class="flex items-center justify-between text-xs">
+          <span class="truncate">{{ b.title }}</span>
+          <span class="shrink-0 tabular-nums opacity-70">{{ num(b.done) }}/{{ num(b.total) }}</span>
+        </div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
+          :aria-valuenow="b.total ? Math.min(100, Math.round(b.done / b.total * 100)) : 0" aria-valuemin="0" aria-valuemax="100" :aria-label="b.title">
+          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, b.total ? (b.done / b.total * 100) : 0) + '%' }"></div>
+        </div>
+      </div>
+      <div v-if="ohneBuchGelesen > 0">
+        <div class="flex items-center justify-between text-xs opacity-70">
+          <span>Ohne Buch zugeordnet</span>
+          <span class="shrink-0 tabular-nums">{{ num(ohneBuchGelesen) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mehrere Durchgänge: abgeschlossene nur als Zahl oben, der laufende mit eigener Statusleiste, künftige
+         (noch nicht erreichte) Durchgänge erscheinen hier gar nicht erst. -->
+    <div v-if="!bearbeiten && task.passes > 1" class="mt-3">
+      <p v-if="abgeschlosseneDurchlaeufeAnzahl" class="text-xs opacity-70">
+        {{ abgeschlosseneDurchlaeufeAnzahl }} von {{ task.passes }} {{ task.passes === 1 ? 'Durchgang' : 'Durchgängen' }} abgeschlossen
+      </p>
+      <div v-if="laufenderDurchlauf" class="mt-2">
+        <div class="flex items-center justify-between text-xs">
+          <span>Durchgang {{ laufenderDurchlauf.nummer }}</span>
+          <span class="shrink-0 tabular-nums opacity-70">{{ num(laufenderDurchlauf.done) }}/{{ num(laufenderDurchlauf.total) }}</span>
+        </div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
+          :aria-valuenow="Math.min(100, Math.round(laufenderDurchlauf.done / laufenderDurchlauf.total * 100))" aria-valuemin="0" aria-valuemax="100"
+          :aria-label="`Durchgang ${laufenderDurchlauf.nummer}`">
+          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, laufenderDurchlauf.done / laufenderDurchlauf.total * 100) + '%' }"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buchname bekommt den meisten Platz (voller Titel statt abgeschnitten), Datum nur als Kalender-Symbol
+         (öffnet den nativen Datumswähler), Eintragen als Haken-Symbol statt Textknopf. -->
+    <form v-if="!bearbeiten" class="mt-4 flex flex-wrap items-center gap-2" @submit.prevent="log">
+      <select v-if="task.buecher.length" v-model="buchId" class="input min-w-0 flex-1 basis-32" aria-label="Buch">
+        <option value="" disabled>Buch wählen</option>
         <option v-for="b in task.buecher" :key="b.id" :value="b.id">{{ b.title }}</option>
       </select>
-      <input v-model="amount" type="number" min="1" class="input" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
-      <input v-model="day" type="date" :max="today" class="input" aria-label="Datum (leer = heute)" />
-      <button class="btn btn-primary">Eintragen</button>
+      <select v-if="task.passes > 1" v-model="durchlauf" class="input w-auto shrink-0" aria-label="Durchgang">
+        <option v-for="d in task.durchlaeufe" :key="d.nummer" :value="d.nummer">Durchgang {{ d.nummer }}</option>
+      </select>
+      <input v-model="amount" type="number" min="1" class="input w-20 shrink-0" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
+      <div class="relative shrink-0">
+        <input ref="dayInput" v-model="day" type="date" :max="today" class="sr-only" aria-label="Datum (leer = heute)" />
+        <button type="button" class="btn btn-outline !px-2.5" :aria-label="day ? `Datum: ${formatDate(day)}` : 'Datum wählen (leer = heute)'" @click="dayPickerOeffnen">
+          <AppIcon name="kalender" class="h-4 w-4" />
+        </button>
+      </div>
+      <button type="submit" class="btn btn-primary !px-2.5 shrink-0" aria-label="Eintragen">
+        <AppIcon name="haken" class="h-4 w-4" />
+      </button>
     </form>
     <p v-if="!bearbeiten && error" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
 
@@ -188,6 +251,7 @@ async function saveEdit() {
         <li v-for="e in task.entries" :key="e.id" class="flex items-center gap-3 py-2">
           <span class="w-24 shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{{ formatDate(e.day) }}</span>
           <span class="w-28 shrink-0 tabular-nums">{{ num(e.amount) }} {{ task.unit }}</span>
+          <span v-if="task.passes > 1" class="w-24 shrink-0 text-slate-500 dark:text-slate-400">Durchgang {{ e.durchlauf }}</span>
           <span v-if="e.buch_id" class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ buchTitel(e.buch_id) }}</span>
           <span v-else class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ e.note }}</span>
           <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`Eintrag vom ${formatDate(e.day)} löschen`" @click="removeEntry(e)">Löschen</button>

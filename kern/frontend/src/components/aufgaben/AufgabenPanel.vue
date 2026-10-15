@@ -108,19 +108,20 @@ onMounted(load)
 </script>
 
 <template>
-  <h2 class="mb-3 text-lg font-semibold">Aufgabenblatt einlesen</h2>
-  <div class="panel p-4">
-    <p class="text-sm text-slate-500 dark:text-slate-400">
-      Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor. Nur ein Vorschlag –
-      geprüft wird unten, angelegt werden nur die ausgewählten.
-    </p>
-    <label class="btn btn-outline mt-3 inline-flex cursor-pointer">
-      {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
-      <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
-    </label>
-    <p v-if="leseFehler" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ leseFehler }}</p>
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Umfang dieses Fachs</h2>
+    <div class="flex gap-2">
+      <label class="btn btn-outline !py-1.5 inline-flex cursor-pointer" :title="'Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor – nur ein Vorschlag, geprüft wird vor dem Anlegen.'">
+        {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
+        <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
+      </label>
+      <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neue Aufgabe</button>
+    </div>
+  </div>
 
-    <template v-if="vorschlaege.length">
+  <p v-if="leseFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ leseFehler }}</p>
+
+  <div v-if="vorschlaege.length" class="panel mb-4 p-4">
       <div v-if="aufgabenVorschlaege.length" class="mt-4">
         <p class="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           <AppIcon name="aufgaben" class="h-3.5 w-3.5" /> Aufgaben
@@ -157,8 +158,7 @@ onMounted(load)
           </li>
         </ul>
       </div>
-    </template>
-    <div v-if="vorschlaege.length" class="mt-3 flex gap-2">
+    <div class="mt-3 flex gap-2">
       <button class="btn btn-primary" :disabled="legtAn || !vorschlaege.some((v) => v.ausgewaehlt)" @click="vorschlaegeUebernehmen">
         {{ legtAn ? 'Legt an …' : 'Ausgewählte übernehmen' }}
       </button>
@@ -169,11 +169,6 @@ onMounted(load)
       <summary class="cursor-pointer">Antwort der KI im Wortlaut</summary>
       <pre class="mt-2 whitespace-pre-wrap">{{ rohtextKi }}</pre>
     </details>
-  </div>
-
-  <div class="mb-3 mt-10 flex items-center justify-between">
-    <h2 class="text-lg font-semibold">Umfang dieses Fachs</h2>
-    <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neue Aufgabe</button>
   </div>
 
   <form v-if="anlegen" class="panel mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_10rem_8rem_auto]" @submit.prevent="add">
@@ -191,8 +186,12 @@ onMounted(load)
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
   <ul v-else-if="aufgaben.length" class="grid gap-3">
     <li v-for="a in aufgaben" :key="a.id" class="panel flex items-center gap-3 p-4">
-      <input type="checkbox" class="h-5 w-5 shrink-0 rounded-md" :checked="a.erledigt"
-        :aria-label="`${a.titel} erledigt`" @change="toggle(a)" />
+      <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition"
+        :class="a.erledigt ? 'border-transparent bg-primary text-white' : 'border-highlight opacity-40 hover:opacity-70'"
+        :aria-pressed="a.erledigt" :aria-label="`${a.titel} ${a.erledigt ? 'als offen markieren' : 'als erledigt markieren'}`"
+        @click="toggle(a)">
+        <AppIcon name="haken" class="h-5 w-5" />
+      </button>
       <div class="min-w-0 flex-1">
         <p :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">{{ a.titel }}</p>
         <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">

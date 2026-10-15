@@ -7,6 +7,8 @@ export function createSubjectService(api) {
       api.createSubject(name.trim(), aufgaben.map((t) => t.trim()).filter(Boolean), se === '' || se == null ? null : Number(se)),
     rename: (id, name) => api.renameSubject(id, name.trim()),
     setSe: (id, se) => api.setSe(id, se === '' || se == null ? null : Number(se)),
+    setNote: (id, note) => api.setNote(id, note === '' || note == null ? null : Number(note)),
+    noten: () => api.noten(),
     remove: (id) => api.deleteSubject(id),
     addAufgabe: (id, titel, frist, gewichtung) => api.addAufgabe(id, titel.trim(), frist, gewichtung),
     setAufgabeErledigt: (id, aufgabeId, erledigt) => api.setAufgabeErledigt(id, aufgabeId, erledigt),

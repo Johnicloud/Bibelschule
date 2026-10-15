@@ -34,3 +34,13 @@ def test_delete_and_unknown_token():
     store.delete(token)
     assert store.account_id_for(token) is None
     assert store.account_id_for("gibt-es-nicht") is None
+
+
+def test_delete_for_account_removes_all_its_sessions_but_not_others():
+    store = MemorySessionStore()
+    a = store.create("konto-1")
+    b = store.create("konto-1")   # zweites Gerät/Tab desselben Kontos
+    andere = store.create("konto-2")
+    store.delete_for_account("konto-1")
+    assert store.account_id_for(a) is None and store.account_id_for(b) is None
+    assert store.account_id_for(andere) == "konto-2"

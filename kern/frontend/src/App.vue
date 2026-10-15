@@ -11,12 +11,18 @@ import StudyView from './views/StudyView.vue'
 import LoginView from './views/LoginView.vue'
 import ProfileView from './views/ProfileView.vue'
 import AdressbuchView from './views/AdressbuchView.vue'
-import { gemeinde, isAdmin, loggedIn, nachname, username, vorname } from './state/auth'
+import NotenView from './views/NotenView.vue'
+import BibelView from './views/BibelView.vue'
+import BibliothekView from './views/BibliothekView.vue'
+import SchnelllesenView from './views/SchnelllesenView.vue'
+import PasswortAendernPflichtView from './views/PasswortAendernPflichtView.vue'
+import { abmeldeHinweis, gemeinde, isAdmin, loggedIn, mussPasswortAendern, nachname, username, vorname } from './state/auth'
 
-const IDLE_LOGOUT_MS = 15 * 60 * 1000   // wie beim Server (MemorySessionStore): 15 Minuten ohne Aktivität
+const IDLE_LOGOUT_MINUTEN = 15   // wie beim Server (MemorySessionStore): 15 Minuten ohne Aktivität
+const IDLE_LOGOUT_MS = IDLE_LOGOUT_MINUTEN * 60 * 1000
 
 const auth = inject('auth')
-const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch'
+const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen'
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
 const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'aufgaben'/'uebersicht')
 
@@ -27,6 +33,12 @@ function go(next, id = null, nextTab = null) {
 }
 function nav(id) { go(id) } // Lernen über die Navigation = alle fälligen Karten
 async function logout() { await auth.logout().catch(() => {}); loggedIn.value = false }
+// Wie bei der Finanzapp: nach Inaktivitäts-Abmeldung steht auf der Anmeldeseite ein Hinweis, warum man
+// plötzlich dort landet, statt kommentarlos zurück zum Login-Formular zu springen.
+async function idleLogout() {
+  await logout()
+  abmeldeHinweis.value = `Du wurdest nach ${IDLE_LOGOUT_MINUTEN} Minuten ohne Benutzung abgemeldet.`
+}
 const active = computed(() => (view.value === 'subject' ? 'subjects' : view.value))
 
 // Automatische Abmeldung nach Inaktivität (wie bei einer Finanz-App): irgendeine Nutzereingabe setzt den
@@ -35,7 +47,7 @@ let idleTimer = null
 function resetIdleTimer() {
   if (loggedIn.value !== true) return
   clearTimeout(idleTimer)
-  idleTimer = setTimeout(logout, IDLE_LOGOUT_MS)
+  idleTimer = setTimeout(idleLogout, IDLE_LOGOUT_MS)
 }
 const AKTIVITAET = ['mousedown', 'keydown', 'touchstart', 'scroll']
 onMounted(() => {
@@ -54,6 +66,7 @@ onMounted(async () => {
     vorname.value = me.vorname || ''
     nachname.value = me.nachname || ''
     gemeinde.value = me.gemeinde || ''
+    mussPasswortAendern.value = me.muss_passwort_aendern || false
     loggedIn.value = true
     resetIdleTimer()
   } catch { loggedIn.value = false }
@@ -62,6 +75,7 @@ onMounted(async () => {
 
 <template>
   <LoginView v-if="loggedIn === false" />
+  <PasswortAendernPflichtView v-else-if="loggedIn && mussPasswortAendern" @erledigt="mussPasswortAendern = false" @logout="logout" />
   <template v-else-if="loggedIn">
     <AppHeader :username="username" :zurueck="view === 'subject'" @nav="nav" @logout="logout" @profile="go('profile')" @back="go('subjects')" />
     <div class="mx-auto max-w-5xl px-4 pt-4">
@@ -75,6 +89,10 @@ onMounted(async () => {
       <CardsView v-else-if="view === 'cards'" />
       <ProfileView v-else-if="view === 'profile'" @back="go('home')" />
       <AdressbuchView v-else-if="view === 'adressbuch'" />
+      <NotenView v-else-if="view === 'noten'" />
+      <BibelView v-else-if="view === 'bibel'" />
+      <BibliothekView v-else-if="view === 'bibliothek'" />
+      <SchnelllesenView v-else-if="view === 'schnelllesen'" />
       <StudyView v-else :deck-id="subjectId" @back="subjectId ? go('subject', subjectId) : go('home')" />
     </main>
     <StudyFab @study="go('study')" />

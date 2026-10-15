@@ -45,6 +45,12 @@ class SessionStore(ABC):
     @abstractmethod
     def delete(self, token: str) -> None: ...
 
+    @abstractmethod
+    def delete_for_account(self, account_id: str) -> None:
+        """Alle Sitzungen eines Kontos beenden (z. B. nach einem Passwort-Reset durch einen Admin:
+        das Konto ist überall abgemeldet und muss sich mit dem neuen Passwort neu anmelden)."""
+        ...
+
 
 class ServiceGateway(ABC):
     """Ausgehender Port: das Dienstverzeichnis und der Draht zu den Diensten.

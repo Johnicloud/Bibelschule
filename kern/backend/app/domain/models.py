@@ -27,6 +27,7 @@ class Subject:
     id: str = field(default_factory=new_id)
     aufgaben: list[Aufgabe] = field(default_factory=list)
     se: float | None = None   # Studieneinheiten (alt); Credits = se * 1.5 (neues System, wird nicht gespeichert)
+    note: float | None = None   # Abschlussnote des Fachs, deutsche Notenskala 1,0 (sehr gut) bis 5,0 (nicht ausreichend)
     # Optionale Dienste (Register/Karteikarten/Bibelverse/Skripte), die für dieses Fach eingeblendet wurden –
     # ohne das hier zu stehen, erscheinen sie weder als Reiter noch als Kachel in der Übersicht (Aufgaben und
     # Lesenachweis sind fest, kein Fach ohne die beiden).
@@ -39,11 +40,15 @@ class Account:
     keine Datentrennung. Konten legt man per Skript an oder, einmal angemeldet, als Admin über die Oberfläche.
     is_admin = darf neue Konten (auch neue Admins) anlegen und die Benutzerliste sehen.
     vorname/nachname/gemeinde sind optional (z. B. für den Lesenachweis-PDF-Export: Name und Gemeinde kommen
-    von dort, statt bei jedem Export neu eingetippt zu werden)."""
+    von dort, statt bei jedem Export neu eingetippt zu werden).
+    muss_passwort_aendern: ein Admin hat das Passwort zurückgesetzt – das Konto darf sich mit dem neuen
+    (temporären) Passwort anmelden, muss aber vor allem anderen ein eigenes neues Passwort wählen. Wird beim
+    Zurücksetzen gesetzt und beim nächsten eigenen Passwortwechsel wieder gelöscht."""
     username: str
     password_hash: str
     is_admin: bool = False
     vorname: str | None = None
     nachname: str | None = None
     gemeinde: str | None = None
+    muss_passwort_aendern: bool = False
     id: str = field(default_factory=new_id)
