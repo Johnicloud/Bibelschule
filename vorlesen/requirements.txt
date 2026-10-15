@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn>=0.29
+pytest>=8
+python-multipart>=0.0.9
+pypdf>=4.0
+piper-tts>=1.2.0
