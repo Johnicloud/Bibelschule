@@ -51,6 +51,17 @@ services:
     volumes:
       - ./data/bibel:/app/data
     restart: unless-stopped
+  bibliothek:
+    build: ./bibliothek
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibliothek:8000
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llama3.2-vision}
+    volumes:
+      - ./data/bibliothek:/app/data
+    networks: [default, ki]
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses

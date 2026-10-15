@@ -423,6 +423,27 @@ Sprache der Oberfläche und der Texte: Deutsch.
     `verweis_*`-Anwendungsfälle). Gegen die echte Schlachter-PDF nachgerechnet: `Joh.3.16.5` löst korrekt zu
     „Gott“ auf.
 
+- [fertig] Neuer Dienst `bibliothek`: eigener Bücherbestand (Bücherkatalog), unabhängig vom Fach – Titel,
+  Autor, Verlag, Jahr, ISBN, Standort, Notiz; beliebig vielen Fächern zuordenbar (wie Dozenten im Adressbuch:
+  eigene Zuordnungsliste je Buch, löscht der Kern ein Fach, bleibt das Buch). Ausleihe: `ausleihen_an`/
+  `ausleihen`/`zurueckgeben` (wer ein Buch hat, einfacher Name statt eigenem Konto). Fachübergreifend wie
+  `pdfcreator`/`aufgabenleser` (kein `panel`, eigene Oberfläche `BibliothekView.vue` als globaler Reiter).
+  - **Gescannte Bücher per KI durchsuchbar machen**: Original-PDF hochladen (`POST /api/bibliothek/buecher/{id}/datei`,
+    multipart, über `FileSystemDateiSpeicher`/`storage.py` wie bei `skripte`), dann „Text erkennen“ (`POST
+    .../text-erkennen`) – liest je Seite das größte eingebettete Bild heraus (`PypdfBildExtraktor`), schickt es
+    an ein Ollama-Vision-Modell (`OllamaOcrKI`, eigener `OLLAMA_VISION_MODEL`, Default `llama3.2-vision` – ein
+    reines Textmodell wie bei `pdfcreator`/`aufgabenleser` versteht keine Bilder), und legt den erkannten Text
+    als unsichtbare Textebene über die Original-Seite (`ReportlabTextPdfBauer`, `reportlab` `beginText()` +
+    `setTextRenderMode(3)`, dann mit `pypdf` zusammengeführt) – Original bleibt optisch unverändert, die neue
+    Text-PDF (`GET .../text-datei`) ist durchsuchbar/kopierbar. Wie bei der Bibel-Verse-Erkennung läuft das
+    Erkennen (ein KI-Aufruf je Seite, dauert bei einem ganzen Buch mehrere Minuten) als eigener, nicht
+    abgewarteter Hintergrund-Thread (`threading.Thread(daemon=True)`), die Antwort auf das Auslösen kommt sofort
+    (202); kein Live-Fortschritt in der Oberfläche, man lädt nach ein paar Minuten neu. Ohne `OLLAMA_URL` bleibt
+    es bei `NullOcrKI` (Fehlermeldung bei Aufruf) – wie bei `pdfcreator` ist das Hochladen selbst davon unberührt.
+  - 17 Dienst-Tests grün (Service mit In-Memory-Fakes + Adapter-Tests gegen echte, synthetisch erzeugte PDFs
+    mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
+    tatsächlich auffindbar ist).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -479,3 +500,8 @@ Fächer, Volltextsuche, Notizen/Logbuch.
 - Der Kern reicht beim Weiterleiten (`/api/<dienst>/...`) nur `content-type` durch, keine weiteren Antwort-Header
   (z. B. `Content-Disposition` geht verloren). Für Dateinamen beim Herunterladen das `download`-Attribut des
   `<a>`-Tags nutzen, nicht auf den Header verlassen.
+- Gleiche Falle wie bei `list(...)`, aber auf Instanz-Ebene statt Klasse: ein Attribut `self.original = {}` in
+  `__init__` überschreibt in derselben Klasse stillschweigend eine Methode `def original(self, ...)` für diese
+  Instanz (`TypeError: 'dict' object is not callable` beim nächsten Aufruf) – passiert leicht in Test-Fakes, die
+  Port-Methodennamen als naheliegende Attributnamen wiederverwenden. Abhilfe: Attribut anders nennen (z. B.
+  `self._original`), nie denselben Namen wie eine Methode der Klasse.
