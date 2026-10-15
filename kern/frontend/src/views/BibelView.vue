@@ -15,9 +15,59 @@ const editSeite = ref('')
 const editError = ref('')
 const speichert = ref(false)
 
+// Lesen: Kapitel direkt als Text auf der Seite (keine PDF) – entweder über Bibelstelle (nachschlagen,
+// markiert einen Vers) oder über Buch/Kapitel-Auswahl zum Durchlesen.
+const sucheText = ref('')
+const sucheFehler = ref('')
+const kapitelLaedt = ref(false)
+const gelesenesKapitel = ref(null)
+const gewaehltesBuch = ref('')
+const gewaehlteKapitelnummer = ref(1)
+
 async function load() {
   try { index.value = await bibel.index(); loadError.value = '' }
   catch (e) { loadError.value = e.message }
+}
+
+async function nachschlagen() {
+  if (!sucheText.value.trim()) return
+  sucheFehler.value = ''
+  kapitelLaedt.value = true
+  try {
+    const ergebnis = await bibel.nachschlagen(sucheText.value)
+    gelesenesKapitel.value = ergebnis
+    gewaehltesBuch.value = ergebnis.buch
+    gewaehlteKapitelnummer.value = ergebnis.kapitel
+  } catch (e) { sucheFehler.value = e.message; gelesenesKapitel.value = null }
+  finally { kapitelLaedt.value = false }
+}
+
+async function kapitelLesen(buch, nummer) {
+  sucheFehler.value = ''
+  kapitelLaedt.value = true
+  try {
+    const ergebnis = await bibel.kapitel(buch, nummer)
+    ergebnis.markiert = null
+    gelesenesKapitel.value = ergebnis
+    gewaehltesBuch.value = buch
+    gewaehlteKapitelnummer.value = nummer
+  } catch (e) { sucheFehler.value = e.message }
+  finally { kapitelLaedt.value = false }
+}
+
+function buchGewaehlt() {
+  if (gewaehltesBuch.value) kapitelLesen(gewaehltesBuch.value, 1)
+}
+
+function vor() {
+  if (gelesenesKapitel.value && gelesenesKapitel.value.kapitel < gelesenesKapitel.value.kapitel_gesamt) {
+    kapitelLesen(gewaehltesBuch.value, gelesenesKapitel.value.kapitel + 1)
+  }
+}
+function zurueck() {
+  if (gelesenesKapitel.value && gelesenesKapitel.value.kapitel > 1) {
+    kapitelLesen(gewaehltesBuch.value, gelesenesKapitel.value.kapitel - 1)
+  }
 }
 
 async function dateiGewaehlt(e) {
@@ -83,6 +133,50 @@ onMounted(load)
   </div>
 
   <EmptyState v-else-if="!loadError" title="Lädt …" text="" />
+
+  <template v-if="index && index.dateiname && index.hat_verse">
+    <h2 class="mb-3 mt-8 text-lg font-semibold">Lesen</h2>
+    <div class="panel p-5">
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="nachschlagen">
+        <div class="min-w-48 flex-1">
+          <label class="mb-1 block text-sm text-slate-500 dark:text-slate-400">Bibelstelle</label>
+          <input v-model="sucheText" type="text" class="input" placeholder="z. B. Joh 3,16" />
+        </div>
+        <button class="btn btn-primary" :disabled="kapitelLaedt">Nachschlagen</button>
+        <div class="h-6 w-px self-center bg-slate-200 dark:bg-slate-700"></div>
+        <div>
+          <label class="mb-1 block text-sm text-slate-500 dark:text-slate-400">Buch durchlesen</label>
+          <select v-model="gewaehltesBuch" class="input" @change="buchGewaehlt">
+            <option value="" disabled>Buch wählen …</option>
+            <option v-for="b in index.buecher" :key="b.index" :value="b.short">{{ b.name }}</option>
+          </select>
+        </div>
+      </form>
+      <p v-if="sucheFehler" class="mt-3 text-sm text-rose-600 dark:text-rose-400">{{ sucheFehler }}</p>
+
+      <div v-if="gelesenesKapitel" class="mt-6">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <button class="btn btn-ghost !p-2" :disabled="gelesenesKapitel.kapitel <= 1" aria-label="Voriges Kapitel" @click="zurueck">
+            <AppIcon name="zurueck" class="h-4 w-4" />
+          </button>
+          <h3 class="text-xl font-semibold">{{ gelesenesKapitel.name }} {{ gelesenesKapitel.kapitel }}</h3>
+          <button class="btn btn-ghost !p-2" :disabled="gelesenesKapitel.kapitel >= gelesenesKapitel.kapitel_gesamt"
+                  aria-label="Nächstes Kapitel" @click="vor">
+            <AppIcon name="vor" class="h-4 w-4" />
+          </button>
+        </div>
+        <p v-if="gelesenesKapitel.verse.length === 0" class="text-sm text-slate-500 dark:text-slate-400">
+          Für dieses Kapitel ist noch kein Verstext eingelesen.
+        </p>
+        <p v-else class="font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">
+          <span v-for="v in gelesenesKapitel.verse" :key="v.id"
+                :class="v.vers === gelesenesKapitel.markiert ? 'rounded bg-primary/15 px-1 py-0.5 ring-1 ring-primary/30' : ''">
+            <sup class="mr-0.5 font-sans text-xs font-semibold text-primary">{{ v.vers }}</sup>{{ v.text }}{{ ' ' }}
+          </span>
+        </p>
+      </div>
+    </div>
+  </template>
 
   <template v-if="index && index.dateiname">
     <h2 class="mb-3 mt-8 text-lg font-semibold">Bücher und ihre Seite</h2>

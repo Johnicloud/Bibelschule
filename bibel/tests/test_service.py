@@ -163,6 +163,22 @@ def test_kapitel_output_carries_the_stable_id_per_vers(svc):
     assert [v["id"] for v in verse] == ["1Mo.1.1", "1Mo.1.2"]
 
 
+def test_nachschlagen_returns_the_chapter_text_and_marks_the_requested_verse(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    ergebnis = svc.nachschlagen("1Mo 1,2")
+    assert ergebnis["buch"] == "1Mo" and ergebnis["markiert"] == 2
+    assert [v["text"] for v in ergebnis["verse"]] == [
+        "Im Anfang schuf Gott die Himmel und die Erde.", "Die Erde aber war wüst und leer."]
+
+
+def test_nachschlagen_without_verse_marks_nothing(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    ergebnis = svc.nachschlagen("1Mo 1")
+    assert ergebnis["markiert"] is None
+
+
 def test_wort_resolves_a_single_word_within_its_verse(svc):
     svc.hochladen("b.pdf", b"x")
     svc.verse_im_hintergrund_einlesen()

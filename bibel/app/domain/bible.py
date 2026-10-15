@@ -113,31 +113,38 @@ SINGLE_CHAPTER = {"Obd", "Phlm", "2Joh", "3Joh", "Jud"}
 
 @dataclass(frozen=True)
 class BibleRef:
+    """`verse` ist der erste genannte Vers (z. B. 16 bei 'Joh 3,16-18'), None wenn nur das Kapitel genannt
+    wurde (z. B. 'Ps 23') – für das Markieren eines Verses beim Nachschlagen (siehe Service `nachschlagen`)."""
     book: int
     chapter: int
+    verse: int | None = None
 
 
 _REF = re.compile(r"""^\s*
     (?P<book>(?:[1-3]\s*\.?\s*)?[^\W\d_][^\d,:;\-–—]*?)
     \s*(?P<n1>\d+)
-    (?:\s*[,:]\s*\d+)?
+    (?:\s*[,:]\s*(?P<n2>\d+))?
     (?:\s*[-–—]\s*\d+(?:\s*[,:]\s*\d+)?)?
     \s*(?:ff?\.?)?\s*$""", re.X)
 
 
 def parse_ref(text: str) -> BibleRef:
-    """Nur so viel wie für die Seitensuche nötig: Buch und erstes Kapitel einer Stelle wie 'Joh 3,16-18'
-    oder '1. Mose 12,1'. Verse spielen für die Seite keine Rolle (siehe Entscheidungen: Kapitel-genau)."""
+    """Buch, Kapitel und (falls genannt) erster Vers einer Stelle wie 'Joh 3,16-18' oder '1. Mose 12,1'.
+    Bei Büchern mit nur einem Kapitel (`SINGLE_CHAPTER`) meint die einzige Zahl den Vers, nicht das Kapitel
+    (z. B. 'Jud 5' = Vers 5)."""
     m = _REF.match(text or "")
     if not m:
         raise InvalidInput(f"Die Bibelstelle „{(text or '').strip()}“ habe ich nicht verstanden.")
     book = find_book(m["book"])
     if book is None:
         raise InvalidInput(f"Das Bibelbuch „{m['book'].strip()}“ kenne ich nicht („{text.strip()}“).")
-    chapter = int(m["n1"]) if book.short not in SINGLE_CHAPTER else 1
+    if book.short in SINGLE_CHAPTER:
+        chapter, verse = 1, int(m["n1"])
+    else:
+        chapter, verse = int(m["n1"]), (int(m["n2"]) if m["n2"] else None)
     if not 1 <= chapter <= book.chapters:
         raise InvalidInput(f"{book.name} hat nur {book.chapters} Kapitel („{text.strip()}“).")
-    return BibleRef(book.index, chapter)
+    return BibleRef(book.index, chapter, verse)
 
 
 @dataclass(frozen=True)

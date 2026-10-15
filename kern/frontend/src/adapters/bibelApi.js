@@ -9,6 +9,7 @@ export function createBibelApi(base = '/api/bibel') {
     index: () => call('GET', '/index'),
     seiteSetzen: (buchIndex, seite) => call('PUT', `/buecher/${buchIndex}`, { seite }),
     stelle: (text) => call('GET', `/stelle?text=${encodeURIComponent(text)}`),
+    nachschlagen: (text) => call('GET', `/nachschlagen?text=${encodeURIComponent(text)}`),
     kapitel: (buch, nummer) => call('GET', `/kapitel?buch=${encodeURIComponent(buch)}&nummer=${nummer}`),
     dateiUrl: (seite) => `${base}/datei${seite ? `#page=${seite}` : ''}`,
     async hochladen(datei) {

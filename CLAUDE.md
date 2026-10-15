@@ -423,6 +423,22 @@ Sprache der Oberfläche und der Texte: Deutsch.
     `verweis_*`-Anwendungsfälle). Gegen die echte Schlachter-PDF nachgerechnet: `Joh.3.16.5` löst korrekt zu
     „Gott“ auf.
 
+- [fertig] Bibel lesen (die Bibel als Grundlage, nicht nur als PDF-Seitenlink): neuer Anwendungsfall
+  `BibelService.nachschlagen(text)` (`application/services.py`) löst eine frei eingegebene Stelle wie
+  „Joh 3,16“ über `parse_ref` + das schon vorhandene `kapitel()` auf und liefert das GANZE Kapitel mit
+  Verstext dazu `markiert` – der angefragte Vers zum Hervorheben, `None` bei einer reinen Kapitelangabe
+  („Ps 23“). Dafür kennt `BibleRef` (`domain/bible.py`) jetzt auch den ersten genannten Vers; nebenbei einen
+  bis dahin unbemerkten Fehler behoben: bei den `SINGLE_CHAPTER`-Büchern (Obd, Phlm, 2Joh, 3Joh, Jud) wurde
+  die einzige Zahl („Jud 5“ = Vers 5) zwar richtig als Kapitel 1 erkannt, der Vers selbst aber verworfen.
+  Route `GET /api/bibel/nachschlagen`. Zeigt bewusst den Text selbst, nie eine PDF-Seite – `stelle()`/
+  `GET /api/bibel/stelle` bleiben unverändert für den Seiten-Link aus dem Register.
+  Oberfläche (`BibelView.vue`, Abschnitt „Lesen“, nur sichtbar sobald Verse eingelesen sind): Eingabefeld für
+  eine Bibelstelle (ruft `nachschlagen`) und ein Buch-Dropdown zum Durchlesen ab Kapitel 1 (ruft `kapitel`,
+  ohne Markierung); das gefundene Kapitel steht direkt auf der Seite in eigener, gut lesbarer Typografie
+  (Serifenschrift, große Zeilenhöhe, Verszahlen als kleine hochgestellte Ziffern, der nachgeschlagene Vers
+  farblich hervorgehoben) – kein PDF-Embed. Pfeile links/rechts blättern Kapitel für Kapitel innerhalb des
+  gewählten Buchs (am Buchanfang/-ende deaktiviert).
+
 - [fertig] Neuer Dienst `bibliothek`: eigener Bücherbestand (Bücherkatalog), unabhängig vom Fach – Titel,
   Autor, Verlag, Jahr, ISBN, Standort, Notiz; beliebig vielen Fächern zuordenbar (wie Dozenten im Adressbuch:
   eigene Zuordnungsliste je Buch, löscht der Kern ein Fach, bleibt das Buch). Ausleihe: `ausleihen_an`/

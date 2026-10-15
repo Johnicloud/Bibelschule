@@ -5,6 +5,7 @@ export function createBibelService(api) {
     seiteSetzen: (buchIndex, seite) => api.seiteSetzen(buchIndex, seite === '' || seite == null ? null : Number(seite)),
     hochladen: (datei) => api.hochladen(datei),
     stelle: (text) => api.stelle(text),
+    nachschlagen: (text) => api.nachschlagen(text),
     kapitel: (buch, nummer) => api.kapitel(buch, nummer),
     dateiUrl: (seite) => api.dateiUrl(seite),
   }

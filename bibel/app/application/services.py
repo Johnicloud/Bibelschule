@@ -104,6 +104,16 @@ class BibelService:
                 seite = start.seite + round(anteil * (naechste - start.seite))
         return {"buch": buch.short, "name": buch.name, "kapitel": ref.chapter, "seite": seite, "genau": genau}
 
+    def nachschlagen(self, text: str) -> dict:
+        """Löst eine frei eingegebene Bibelstelle ('Joh 3,16') zum Lesen auf: das ganze Kapitel mit Verstext
+        (siehe `kapitel`), dazu `markiert` – der angefragte Vers zum Hervorheben in der Oberfläche, None wenn
+        nur das Kapitel genannt wurde. Zeigt den Text selbst, keine PDF-Seite (siehe `stelle`, das weiterhin
+        für den Seiten-Link aus dem Register gebraucht wird)."""
+        ref = parse_ref(text)
+        ergebnis = self.kapitel(BOOKS[ref.book].short, ref.chapter)
+        ergebnis["markiert"] = ref.verse
+        return ergebnis
+
     def kapitel(self, buch_kurz: str, kapitel: int) -> dict:
         """Der Verstext eines Kapitels, falls schon herausgelesen (siehe `hochladen`)."""
         buch = find_book(buch_kurz)

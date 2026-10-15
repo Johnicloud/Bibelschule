@@ -22,7 +22,19 @@ def test_parse_ref_whole_chapter():
 
 def test_parse_ref_single_chapter_book_means_chapter_one():
     ref = parse_ref("Jud 5")   # Judas hat nur 1 Kapitel, "Jud 5" meint Vers 5
-    assert BOOKS[ref.book].short == "Jud" and ref.chapter == 1
+    assert BOOKS[ref.book].short == "Jud" and ref.chapter == 1 and ref.verse == 5
+
+
+def test_parse_ref_reads_the_first_verse_when_given():
+    ref = parse_ref("Joh 3,16")
+    assert ref.chapter == 3 and ref.verse == 16
+    ref = parse_ref("Joh 3,16-18")   # Bereich: nur der erste Vers wird zum Markieren übernommen
+    assert ref.verse == 16
+
+
+def test_parse_ref_whole_chapter_has_no_verse():
+    ref = parse_ref("Ps 23")
+    assert ref.verse is None
 
 
 def test_parse_ref_rejects_unknown_book():
