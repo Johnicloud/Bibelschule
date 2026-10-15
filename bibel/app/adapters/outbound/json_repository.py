@@ -66,6 +66,11 @@ class JsonVersRepository(VersRepository):
         with self._lock:
             return self.path.exists() and self.path.stat().st_size > 2
 
+    def suche(self, text: str) -> list[Vers]:
+        t = text.lower()
+        with self._lock:
+            return [v for v in self._lesen() if t in v.text.lower()]
+
 
 class JsonVerweisRepository(VerweisRepository):
     def __init__(self, path: Path):

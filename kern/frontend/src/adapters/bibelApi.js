@@ -11,6 +11,7 @@ export function createBibelApi(base = '/api/bibel') {
     stelle: (text) => call('GET', `/stelle?text=${encodeURIComponent(text)}`),
     nachschlagen: (text) => call('GET', `/nachschlagen?text=${encodeURIComponent(text)}`),
     kapitel: (buch, nummer) => call('GET', `/kapitel?buch=${encodeURIComponent(buch)}&nummer=${nummer}`),
+    suche: (text) => call('GET', `/suche?text=${encodeURIComponent(text)}`),
     dateiUrl: (seite) => `${base}/datei${seite ? `#page=${seite}` : ''}`,
     async hochladen(datei) {
       const form = new FormData()

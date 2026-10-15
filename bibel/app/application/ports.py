@@ -29,6 +29,11 @@ class VersRepository(ABC):
     @abstractmethod
     def hat_verse(self) -> bool: ...
 
+    @abstractmethod
+    def suche(self, text: str) -> list[Vers]:
+        """Alle Verse, deren Text `text` enthält (Groß/Kleinschreibung egal). Reine Volltextsuche, keine
+        Bibelstelle wie bei `stelle`/`nachschlagen`."""
+
 
 class VerweisRepository(ABC):
     """Ausgehender Port: Verweise von irgendwo in der App auf eine Bibelstelle (siehe domain/models.py)."""

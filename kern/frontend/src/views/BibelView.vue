@@ -24,6 +24,28 @@ const gelesenesKapitel = ref(null)
 const gewaehltesBuch = ref('')
 const gewaehlteKapitelnummer = ref(1)
 
+// Volltextsuche: findet Verse nach Inhalt (nicht nach Bibelstelle wie beim Nachschlagen oben).
+const suchwort = ref('')
+const suchTreffer = ref(null)
+const suchFehler = ref('')
+const suchLaedt = ref(false)
+
+async function suchen() {
+  if (!suchwort.value.trim()) return
+  suchFehler.value = ''
+  suchLaedt.value = true
+  try { suchTreffer.value = await bibel.suche(suchwort.value) }
+  catch (e) { suchFehler.value = e.message; suchTreffer.value = null }
+  finally { suchLaedt.value = false }
+}
+
+async function zurSeite(treffer) {
+  try {
+    const ort = await bibel.stelle(`${treffer.buch} ${treffer.kapitel}`)
+    window.open(bibel.dateiUrl(ort.seite), '_blank')
+  } catch (e) { suchFehler.value = e.message }
+}
+
 async function load() {
   try { index.value = await bibel.index(); loadError.value = '' }
   catch (e) { loadError.value = e.message }
@@ -176,6 +198,24 @@ onMounted(load)
         </p>
       </div>
     </div>
+
+    <h2 class="mb-3 mt-8 text-lg font-semibold">Suchen</h2>
+    <form class="flex gap-2" @submit.prevent="suchen">
+      <input v-model="suchwort" type="text" class="input flex-1" placeholder="Wort oder Satzteil, z. B. „ewiges Leben“" />
+      <button class="btn btn-primary" :disabled="suchLaedt">{{ suchLaedt ? 'Sucht …' : 'Suchen' }}</button>
+    </form>
+    <p v-if="suchFehler" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ suchFehler }}</p>
+    <p v-else-if="suchTreffer && suchTreffer.length === 0" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Keine Verse gefunden.
+    </p>
+    <ul v-else-if="suchTreffer" class="mt-3 grid gap-2">
+      <li v-for="t in suchTreffer" :key="t.id" class="panel p-3">
+        <button class="text-left" @click="zurSeite(t)">
+          <span class="font-medium text-primary hover:underline">{{ t.name }} {{ t.kapitel }},{{ t.vers }}</span>
+          <span class="ml-2 text-sm text-slate-600 dark:text-slate-300">{{ t.text }}</span>
+        </button>
+      </li>
+    </ul>
   </template>
 
   <template v-if="index && index.dateiname">

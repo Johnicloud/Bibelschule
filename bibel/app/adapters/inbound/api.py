@@ -98,6 +98,10 @@ def create_app(service: BibelService) -> FastAPI:
     def kapitel(buch: str, nummer: int):
         return service.kapitel(buch, nummer)
 
+    @api.get("/suche")
+    def suche(text: str):
+        return service.suche(text)
+
     @api.get("/wort")
     def wort(stelle: str):
         return service.wort(stelle)

@@ -460,6 +460,14 @@ Sprache der Oberfläche und der Texte: Deutsch.
     mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
     tatsächlich auffindbar ist).
 
+- [fertig] Bibelsuche: `GET /api/bibel/suche?text=…` (`BibelService.suche`, `VersRepository.suche`) findet jeden
+  herausgelesenen Vers, dessen Text die gesuchte Zeichenkette enthält (Groß/Kleinschreibung egal), in Bibelreihenfolge
+  sortiert, auf 100 Treffer begrenzt. Reine Volltextsuche nach Inhalt, kein Bibelstellen-Parser wie `stelle`
+  (der löst umgekehrt eine Stelle wie „Joh 3,16“ zur PDF-Seite auf). Mindestens 2 Zeichen, sonst `InvalidInput`.
+  Oberfläche (`BibelView.vue`): eigenes Suchformular, erscheint erst, sobald die Verse eingelesen sind
+  (`index.hat_verse`); je Treffer Buch/Kapitel/Vers + Text, ein Klick löst wie bei den Register-Chips `stelle`
+  auf und öffnet die PDF an der passenden Seite in einem neuen Tab.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

@@ -125,6 +125,21 @@ class BibelService:
         return {"buch": buch.short, "name": buch.name, "kapitel": kapitel, "kapitel_gesamt": buch.chapters,
                 "verse": [{"id": v.id, "vers": v.vers, "text": v.text} for v in verse]}
 
+    MAX_TREFFER = 100
+
+    def suche(self, text: str) -> list[dict]:
+        """Volltextsuche über alle herausgelesenen Verse: findet jeden Vers, dessen Text `text` enthält
+        (Groß/Kleinschreibung egal), sortiert in Bibelreihenfolge. Keine Bibelstelle wie bei `stelle` – hier
+        wird nach Inhalt gesucht, nicht nach Fundort."""
+        text = (text or "").strip()
+        if len(text) < 2:
+            raise InvalidInput("Bitte mindestens 2 Zeichen eingeben.")
+        if self.verse_repo is None:
+            return []
+        treffer = sorted(self.verse_repo.suche(text), key=lambda v: (v.buch_index, v.kapitel, v.vers))
+        return [{"id": v.id, "buch": BOOKS[v.buch_index].short, "name": BOOKS[v.buch_index].name,
+                 "kapitel": v.kapitel, "vers": v.vers, "text": v.text} for v in treffer[:self.MAX_TREFFER]]
+
     def wort(self, stelle_text: str) -> dict:
         """Löst eine Wort-genaue Stelle ('Joh.3.16.5') zum einzelnen Wort auf, samt dem ganzen Vers als
         Zusammenhang. Ohne Wort-Teil ('Joh.3.16') ist das Ergebnis derselbe Vers, nur ohne `wort`."""

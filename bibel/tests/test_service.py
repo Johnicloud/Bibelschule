@@ -23,6 +23,9 @@ class InMemoryVersRepo(VersRepository):
         return next((v for v in self.verse if v.buch_index == buch_index and v.kapitel == kapitel
                     and v.vers == vers), None)
     def hat_verse(self): return bool(self.verse)
+    def suche(self, text):
+        t = text.lower()
+        return [v for v in self.verse if t in v.text.lower()]
 
 
 class InMemoryVerweisRepo(VerweisRepository):
@@ -206,6 +209,40 @@ def test_wort_raises_when_the_verse_itself_is_not_read_yet(svc):
     svc.verse_im_hintergrund_einlesen()
     with pytest.raises(NotFound):
         svc.wort("1Mo.5.1")   # nur Kapitel 1 hat die FakeExtractor-Verse
+
+
+def test_suche_findet_verse_mit_dem_gesuchten_wort(svc):
+    # FakeExtractor liefert dieselben zwei Verse für jedes Buch mit bekannter Seite (1Mo UND Joh, siehe FakeText) –
+    # darum zwei Treffer je Buch, in Bibelreihenfolge sortiert (1Mo vor Joh).
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    treffer = svc.suche("erde")
+    assert [t["id"] for t in treffer] == ["1Mo.1.1", "1Mo.1.2", "Joh.1.1", "Joh.1.2"]
+    assert treffer[0]["buch"] == "1Mo" and treffer[0]["kapitel"] == 1 and treffer[0]["vers"] == 1
+
+
+def test_suche_ist_case_insensitive(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    assert len(svc.suche("ERDE")) == 4
+
+
+def test_suche_findet_nichts_ohne_treffer(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    assert svc.suche("xyzxyz") == []
+
+
+def test_suche_rejects_zu_kurzen_text(svc):
+    with pytest.raises(InvalidInput):
+        svc.suche("a")
+    with pytest.raises(InvalidInput):
+        svc.suche("  ")
+
+
+def test_suche_without_verse_repo_returns_empty():
+    svc = BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText())   # kein verse_repo
+    assert svc.suche("erde") == []
 
 
 def test_verweis_anlegen_und_wieder_finden(svc):
