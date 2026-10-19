@@ -460,19 +460,23 @@ Sprache der Oberfläche und der Texte: Deutsch.
     mit eingebetteten Bildern – bestätigen u. a., dass die unsichtbare Textebene mit `pypdf.extract_text()`
     tatsächlich auffindbar ist).
 
-- [fertig] Neuer Dienst `schnelllesen`: Speedreading-Training nach der 3-2-1-Methode – dasselbe Bibelkapitel
-  dreimal lesen, mit sinkender Zielzeit (3, dann 2, dann 1 Minute), man übt dadurch, denselben Text immer
-  schneller zu lesen. Fachübergreifend wie `bibel` (kein `panel`, eigene Oberfläche `SchnelllesenView.vue`
-  als globaler Reiter, Symbol `stoppuhr`). Eigene, gekürzte Kopie von `domain/bible.py` (nur Buch + Kapitelzahl,
-  siehe Entscheidungen) – Buch/Kapitel-Auswahl kommt darüber aus dem Dienst selbst (`GET /api/buecher`).
-  Holt sich den Verstext eines Kapitels direkt vom Bibel-Dienst (`HttpBibelQuelle`, `BIBEL_URL`, Default
-  `http://bibel:8000`) – ein direkter Dienst-zu-Dienst-Aufruf im Docker-Netz wie bei `pdfcreator`/
-  `aufgabenleser` zu Ollama, nicht über den Kern (der Login verlangt). Eine Trainingseinheit (`Einheit`)
-  hält den geholten Text und bis zu drei `Durchgang`-Einträge (Runde, gebrauchte Sekunden, Zielsekunden);
-  `wpm` (Wörter pro Minute) wird aus der gespeicherten Wortzahl berechnet, nicht erneut vom Bibel-Dienst
-  nachgefragt – bleibt so auch stabil, falls sich dessen Text später ändert. Die Oberfläche misst die Zeit
-  selbst (Start-/Fertig-Knopf, Timer im Browser) und schickt nur die gebrauchten Sekunden; kein serverseitiger
-  Countdown nötig. Verlauf vergangener Einheiten mit Lösch-Knopf unterhalb des laufenden Trainings.
+- [fertig] Neuer Dienst `schnelllesen`: Speedreading-Training nach der tatsächlichen 3-2-1-Methode. Runde 1:
+  3 Minuten frei im ganzen Kapitel lesen, danach auf das letzte gelesene Wort klicken ("wie weit bin ich
+  gekommen") – dieser Abschnitt (`Einheit.segment_woerter`, Wortzahl bis dahin) ist ab Runde 2 der GANZE
+  Text: Runde 2 (2 Minuten) und Runde 3 (1 Minute) zeigen nur noch genau diesen, schon bekannten Abschnitt,
+  man liest ihn also zweimal erneut, in immer weniger Zeit (`Einheit.text_fuer_runde(runde)`). Fachübergreifend
+  wie `bibel` (kein `panel`, eigene Oberfläche `SchnelllesenView.vue` als globaler Reiter, Symbol `stoppuhr`).
+  Eigene, gekürzte Kopie von `domain/bible.py` (nur Buch + Kapitelzahl, siehe Entscheidungen) – Buch/Kapitel-
+  Auswahl kommt darüber aus dem Dienst selbst (`GET /api/buecher`). Holt sich den Verstext eines Kapitels
+  direkt vom Bibel-Dienst (`HttpBibelQuelle`, `BIBEL_URL`, Default `http://bibel:8000`) – ein direkter
+  Dienst-zu-Dienst-Aufruf im Docker-Netz wie bei `pdfcreator`/`aufgabenleser` zu Ollama, nicht über den Kern
+  (der Login verlangt). `Durchgang.woerter` hält je Runde die für `wpm` (Wörter pro Minute) maßgebliche
+  Wortzahl (Runde 1: wie weit gekommen, ab Runde 2: die Länge des Abschnitts) – wird aus der gespeicherten
+  Wortzahl berechnet, nicht erneut vom Bibel-Dienst nachgefragt, bleibt also auch stabil, falls sich dessen
+  Text später ändert. Die Oberfläche misst die Zeit selbst (Timer im Browser, kein serverseitiger Countdown):
+  Runde 1 stoppt automatisch nach 3 Minuten und zeigt den Text dann klickbar Wort für Wort; ab Runde 2 bleibt
+  das „Fertig“ dem Lesenden überlassen, auch über das Ziel hinaus (zeigt dann rot an). Verlauf vergangener
+  Einheiten mit Lösch-Knopf unterhalb des laufenden Trainings.
   `neuer-dienst.sh` nebenbei repariert: es hängte den neuen Dienst immer ans Dateiende von
   `docker-compose.override.yml` an, was bei einem bestehenden `networks:`-Schlüssel am Dateiende (wie bei `ki`
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
@@ -484,15 +488,46 @@ Sprache der Oberfläche und der Texte: Deutsch.
 Der Kern ruft ihn auf; die Fach-ID ist das Einzige, was Dienste teilen.
 
 ## Später
-Skript und Fragen mit Ollama einlesen (Aufgabenblatt selbst
-macht das schon der `aufgabenleser`-Dienst; Ollama läuft direkt auf dem Mac, Container erreichen es über
-host.docker.internal:11434; Ergebnisse immer nur Vorschlag, siehe Entscheidungen) ·
-Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für Aufgaben ·
-Kalender-Dienst (Aufgabe, Soll, Ist) · Bulk-Import der 50 Fächer aus dem Studienablaufplan (SE, Dozent, Semester;
-noch nicht gemacht, Foto kann Lesefehler enthalten – Kontrollliste nötig) · evtl. Fristen-Erinnerung über alle
-Fächer, Volltextsuche, Notizen/Logbuch.
+Aus der Bibelstudium-Mindmap (siehe Artefakt, von Claude am 2026-10-19 aus einer Skizze gebaut) abgeleitete
+Arbeitspakete. Jedes ist ein eigener Dienst oder eine klar abgegrenzte Erweiterung eines bestehenden – damit
+auf einem eigenen Branch/Worktree unabhängig von den anderen bearbeitbar, mehrere parallel in getrennten
+Chats/Sitzungen. Bibel ist dabei schon jetzt die Grundlage für alles (siehe Entscheidungen: „Bibel als
+Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
+
+- **A – Kommentare & Verbindungen** (neuer Dienst `notizen`, nutzt den vorbereiteten Verweis-Mechanismus des
+  Bibel-Dienstes): eigene Gedanken an einer Bibelstelle; jeder Kommentar legt einen Verweis (`art="kommentar"`)
+  im Bibel-Dienst an, „was verweist hierher?“ zeigt dann Register-Einträge und Kommentare zusammen.
+- **B – Konkordanz & Stichwortsuche** (Erweiterung Bibel-Dienst): `GET /api/bibel/suche?wort=…` durchsucht
+  den schon eingelesenen Verstext aller Bücher, liefert Fundstellen – Grundlage auch für Paket D.
+- **C – Orte mit Landkarte** (Erweiterung Register-Dienst): Koordinaten je Ortseintrag (von Hand oder
+  Geocoding-Vorschlag), Kartenansicht im Register-Reiter.
+- **D – Fragen & KI** (neuer Dienst `fragenki`, wie `aufgabenleser`: Ollama liefert nur einen Vorschlag):
+  Fragen zu einem Kapitel generieren, als Karteikarte übernehmbar; Lernstand-Statistik separat (fachübergreifend).
+- **E – Predigt-/Schreibarchiv** (neuer Dienst `predigten`, wie `bibliothek`: Upload + Texterkennung):
+  Predigten/eigene Texte hochladen, optional mit Verweis auf die behandelte Bibelstelle (Mechanismus wie A).
+- **F – Griechischer Grundtext** (Erweiterung Bibel-Dienst): eigene Textquelle nötig, Anzeige parallel zum
+  deutschen Vers – größter Brocken, am besten zuletzt.
+- **G – Gliederung & Spickzettel, wissenschaftliche Zitierhilfe** (Erweiterung des `notizen`-Diensts aus A):
+  strukturierte Gliederungspunkte statt freier Kommentare, Export mit Quellenangabe. Baut auf A auf.
+- **H – Automatische Fortschritt-Vorschläge** (Kern-Erweiterung, Ausnahme „Aufgaben liegen im Kern“ gilt
+  weiter): baut auf D auf, braucht also die KI-Anbindung zuerst.
+
+A bis E sind voneinander unabhängig und direkt startbar – fünf Pakete für fünf gleichzeitige Sitzungen.
+F ist eigenständig, aber aufwendig; G hängt an A, H an D.
+
+Ältere, von der Mindmap unabhängige Ideen: Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für
+Aufgaben · Kalender-Dienst (Aufgabe, Soll, Ist) · Bulk-Import der 50 Fächer aus dem Studienablaufplan (SE,
+Dozent, Semester; Foto kann Lesefehler enthalten – Kontrollliste nötig) · Fristen-Erinnerung über alle Fächer.
 
 ## Entscheidungen
+- **Bibel als Grundlage** (auf Wunsch festgehalten): der Bibel-Dienst ist die einzige Quelle für Bibeltext.
+  Ein Dienst, der Verstext braucht, holt ihn über die öffentliche API des Bibel-Diensts (direkter
+  Dienst-zu-Dienst-Aufruf im Docker-Netz, `BIBEL_URL`, wie bei `schnelllesen` → `HttpBibelQuelle`), legt sich
+  nie eine eigene Kopie des Textes an. Zeigt ein Dienst auf eine einzelne Bibelstelle (ein Kommentar, ein
+  Register-Eintrag, eine Predigt), meldet er das als `Verweis` beim Bibel-Dienst an (`POST /api/bibel/verweise`,
+  siehe dessen generischer Verweis-Mechanismus) – so bleibt „was verweist hierher?“ an einer Stelle beantwortbar,
+  über alle Dienste hinweg. Nur die Buchliste/der Parser (`domain/bible.py`) bleibt pro Dienst eine eigene
+  Kopie (siehe unten), der Text selbst nie.
 - Der Kern ist der einzige Eingang der Oberfläche; er reicht Aufrufe an die Dienste weiter.
 - Tempo für die Prognose: Durchschnitt der letzten 14 Tage. „Knapp“ = Tempo unter 115 % des Bedarfs.
 - Bibelbücher: 66, evangelische Reihenfolge, Kurznamen nach Lutherbibel; Bücher mit einem Kapitel (Obd, Phlm, 2Joh, 3Joh, Jud): „Jud 5“ = Vers 5.
