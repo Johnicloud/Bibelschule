@@ -27,6 +27,10 @@ class VersRepository(ABC):
     def vers(self, buch_index: int, kapitel: int, vers: int) -> Vers | None: ...
 
     @abstractmethod
+    def alle(self) -> list[Vers]:
+        """Alle Verse, sortiert nach Buch/Kapitel/Vers – Grundlage für die Konkordanz-Suche."""
+
+    @abstractmethod
     def hat_verse(self) -> bool: ...
 
 

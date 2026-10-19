@@ -3,7 +3,7 @@ from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, Vers
                                    VerweisRepository)
 from app.domain.bible import BOOKS, Stelle, find_book, parse_ref, parse_stelle
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Bibelindex, Buchseite, Vers, Verweis
+from app.domain.models import Bibelindex, Buchseite, Vers, Verweis, kontextsatz
 
 
 class BibelService:
@@ -140,6 +140,25 @@ class BibelService:
             if wort_text is None:
                 raise InvalidInput(f"{vers.id} hat nur {len(vers.woerter())} Wörter.")
         return {"stelle": stelle.format(), "vers_id": vers.id, "vers_text": vers.text, "wort": wort_text}
+
+    def suche(self, wort: str, limit: int = 200) -> list[dict]:
+        """Konkordanz: durchsucht den Verstext aller Bücher/Kapitel nach `wort` (Teilstring, Groß/Klein egal)
+        und liefert die Fundstellen – kanonische Stelle, Buch, Kapitel/Vers, dazu der umgebende Satz als
+        Kontext (`kontextsatz`). Einfache Teilstring-Suche reicht fürs Erste, keine Volltextsuch-Engine nötig
+        (siehe Projektnotizen, Arbeitspaket B). Bei vielen Treffern auf `limit` begrenzt, statt alles zu laden."""
+        if not (wort or "").strip():
+            raise InvalidInput("Das Suchwort darf nicht leer sein.")
+        if self.verse_repo is None:
+            return []
+        nadel = wort.strip().lower()
+        treffer = []
+        for v in self.verse_repo.alle():
+            if nadel in v.text.lower():
+                treffer.append({"stelle": v.id, "buch": BOOKS[v.buch_index].short, "name": BOOKS[v.buch_index].name,
+                                "kapitel": v.kapitel, "vers": v.vers, "kontext": kontextsatz(v.text, nadel)})
+                if len(treffer) >= limit:
+                    break
+        return treffer
 
     # Verweise: irgendetwas in der App zeigt auf eine Bibelstelle (Vers oder Wort) – der generische
     # Anknüpfungspunkt, siehe domain/models.py.

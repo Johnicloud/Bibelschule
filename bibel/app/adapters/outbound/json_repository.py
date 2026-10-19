@@ -62,6 +62,10 @@ class JsonVersRepository(VersRepository):
             return next((v for v in self._lesen() if v.buch_index == buch_index and v.kapitel == kapitel
                         and v.vers == vers), None)
 
+    def alle(self) -> list[Vers]:
+        with self._lock:
+            return sorted(self._lesen(), key=lambda v: (v.buch_index, v.kapitel, v.vers))
+
     def hat_verse(self) -> bool:
         with self._lock:
             return self.path.exists() and self.path.stat().st_size > 2

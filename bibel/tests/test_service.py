@@ -22,6 +22,7 @@ class InMemoryVersRepo(VersRepository):
     def vers(self, buch_index, kapitel, vers):
         return next((v for v in self.verse if v.buch_index == buch_index and v.kapitel == kapitel
                     and v.vers == vers), None)
+    def alle(self): return sorted(self.verse, key=lambda v: (v.buch_index, v.kapitel, v.vers))
     def hat_verse(self): return bool(self.verse)
 
 
@@ -236,3 +237,43 @@ def test_verweise_without_wiring_are_harmless():
     assert svc.verweise_zu("1Mo.1.1") == []
     with pytest.raises(InvalidInput):
         svc.verweis_anlegen("1Mo.1.1", "notiz", "x", None)
+
+
+def test_suche_findet_treffer_ueber_alle_verse_mit_kontextsatz(svc):
+    # FakeExtractor liefert für jedes erkannte Buch (hier 1Mo und Joh) dieselben zwei Verse.
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    treffer = svc.suche("wüst")
+    assert [t["stelle"] for t in treffer] == ["1Mo.1.2", "Joh.1.2"]
+    t = treffer[0]
+    assert t["buch"] == "1Mo" and t["name"] == "1. Mose" and t["kapitel"] == 1 and t["vers"] == 2
+    assert t["kontext"] == "Die Erde aber war wüst und leer."
+
+
+def test_suche_ignores_case_and_matches_multiple_verses(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    treffer = svc.suche("ERDE")
+    assert [t["stelle"] for t in treffer] == ["1Mo.1.1", "1Mo.1.2", "Joh.1.1", "Joh.1.2"]
+
+
+def test_suche_rejects_empty_word(svc):
+    with pytest.raises(InvalidInput):
+        svc.suche("   ")
+
+
+def test_suche_without_match_returns_empty_list(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    assert svc.suche("Dinosaurier") == []
+
+
+def test_suche_without_verses_returns_empty_list():
+    svc = BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText())   # kein verse_repo
+    assert svc.suche("Gott") == []
+
+
+def test_suche_respects_limit(svc):
+    svc.hochladen("b.pdf", b"x")
+    svc.verse_im_hintergrund_einlesen()
+    assert svc.suche("Erde", limit=1) == svc.suche("Erde")[:1]

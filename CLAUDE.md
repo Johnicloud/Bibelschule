@@ -482,6 +482,16 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+- [fertig] Arbeitspaket B – Konkordanz & Stichwortsuche (Erweiterung Bibel-Dienst): `GET /api/bibel/suche?wort=…`
+  durchsucht den schon eingelesenen Verstext aller Bücher/Kapitel (Teilstring, Groß/Klein egal) und liefert
+  Fundstellen (kanonische Stelle, Buch, Kapitel/Vers, dazu `kontextsatz` – der Satz aus dem Verstext, der das
+  Suchwort enthält, einfache Trennung an Punkt/Ausrufe-/Fragezeichen statt echter Sprachanalyse). Auf 200
+  Treffer begrenzt (`BibelService.suche(wort, limit=200)`), keine Volltextsuch-Engine nötig. Dafür neuer Port
+  `VersRepository.alle()` (alle Verse, sortiert nach Buch/Kapitel/Vers) – Grundlage auch für Paket D.
+  Oberfläche (`BibelView.vue`, Abschnitt „Konkordanz“ unterhalb von „Lesen“): Suchfeld, Trefferliste mit
+  Kontextsatz, Klick springt ins gelesene Kapitel (bestehende `kapitel()`-Anzeige, Treffer-Vers statt einer
+  nachgeschlagenen Stelle hervorgehoben).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -497,8 +507,6 @@ Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
 - **A – Kommentare & Verbindungen** (neuer Dienst `notizen`, nutzt den vorbereiteten Verweis-Mechanismus des
   Bibel-Dienstes): eigene Gedanken an einer Bibelstelle; jeder Kommentar legt einen Verweis (`art="kommentar"`)
   im Bibel-Dienst an, „was verweist hierher?“ zeigt dann Register-Einträge und Kommentare zusammen.
-- **B – Konkordanz & Stichwortsuche** (Erweiterung Bibel-Dienst): `GET /api/bibel/suche?wort=…` durchsucht
-  den schon eingelesenen Verstext aller Bücher, liefert Fundstellen – Grundlage auch für Paket D.
 - **C – Orte mit Landkarte** (Erweiterung Register-Dienst): Koordinaten je Ortseintrag (von Hand oder
   Geocoding-Vorschlag), Kartenansicht im Register-Reiter.
 - **D – Fragen & KI** (neuer Dienst `fragenki`, wie `aufgabenleser`: Ollama liefert nur einen Vorschlag):

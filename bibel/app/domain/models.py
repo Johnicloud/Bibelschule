@@ -44,6 +44,19 @@ def woerter(text: str) -> list[str]:
     return _WORT.findall(text or "")
 
 
+_SATZTRENNER = re.compile(r"(?<=[.!?])\s+")
+
+
+def kontextsatz(text: str, suchwort: str) -> str:
+    """Der Satz aus `text`, der `suchwort` enthält (Groß/Kleinschreibung egal) – der Zusammenhang für einen
+    Konkordanz-Treffer (siehe `BibelService.suche`). Einfache Satztrennung an Punkt/Ausrufe-/Fragezeichen,
+    keine echte Sprachanalyse; ohne erkennbare Satzgrenze (oder falls keiner der Sätze passt) der ganze Text."""
+    saetze = _SATZTRENNER.split(text or "")
+    nadel = suchwort.lower()
+    treffer = next((s for s in saetze if nadel in s.lower()), None)
+    return (treffer if treffer is not None else (text or "")).strip()
+
+
 @dataclass
 class Vers:
     """Ein einzelner Bibelvers, automatisch aus der hochgeladenen PDF herausgelesen (siehe verse_extractor.py).
