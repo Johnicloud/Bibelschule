@@ -10,6 +10,7 @@ const tabs = [
   { id: 'bibel', label: 'Bibel', icon: 'buch' },
   { id: 'bibliothek', label: 'Bibliothek', icon: 'bibliothek' },
   { id: 'schnelllesen', label: 'Schnelllesen', icon: 'stoppuhr' },
+  { id: 'fragenki', label: 'Fragen und KI', icon: 'fragezeichen' },
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>

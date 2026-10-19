@@ -7,6 +7,7 @@ import { createAufgabenleserApi } from './adapters/aufgabenleserApi'
 import { createAuthApi } from './adapters/authApi'
 import { createBibelApi } from './adapters/bibelApi'
 import { createBibliothekApi } from './adapters/bibliothekApi'
+import { createFragenkiApi } from './adapters/fragenkiApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
@@ -19,6 +20,7 @@ import { createAuthService } from './application/authService'
 import { createBibelService } from './application/bibelService'
 import { createBibliothekService } from './application/bibliothekService'
 import { createFlashcardService } from './application/flashcardService'
+import { createFragenkiService } from './application/fragenkiService'
 import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createSubjectService } from './application/subjectService'
 import { createReadingService } from './application/readingService'
@@ -37,4 +39,5 @@ createApp(App)
   .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
   .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
+  .provide('fragenki', createFragenkiService(createFragenkiApi('/api/fragenki')))
   .mount('#app')

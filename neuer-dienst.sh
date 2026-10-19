@@ -25,17 +25,23 @@ find "$name" -type f \( -name '*.py' -o -name '*.html' -o -name '*.txt' -o -name
 find "$name" -name '*.bak' -type f -delete
 
 [ -f docker-compose.override.yml ] || printf 'services:\n' > docker-compose.override.yml
-block="  $name:
+block_file=$(mktemp)
+trap 'rm -f "$block_file"' EXIT
+cat > "$block_file" <<EOF
+  $name:
     build: ./$name
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://$name:8000
     volumes:
       - ./data/$name:/app/data
-    restart: unless-stopped"
+    restart: unless-stopped
+EOF
 # Direkt nach "services:" einfügen, nicht ans Dateiende anhängen – sonst landet der neue Dienst unter einem
-# späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML).
-awk -v block="$block" '{print} /^services:/ && !done {print block; done=1}' \
+# späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML). Der Block kommt über eine
+# Datei statt über -v: macOS' awk ("one true awk") bricht bei -v mit einem mehrzeiligen String ab
+# ("newline in string"), eine Datei mit getline liest dagegen auf jedem awk portabel.
+awk -v bf="$block_file" '{print} /^services:/ && !done {while ((getline line < bf) > 0) print line; close(bf); done=1}' \
   docker-compose.override.yml > docker-compose.override.yml.tmp
 mv docker-compose.override.yml.tmp docker-compose.override.yml
 
