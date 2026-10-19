@@ -505,15 +505,19 @@ Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
   Fragen zu einem Kapitel generieren, als Karteikarte übernehmbar; Lernstand-Statistik separat (fachübergreifend).
 - **E – Predigt-/Schreibarchiv** (neuer Dienst `predigten`, wie `bibliothek`: Upload + Texterkennung):
   Predigten/eigene Texte hochladen, optional mit Verweis auf die behandelte Bibelstelle (Mechanismus wie A).
-- **F – Griechischer Grundtext** (Erweiterung Bibel-Dienst): eigene Textquelle nötig, Anzeige parallel zum
-  deutschen Vers – größter Brocken, am besten zuletzt.
+- **F – Griechisches Glossar** (neuer Dienst `glossar`, fachübergreifend wie `bibel`, nutzt denselben
+  Verweis-Mechanismus wie A): ein Eintrag hält griechisches Wort, Transliteration und Erklärung; beliebig
+  viele Bibelstellen je Wort, jede legt einen Verweis (`art="glossar"`) beim Bibel-Dienst an. Oberfläche:
+  neuer globaler Reiter „Glossar“, alphabetische Liste mit Suchfeld, Bibelstellen als anklickbare Chips
+  (wie im Register). Kein eigener griechischer Grundtext nötig (das wäre ein viel größerer, vager Brocken –
+  eine eigene Textquelle parallel zum deutschen Vers einzubinden) – diese kleinere, konkrete Form schlägt das.
 - **G – Gliederung & Spickzettel, wissenschaftliche Zitierhilfe** (Erweiterung des `notizen`-Diensts aus A):
   strukturierte Gliederungspunkte statt freier Kommentare, Export mit Quellenangabe. Baut auf A auf.
 - **H – Automatische Fortschritt-Vorschläge** (Kern-Erweiterung, Ausnahme „Aufgaben liegen im Kern“ gilt
   weiter): baut auf D auf, braucht also die KI-Anbindung zuerst.
 
-A bis E sind voneinander unabhängig und direkt startbar – fünf Pakete für fünf gleichzeitige Sitzungen.
-F ist eigenständig, aber aufwendig; G hängt an A, H an D.
+A bis F sind voneinander unabhängig und direkt startbar – sechs Pakete für sechs gleichzeitige Sitzungen.
+G hängt an A, H an D.
 
 Ältere, von der Mindmap unabhängige Ideen: Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für
 Aufgaben · Kalender-Dienst (Aufgabe, Soll, Ist) · Bulk-Import der 50 Fächer aus dem Studienablaufplan (SE,
