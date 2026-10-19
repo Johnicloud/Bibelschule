@@ -482,6 +482,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+- [fertig] Arbeitspaket A umgesetzt – neuer Dienst `notizen`: eigene Gedanken an einer Bibelstelle. Ein
+  `Kommentar` hat `stelle` (kanonische Adresse wie „Joh.3.16“), `text`, `erstellt` und `verweis_id`. Beim
+  Anlegen meldet der Dienst sich direkt beim Bibel-Dienst als `Verweis` an (`POST /api/verweise`, `art=
+  "kommentar"`, `referenz=<kommentar-id>`, `BIBEL_URL`, wie `schnelllesen` → `HttpBibelQuelle`): prüft dort
+  zugleich die Stelle (`parse_stelle`) und liefert bei einer unbekannten Stelle 422 – dieser Fehler wird
+  durchgereicht, der Kommentar bleibt dann ungespeichert. Ist der Bibel-Dienst nicht erreichbar, wird der
+  Kommentar trotzdem gespeichert, nur `verweis_id` bleibt `None` (`NullBibelVerweise`, wie `NullBibelQuelle`
+  bei `schnelllesen`). Löschen eines Kommentars löst auch den Verweis wieder auf. Fachübergreifend wie
+  `bibel`/`schnelllesen` (kein `panel`, keine Fach-Daten, nur die drei Pflicht-Endpunkte als No-ops).
+  Oberfläche: neuer globaler Reiter „Notizen“ (`NotizenView.vue`, analog `SchnelllesenView.vue`) – Bibelstelle
+  frei eintippen (`bibel.nachschlagen(text)` löst sie auf, die kanonische Adresse baut das Frontend selbst aus
+  `buch`/`kapitel`/`markiert` zusammen, kein eigener Stellen-Parser im Frontend nötig), Kommentar schreiben,
+  Liste bisheriger Kommentare zu dieser Stelle.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -494,9 +508,11 @@ auf einem eigenen Branch/Worktree unabhängig von den anderen bearbeitbar, mehre
 Chats/Sitzungen. Bibel ist dabei schon jetzt die Grundlage für alles (siehe Entscheidungen: „Bibel als
 Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
 
-- **A – Kommentare & Verbindungen** (neuer Dienst `notizen`, nutzt den vorbereiteten Verweis-Mechanismus des
-  Bibel-Dienstes): eigene Gedanken an einer Bibelstelle; jeder Kommentar legt einen Verweis (`art="kommentar"`)
-  im Bibel-Dienst an, „was verweist hierher?“ zeigt dann Register-Einträge und Kommentare zusammen.
+- **A – Kommentare & Verbindungen** [fertig, siehe Stand] (neuer Dienst `notizen`, nutzt den vorbereiteten
+  Verweis-Mechanismus des Bibel-Dienstes): eigene Gedanken an einer Bibelstelle; jeder Kommentar legt einen
+  Verweis (`art="kommentar"`) im Bibel-Dienst an. Offen für später: „was verweist hierher?“ zeigt noch keine
+  Register-Einträge und Kommentare zusammen an einer Stelle (der Bibel-Dienst kennt den Verweis schon, nur
+  keine Oberfläche dafür).
 - **B – Konkordanz & Stichwortsuche** (Erweiterung Bibel-Dienst): `GET /api/bibel/suche?wort=…` durchsucht
   den schon eingelesenen Verstext aller Bücher, liefert Fundstellen – Grundlage auch für Paket D.
 - **C – Orte mit Landkarte** (Erweiterung Register-Dienst): Koordinaten je Ortseintrag (von Hand oder

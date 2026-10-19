@@ -71,6 +71,15 @@ services:
     volumes:
       - ./data/schnelllesen:/app/data
     restart: unless-stopped
+  notizen:
+    build: ./notizen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://notizen:8000
+      BIBEL_URL: http://bibel:8000       # meldet Kommentare als Verweis beim Bibel-Dienst an
+    volumes:
+      - ./data/notizen:/app/data
+    restart: unless-stopped
 
 networks:
   # Der ollama-Container läuft im eigenen Docker-Netzwerk "ki" (eigenständig gestartet, nicht Teil dieses
