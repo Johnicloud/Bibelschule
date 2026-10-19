@@ -482,6 +482,36 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+- [fertig] Neuer Dienst `predigten`: Predigt-/Schreibarchiv (Arbeitspaket E), nach dem Vorbild von `bibliothek`
+  (Datei-Upload über `storage.py`/`FileSystemDateiSpeicher`) für den Upload-Teil, aber fachübergreifend wie
+  `bibel`/`schnelllesen` (kein `panel`, keine Fach-Zuordnung, die drei Pflicht-Endpunkte des Fach-Vertrags sind
+  reine No-ops). Ein Eintrag hat Titel, optionales Datum/Prediger/Notiz, optional eine hochgeladene Datei (PDF,
+  genau eine je Predigt – anders als bei `bibliothek` kein Original/Text-Paar, siehe Texterkennung unten) und
+  beliebig viele Bibelstellen.
+  - **Verweis beim Bibel-Dienst**: eine frei eingegebene Stelle ("Joh 3,16", auch nur "Ps 23" – zeigt dann auf
+    deren ersten Vers, ein Verweis braucht immer genau eine Stelle, siehe Entscheidungen) wird über die eigene
+    Kopie von `domain/bible.py` (wie bei `bibel`/`register`/`schnelllesen`) in die kanonische Adresse
+    übersetzt und direkt beim Bibel-Dienst angemeldet (`POST /api/verweise`, `art="predigt"`,
+    `referenz=<predigt-id>`, `HttpBibelVerweise` in `app/adapters/outbound/bibel_client.py`, `BIBEL_URL` – nach
+    dem Vorbild von `schnelllesen`s `HttpBibelQuelle` für den direkten Dienst-zu-Dienst-Aufruf im Docker-Netz).
+    Die zurückgegebene Verweis-ID merkt sich die Predigt (`Predigt.verweis_ids`, Stelle -> ID), um beim
+    Bearbeiten (gestrichene Stelle) oder Löschen der Predigt den zugehörigen Verweis gezielt wieder zu
+    entfernen (`DELETE /api/verweise/{id}` beim Bibel-Dienst). Ist der Bibel-Dienst nicht erreichbar, bricht
+    das weder das Anlegen noch das Bearbeiten/Löschen der Predigt ab (Fehler wird nur geloggt) – wie der
+    Ollama-Aufruf bei `pdfcreator` ist der Verweis eine Zusatzleistung, kein Pflichtteil.
+  - **Bewusst ausgelassen**: Texterkennung (OCR) für gescannte Predigten, wie sie `bibliothek` hat
+    (Ollama-Vision-Modell + unsichtbare Textebene) – würde den Rahmen des ersten Durchgangs sprengen, kann bei
+    Bedarf nach demselben Muster nachgerüstet werden (`BildExtraktor`/`OcrKI`/`TextPdfBauer`-Ports kopieren).
+    Darum auch nur eine Datei je Predigt (kein Original/Text-Paar wie bei `bibliothek`).
+  - Oberfläche: neuer globaler Reiter „Predigten“ (`PredigtenView.vue`, Symbol `predigten`, angelehnt an
+    `BibliothekView.vue`), Liste mit Anlegen-Formular hinter einem Knopf (wie bei Dozenten/Pensen), Bibelstellen
+    als Freitext-Feld (eine je Zeile oder durch Komma getrennt, `predigtenService.js`
+    `stellenAusText`/`stellenZuText`), Datei-Upload wie bei `bibliothek`.
+  - Nebenbei repariert: `neuer-dienst.sh` schlug auf diesem Mac fehl (`awk -v` mit einem mehrzeiligen Wert –
+    "newline in string", ein BSD-awk-Problem, GNU-awk kennt es nicht). Der Einbau des neuen Dienst-Blocks in
+    `docker-compose.override.yml` läuft jetzt über eine Block-Datei + `sed … r …` statt `awk -v`, portabel auf
+    beiden Plattformen.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

@@ -1,4 +1,13 @@
 services:
+  predigten:
+    build: ./predigten
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://predigten:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise auf Bibelstellen direkt beim Bibel-Dienst an
+    volumes:
+      - ./data/predigten:/app/data
+    restart: unless-stopped
   adressbuch:
     build: ./adressbuch
     environment:
