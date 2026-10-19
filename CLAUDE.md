@@ -482,6 +482,16 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+- [fertig] Arbeitspaket C umgesetzt: Koordinaten je Register-Eintrag (`RegisterEntry.lat`/`lon`, optional,
+  `.get(..., None)` – alte Daten ohne diese Felder bleiben gültig). Von Hand eingetragen, keine Geocoding-API
+  verdrahtet: ein Textfeld „Breite, Länge“ im Eintragsformular (`parseKoordinaten` im Frontend zerlegt es),
+  genauso beim nachträglichen Ändern (neuer Endpunkt `PUT /api/register/entries/{id}/location`,
+  `RegisterService.set_location`, rührt Name/Stellen nicht an). `add_entry` setzt Koordinaten nur, wenn
+  angegeben – beim bloßen Ergänzen weiterer Stellen zum selben Namen bleiben vorhandene Koordinaten unangetastet.
+  Kartenausschnitt in `RegisterPanel.vue`: ein einzelnes statisches OpenStreetMap-Kachelbild (eigene Berechnung
+  der Kachel-Nummer aus Breite/Länge, kein zusätzliches Paket) plus Link zum vollen Kartenausschnitt auf
+  openstreetmap.org – bewusst kein `<iframe>` (Datenschutz/CSP: kein fremdes Dokument im eigenen Origin).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
@@ -499,8 +509,6 @@ Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
   im Bibel-Dienst an, „was verweist hierher?“ zeigt dann Register-Einträge und Kommentare zusammen.
 - **B – Konkordanz & Stichwortsuche** (Erweiterung Bibel-Dienst): `GET /api/bibel/suche?wort=…` durchsucht
   den schon eingelesenen Verstext aller Bücher, liefert Fundstellen – Grundlage auch für Paket D.
-- **C – Orte mit Landkarte** (Erweiterung Register-Dienst): Koordinaten je Ortseintrag (von Hand oder
-  Geocoding-Vorschlag), Kartenansicht im Register-Reiter.
 - **D – Fragen & KI** (neuer Dienst `fragenki`, wie `aufgabenleser`: Ollama liefert nur einen Vorschlag):
   Fragen zu einem Kapitel generieren, als Karteikarte übernehmbar; Lernstand-Statistik separat (fachübergreifend).
 - **E – Predigt-/Schreibarchiv** (neuer Dienst `predigten`, wie `bibliothek`: Upload + Texterkennung):
@@ -516,7 +524,7 @@ Grundlage“) – kein Paket muss darauf warten, dass das erst gebaut wird.
 - **H – Automatische Fortschritt-Vorschläge** (Kern-Erweiterung, Ausnahme „Aufgaben liegen im Kern“ gilt
   weiter): baut auf D auf, braucht also die KI-Anbindung zuerst.
 
-A bis F sind voneinander unabhängig und direkt startbar – sechs Pakete für sechs gleichzeitige Sitzungen.
+A, B, D, E, F sind voneinander unabhängig und direkt startbar (C ist fertig, siehe Stand).
 G hängt an A, H an D.
 
 Ältere, von der Mindmap unabhängige Ideen: Priorisierung (Eisenhower: dringend/wichtig) als eigener Dienst für

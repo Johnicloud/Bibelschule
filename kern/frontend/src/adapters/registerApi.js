@@ -14,6 +14,7 @@ export function createRegisterApi(base = '/api/register') {
     passages: (registerId) => call('GET', '/passages' + query({ register_id: registerId })),
     addEntry: (entry) => call('POST', '/entries', entry),
     deleteEntry: (id) => call('DELETE', `/entries/${id}`),
+    setLocation: (id, lat, lon) => call('PUT', `/entries/${id}/location`, { lat, lon }),
     // Export (CSV oder Text) eines Registers, mit derselben Sortierung wie die Anzeige. Als Blob statt als
     // einfacher <a href>-Link, damit eine abgelaufene Sitzung nicht als kaputte Datei heruntergeladen wird,
     // sondern wie jeder andere Aufruf zur Anmeldeseite zurückführt.

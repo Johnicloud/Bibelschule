@@ -26,6 +26,8 @@ class RegisterEntry:
     refs: list[BibleRef] = field(default_factory=list)
     id: str = field(default_factory=new_id)
     legacy_kind: str = ""   # alte Daten: "person" oder "place"; nur noch für die Übernahme in Register (JSON-Feld "kind")
+    lat: float | None = None   # Koordinaten, von Hand eingetragen (keine Geocoding-API); nur sinnvoll bei Orten,
+    lon: float | None = None   # aber Register sind generisch, daher nicht erzwungen – bei jedem Eintrag möglich
 
     @property
     def name_key(self) -> str:
