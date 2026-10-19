@@ -25,19 +25,23 @@ find "$name" -type f \( -name '*.py' -o -name '*.html' -o -name '*.txt' -o -name
 find "$name" -name '*.bak' -type f -delete
 
 [ -f docker-compose.override.yml ] || printf 'services:\n' > docker-compose.override.yml
-block="  $name:
+block_file="$(mktemp)"
+cat > "$block_file" <<EOF
+  $name:
     build: ./$name
     environment:
       KERN_URL: http://kern:8000
       SERVICE_URL: http://$name:8000
     volumes:
       - ./data/$name:/app/data
-    restart: unless-stopped"
+    restart: unless-stopped
+EOF
 # Direkt nach "services:" einfügen, nicht ans Dateiende anhängen – sonst landet der neue Dienst unter einem
 # späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML).
-awk -v block="$block" '{print} /^services:/ && !done {print block; done=1}' \
-  docker-compose.override.yml > docker-compose.override.yml.tmp
-mv docker-compose.override.yml.tmp docker-compose.override.yml
+# Über eine Datei statt `awk -v block="…"` (mehrzeiliger -v-Wert scheitert am BSD-awk von macOS mit
+# "newline in string"), `sed … r` liest sie portabel nach der passenden Zeile ein.
+sed -i.bak "/^services:/r $block_file" docker-compose.override.yml
+rm -f docker-compose.override.yml.bak "$block_file"
 
 echo "Dienst \"$label\" liegt in ./$name und ist in docker-compose.override.yml eingetragen."
 echo "Starten: docker compose up --build -d"

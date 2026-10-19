@@ -27,6 +27,7 @@ const PATHS = {
   bibliothek: 'M3 21h18M4 21V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v16M10 21V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v12M16 21V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v14',
   x: 'M6 6l12 12M18 6 6 18',
   stoppuhr: 'M10 2h4M12 14 15 11M12 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16z',
+  glossar: 'M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
 }
 
 const path = () => PATHS[props.name] || PATHS.baustein
