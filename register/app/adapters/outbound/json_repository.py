@@ -12,7 +12,7 @@ from app.domain.models import Register, RegisterEntry
 
 def _to_dict(e: RegisterEntry) -> dict:
     return {"id": e.id, "subject_id": e.subject_id, "register_id": e.register_id, "kind": e.legacy_kind,
-            "name": e.name,
+            "name": e.name, "lat": e.lat, "lon": e.lon,
             "refs": [{"book": r.book, "chapter": r.chapter, "verse": r.verse,
                       "chapter_end": r.chapter_end, "verse_end": r.verse_end} for r in e.refs]}
 
@@ -20,7 +20,7 @@ def _to_dict(e: RegisterEntry) -> dict:
 def _from_dict(d: dict) -> RegisterEntry:
     return RegisterEntry(
         id=d["id"], subject_id=d["subject_id"], register_id=d.get("register_id", ""),
-        legacy_kind=d.get("kind", ""), name=d["name"],
+        legacy_kind=d.get("kind", ""), name=d["name"], lat=d.get("lat", None), lon=d.get("lon", None),
         refs=[BibleRef(r["book"], r["chapter"], r["verse"], r["chapter_end"], r["verse_end"])
               for r in d.get("refs", [])])
 
