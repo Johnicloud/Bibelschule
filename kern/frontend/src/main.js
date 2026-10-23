@@ -10,6 +10,7 @@ import { createBibliothekApi } from './adapters/bibliothekApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
+import { createPredigtenApi } from './adapters/predigtenApi'
 import { createReadingApi } from './adapters/readingApi'
 import { createRegisterApi } from './adapters/registerApi'
 import { createSchnelllesenApi } from './adapters/schnelllesenApi'
@@ -20,6 +21,7 @@ import { createBibelService } from './application/bibelService'
 import { createBibliothekService } from './application/bibliothekService'
 import { createFlashcardService } from './application/flashcardService'
 import { createPdfcreatorService } from './application/pdfcreatorService'
+import { createPredigtenService } from './application/predigtenService'
 import { createSubjectService } from './application/subjectService'
 import { createReadingService } from './application/readingService'
 import { createRegisterService } from './application/registerService'
@@ -37,4 +39,5 @@ createApp(App)
   .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
   .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
+  .provide('predigten', createPredigtenService(createPredigtenApi('/api/predigten')))
   .mount('#app')
