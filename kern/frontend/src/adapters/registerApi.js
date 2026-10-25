@@ -13,6 +13,7 @@ export function createRegisterApi(base = '/api/register') {
     entries: (registerId, sort = 'name') => call('GET', '/entries' + query({ register_id: registerId, sort })),
     passages: (registerId) => call('GET', '/passages' + query({ register_id: registerId })),
     addEntry: (entry) => call('POST', '/entries', entry),
+    updateEntry: (id, entry) => call('PUT', `/entries/${id}`, entry),
     deleteEntry: (id) => call('DELETE', `/entries/${id}`),
     // Export (CSV oder Text) eines Registers, mit derselben Sortierung wie die Anzeige. Als Blob statt als
     // einfacher <a href>-Link, damit eine abgelaufene Sitzung nicht als kaputte Datei heruntergeladen wird,

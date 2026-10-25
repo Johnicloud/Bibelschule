@@ -9,6 +9,7 @@ export function createRegisterService(api) {
     entries: (registerId, sort) => api.entries(registerId, sort),
     passages: (registerId) => api.passages(registerId),
     add: (registerId, e) => api.addEntry({ register_id: registerId, name: e.name.trim(), refs: [e.refs] }),
+    update: (id, e) => api.updateEntry(id, { name: e.name.trim(), refs: [e.refs] }),
     removeEntry: (id) => api.deleteEntry(id),
     async exportieren(registerId, opts, dateiname) {
       const blob = await api.exportieren(registerId, opts)

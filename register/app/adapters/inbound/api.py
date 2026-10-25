@@ -28,6 +28,11 @@ class EntryIn(BaseModel):
     refs: list[str] = Field(default_factory=list)   # z. B. ["1Mo 12,1-3", "Hebr 11,8"] oder "Joh 3,16; Joh 4,5"
 
 
+class EntryUpdate(BaseModel):
+    name: str
+    refs: list[str] = Field(default_factory=list)
+
+
 class SubjectIn(BaseModel):
     name: str
 
@@ -97,6 +102,10 @@ def create_app(service: RegisterService) -> FastAPI:
     @api.post("/entries", status_code=201)
     def add_entry(body: EntryIn):
         return entry_out(service.add_entry(body.register_id, body.name, body.refs))
+
+    @api.put("/entries/{entry_id}")
+    def update_entry(entry_id: str, body: EntryUpdate):
+        return entry_out(service.update_entry(entry_id, body.name, body.refs))
 
     @api.delete("/entries/{entry_id}", status_code=204)
     def delete_entry(entry_id: str):

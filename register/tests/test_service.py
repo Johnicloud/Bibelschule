@@ -94,6 +94,25 @@ def test_same_name_merges_within_a_register_only(svc, namen, orte, events):
     assert events.sent.count("register.entry_added") == 3
 
 
+def test_update_entry_replaces_name_and_refs(svc, namen):
+    e = svc.add_entry(namen.id, "Abraham", ["1Mo 12,1"])
+    updated = svc.update_entry(e.id, "Abram", ["1Mo 11,26", "Hebr 11,8"])
+    assert updated.name == "Abram"
+    assert texts(updated) == ["1Mo 11,26", "Hebr 11,8"]
+    assert [e.name for e in svc.list_entries("f")] == ["Abram"]   # ersetzt, nicht ergänzt
+
+
+def test_update_entry_rejects_duplicate_name_in_same_register(svc, namen):
+    svc.add_entry(namen.id, "Abraham", ["1Mo 12,1"])
+    e2 = svc.add_entry(namen.id, "Mose", ["2Mo 3,1"])
+    with pytest.raises(InvalidInput):
+        svc.update_entry(e2.id, "abraham", ["2Mo 3,1"])   # Groß/Klein egal
+    with pytest.raises(NotFound):
+        svc.update_entry("gibt-es-nicht", "Mose", ["2Mo 3,1"])
+    with pytest.raises(InvalidInput):
+        svc.update_entry(e2.id, "Mose", [])
+
+
 def test_bad_input_saves_nothing(svc, namen):
     with pytest.raises(InvalidInput):
         svc.add_entry(namen.id, "Mose", ["2Mo 3,1", "Quatsch 4"])

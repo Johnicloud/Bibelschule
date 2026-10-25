@@ -21,6 +21,9 @@ const form = ref({ name: '', refs: '' })
 const nameInput = ref(null)
 const renaming = ref(false)
 const renameValue = ref('')
+const editingId = ref('')
+const editForm = ref({ name: '', refs: '' })
+const editError = ref('')
 const vorhandeneNamen = ref(new Set())
 
 const storeKey = computed(() => `bibelschule.register.${props.subjectId}`)
@@ -97,6 +100,21 @@ async function add() {
     emit('changed')
     focusName() // gleich der nächste Eintrag
   } catch (e) { error.value = e.message }
+}
+function startEditEntry(entry) {
+  editingId.value = entry.id
+  editForm.value = { name: entry.name, refs: entry.refs.map((r) => r.text).join('; ') }
+  editError.value = ''
+}
+function cancelEditEntry() { editingId.value = '' }
+async function saveEditEntry() {
+  editError.value = ''
+  try {
+    await register.update(editingId.value, editForm.value)
+    editingId.value = ''
+    await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
+    emit('changed')
+  } catch (e) { editError.value = e.message }
 }
 async function removeEntry(entry) {
   if (!confirm(`„${entry.name}“ aus dem Register löschen?`)) return
@@ -188,17 +206,31 @@ onMounted(() => loadRegisters())
 
       <ul v-else-if="view !== 'stellen'" class="grid gap-3 md:grid-cols-2">
         <li v-for="e in entries" :key="e.id" class="panel p-4">
-          <div class="flex items-start justify-between gap-2">
-            <span class="font-semibold">{{ e.name }}</span>
-            <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="removeEntry(e)">Löschen</button>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-1.5">
-            <button v-for="r in e.refs" :key="r.text" type="button" :title="`${r.book_name} – in der Bibel öffnen`"
-              class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 transition hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:hover:bg-teal-500/20"
-              @click="inBibelOeffnen(r.text)">
-              {{ r.text }}
-            </button>
-          </div>
+          <template v-if="editingId !== e.id">
+            <div class="flex items-start justify-between gap-2">
+              <span class="font-semibold">{{ e.name }}</span>
+              <span class="flex shrink-0 gap-2">
+                <button class="btn btn-ghost !px-2.5 !py-1" :aria-label="`${e.name} bearbeiten`" @click="startEditEntry(e)">Bearbeiten</button>
+                <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="removeEntry(e)">Löschen</button>
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <button v-for="r in e.refs" :key="r.text" type="button" :title="`${r.book_name} – in der Bibel öffnen`"
+                class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 transition hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:hover:bg-teal-500/20"
+                @click="inBibelOeffnen(r.text)">
+                {{ r.text }}
+              </button>
+            </div>
+          </template>
+          <form v-else class="grid gap-2" @submit.prevent="saveEditEntry">
+            <input v-model="editForm.name" class="input" placeholder="Name oder Begriff" :aria-label="`Name für ${e.name}`" />
+            <input v-model="editForm.refs" class="input" placeholder="Bibelstellen, z. B. 1Mo 12,1-3; Hebr 11,8" :aria-label="`Bibelstellen für ${e.name}`" />
+            <div class="flex gap-2">
+              <button class="btn btn-primary !py-1.5">Speichern</button>
+              <button type="button" class="btn btn-ghost !py-1.5" @click="cancelEditEntry">Abbrechen</button>
+            </div>
+            <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
+          </form>
         </li>
       </ul>
 

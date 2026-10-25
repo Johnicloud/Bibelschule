@@ -101,6 +101,32 @@ class RegisterService:
             return sorted(entries, key=lambda e: (e.refs[0].sort_key if e.refs else (999,), e.name_key))
         return sorted(entries, key=lambda e: (e.name_key, e.name))
 
+    def update_entry(self, entry_id: str, name: str, refs: list[str]) -> RegisterEntry:
+        """Ändert Name und Bibelstellen eines Eintrags (ersetzt beides, anders als `add_entry`, das Stellen
+        nur ergänzt). Name muss im Register weiterhin eindeutig sein (der Eintrag selbst zählt nicht mit)."""
+        entry = self.repo.get(entry_id)
+        if entry is None:
+            raise NotFound("Eintrag nicht gefunden.")
+        name = _clean(name, "Der Name")
+        parts = split_refs(refs)
+        if not parts:
+            raise InvalidInput("Gib mindestens eine Bibelstelle an.")
+        parsed = sorted({parse_ref(p) for p in parts}, key=lambda r: r.sort_key)
+
+        name_key_neu = RegisterEntry(subject_id=entry.subject_id, register_id=entry.register_id,
+                                      name=name).name_key
+        doppelt = any(e.id != entry.id and e.register_id == entry.register_id and e.name_key == name_key_neu
+                      for e in self.repo.list(entry.subject_id))
+        if doppelt:
+            raise InvalidInput(f"„{name}“ gibt es in diesem Register schon.")
+
+        entry.name = name
+        entry.refs = parsed
+        self.repo.save(entry)
+        self._emit("register.entry_updated", {"subject_id": entry.subject_id, "register_id": entry.register_id,
+                                                "entry_id": entry.id, "name": entry.name})
+        return entry
+
     def delete_entry(self, entry_id: str) -> None:
         entry = self.repo.get(entry_id)
         if entry is None:
