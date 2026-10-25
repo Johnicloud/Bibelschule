@@ -17,8 +17,8 @@ export function createFlashcardService(api) {
     deleteCard: (id, cardId) => api.deleteCard(id, cardId),
     startSession: (deckId) => api.dueCards(deckId), // deckId leer = alle Fächer
     answer: (deckId, cardId, correct) => api.review(deckId, cardId, correct),
-    async drucken(deckId, deckName, fenster) {
-      const blob = await api.druckbogen(deckId)
+    async drucken(deckId, deckName, fenster, format = 'a7') {
+      const blob = await api.druckbogen(deckId, format)
       pdfZeigen(fenster, blob, `Karteikarten ${deckName}.pdf`)
     },
   }

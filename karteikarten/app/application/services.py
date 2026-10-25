@@ -113,13 +113,15 @@ class FlashcardService:
         self.decks.save(deck)
         self._emit("card.deleted", {"deck_id": deck.id, "card_id": card.id})
 
-    def druckbogen(self, deck_id: str) -> bytes:
+    def druckbogen(self, deck_id: str, format: str = "a7") -> bytes:
         deck = self._deck(deck_id)
         if not deck.cards:
             raise InvalidInput("Dieses Fach hat keine Karten zum Drucken.")
         if self.printer is None:
             raise InvalidInput("Drucken ist gerade nicht verfügbar.")
-        return self.printer.druckbogen(deck.cards)
+        if format not in ("a7", "a8"):
+            raise InvalidInput("Format muss a7 oder a8 sein.")
+        return self.printer.druckbogen(deck.cards, format)
 
     def all_cards(self) -> list[Pair]:
         pairs = [(d, c) for d in self.decks.list() for c in d.cards]

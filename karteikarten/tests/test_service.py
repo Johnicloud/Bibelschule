@@ -84,8 +84,8 @@ def test_druckbogen_needs_cards_and_a_renderer(svc):
 
 def test_druckbogen_calls_the_renderer_with_the_decks_cards():
     class FakeRenderer:
-        def druckbogen(self, cards):
-            self.cards = cards
+        def druckbogen(self, cards, format="a7"):
+            self.cards, self.format = cards, format
             return b"%PDF-fake"
     renderer = FakeRenderer()
     svc = FlashcardService(InMemoryRepo(), printer=renderer)
@@ -93,6 +93,11 @@ def test_druckbogen_calls_the_renderer_with_the_decks_cards():
     svc.add_card(deck.id, "classic", "a", "b")
     assert svc.druckbogen(deck.id) == b"%PDF-fake"
     assert len(renderer.cards) == 1 and renderer.cards[0].front == "a"
+    assert renderer.format == "a7"
+    svc.druckbogen(deck.id, "a8")
+    assert renderer.format == "a8"
+    with pytest.raises(InvalidInput):
+        svc.druckbogen(deck.id, "a4")
 
 
 def test_subject_hooks(svc, events):

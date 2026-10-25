@@ -25,6 +25,7 @@ class EventPublisher(ABC):
 
 
 class PrintRenderer(ABC):
-    """Ausgehender Port: baut einen druckbaren Bogen aus Karten (Vorder-/Rückseiten im Wechsel, für doppelseitigen Druck)."""
+    """Ausgehender Port: baut einen druckbaren Bogen aus Karten (Vorder-/Rückseiten im Wechsel, für doppelseitigen
+    Druck). `format` wählt die Kartengröße, z. B. "a7" oder "a8"."""
     @abstractmethod
-    def druckbogen(self, cards: list[Card]) -> bytes: ...
+    def druckbogen(self, cards: list[Card], format: str = "a7") -> bytes: ...

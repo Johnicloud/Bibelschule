@@ -79,8 +79,8 @@ def create_app(service: FlashcardService) -> FastAPI:
         service.delete_deck(deck_id)
 
     @api.get("/decks/{deck_id}/druckbogen")
-    def druckbogen(deck_id: str):
-        pdf = service.druckbogen(deck_id)
+    def druckbogen(deck_id: str, format: str = "a7"):
+        pdf = service.druckbogen(deck_id, format)
         return Response(content=pdf, media_type="application/pdf",
                          headers={"Content-Disposition": 'inline; filename="karteikarten.pdf"'})
 

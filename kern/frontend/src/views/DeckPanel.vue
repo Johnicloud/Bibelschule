@@ -13,6 +13,7 @@ const error = ref('')
 const anlegen = ref(false)
 const druckFehler = ref('')
 const druckt = ref(false)
+const druckFormat = ref('a7')
 
 async function load() {
   try { deck.value = await service.openDeck(props.subjectId); error.value = '' }
@@ -28,7 +29,7 @@ async function drucken() {
   druckFehler.value = ''
   druckt.value = true
   const fenster = fensterOeffnen()   // sofort im Klick öffnen, bevor die PDF geladen ist (siehe pdf.js)
-  try { await service.drucken(props.subjectId, deck.value.name, fenster) }
+  try { await service.drucken(props.subjectId, deck.value.name, fenster, druckFormat.value) }
   catch (e) { druckFehler.value = e.message; fenster?.close() }
   finally { druckt.value = false }
 }
@@ -48,6 +49,10 @@ onMounted(load)
     <div class="mb-3 mt-6 flex items-center justify-between">
       <h2 class="text-lg font-semibold">Karten in diesem Fach</h2>
       <div class="flex gap-2">
+        <select v-if="deck.cards.length" v-model="druckFormat" class="input !w-auto !py-1.5" aria-label="Kartenformat">
+          <option value="a7">A7</option>
+          <option value="a8">A8</option>
+        </select>
         <button v-if="deck.cards.length" type="button" class="btn btn-outline !py-1.5" :disabled="druckt" @click="drucken">
           {{ druckt ? 'Erzeugt PDF …' : 'Als PDF drucken' }}
         </button>

@@ -15,8 +15,8 @@ export function createHttpApi(base = '/api') {
     dueCards: (id) => call('GET', id ? `/decks/${id}/study` : '/study'),
     review: (id, cardId, correct) => call('POST', `/decks/${id}/cards/${cardId}/review`, { correct }),
     // Antwort ist eine PDF-Datei, kein JSON – darum ein eigener Aufruf statt createCall (siehe pdfcreatorApi.js).
-    druckbogen: async (id) => {
-      const res = await fetch(`${base}/decks/${id}/druckbogen`)
+    druckbogen: async (id, format = 'a7') => {
+      const res = await fetch(`${base}/decks/${id}/druckbogen?format=${format}`)
       if (res.status === 401) loggedIn.value = false
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
