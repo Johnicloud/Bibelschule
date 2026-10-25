@@ -45,10 +45,12 @@ const zeigeTagesziel = computed(() => f.value.status !== 'done' && !heuteSchonGe
 // Gesamtfortschritt des Pensums, aber zu keinem einzelnen Buch – sonst verschwände die Menge sonst spurlos.
 const ohneBuchGelesen = computed(() => props.task.buecher.length
   ? f.value.done - props.task.buecher.reduce((n, b) => n + b.done, 0) : 0)
-// Mehrere Durchgänge: abgeschlossene oben nur als Zahl zusammenfassen, künftige (noch nicht erreichte) gar
-// nicht erst zeigen – nur der gerade laufende Durchgang bekommt seine eigene Statusleiste.
+// Mehrere Durchgänge: abgeschlossene oben nur als Zahl zusammenfassen, noch nicht begonnene (0 gelesen) gar
+// nicht erst zeigen – jeder begonnene, aber noch nicht abgeschlossene Durchgang bekommt seine eigene
+// Statusleiste (nicht nur der eine "aktive" = erste unvollständige – es kann mehrere gleichzeitig geben,
+// z. B. wenn ein späterer Durchgang schon fertig ist, während ein früherer noch offen ist).
 const abgeschlosseneDurchlaeufeAnzahl = computed(() => (props.task.durchlaeufe || []).filter((d) => d.abgeschlossen).length)
-const laufenderDurchlauf = computed(() => (props.task.durchlaeufe || []).find((d) => d.aktiv && !d.abgeschlossen))
+const laufendeDurchlaeufe = computed(() => (props.task.durchlaeufe || []).filter((d) => d.done > 0 && !d.abgeschlossen))
 
 async function log() {
   error.value = ''
@@ -201,21 +203,21 @@ async function saveEdit() {
       </div>
     </div>
 
-    <!-- Mehrere Durchgänge: abgeschlossene nur als Zahl oben, der laufende mit eigener Statusleiste, künftige
-         (noch nicht erreichte) Durchgänge erscheinen hier gar nicht erst. -->
-    <div v-if="!bearbeiten && task.passes > 1" class="mt-3">
+    <!-- Mehrere Durchgänge: abgeschlossene nur als Zahl oben, noch nicht begonnene Durchgänge erscheinen hier
+         gar nicht erst – jeder begonnene, offene Durchgang bekommt seine eigene Statusleiste. -->
+    <div v-if="!bearbeiten && task.passes > 1" class="mt-3 grid gap-2">
       <p v-if="abgeschlosseneDurchlaeufeAnzahl" class="text-xs opacity-70">
         {{ abgeschlosseneDurchlaeufeAnzahl }} von {{ task.passes }} {{ task.passes === 1 ? 'Durchgang' : 'Durchgängen' }} abgeschlossen
       </p>
-      <div v-if="laufenderDurchlauf" class="mt-2">
+      <div v-for="d in laufendeDurchlaeufe" :key="d.nummer">
         <div class="flex items-center justify-between text-xs">
-          <span>Durchgang {{ laufenderDurchlauf.nummer }}</span>
-          <span class="shrink-0 tabular-nums opacity-70">{{ num(laufenderDurchlauf.done) }}/{{ num(laufenderDurchlauf.total) }}</span>
+          <span>Durchgang {{ d.nummer }}</span>
+          <span class="shrink-0 tabular-nums opacity-70">{{ num(d.done) }}/{{ num(d.total) }}</span>
         </div>
         <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
-          :aria-valuenow="Math.min(100, Math.round(laufenderDurchlauf.done / laufenderDurchlauf.total * 100))" aria-valuemin="0" aria-valuemax="100"
-          :aria-label="`Durchgang ${laufenderDurchlauf.nummer}`">
-          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, laufenderDurchlauf.done / laufenderDurchlauf.total * 100) + '%' }"></div>
+          :aria-valuenow="Math.min(100, Math.round(d.done / d.total * 100))" aria-valuemin="0" aria-valuemax="100"
+          :aria-label="`Durchgang ${d.nummer}`">
+          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, d.done / d.total * 100) + '%' }"></div>
         </div>
       </div>
     </div>
