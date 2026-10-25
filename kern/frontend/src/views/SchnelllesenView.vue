@@ -3,8 +3,10 @@ import { computed, inject, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 
-// 3-2-1-Methode: dasselbe Kapitel dreimal lesen, mit sinkender Zielzeit – man übt dadurch, denselben Text
-// immer schneller zu lesen. Derselbe Rhythmus wie im Schnelllesen-Dienst (siehe dessen domain/models.py).
+// 3-2-1-Methode, so wie sie tatsächlich geübt wird: Runde 1 sind 3 Minuten im ganzen Kapitel, danach markiert
+// man, wie weit man gekommen ist. Runde 2 (2 Minuten) und Runde 3 (1 Minute) zeigen nur noch genau diesen
+// Abschnitt – derselbe, schon bekannte Text, aber mit immer weniger Zeit. Gleicher Rhythmus wie im
+// Schnelllesen-Dienst (siehe dessen domain/models.py).
 const ZIEL_SEKUNDEN = [180, 120, 60]
 
 const schnelllesen = inject('schnelllesen')
@@ -19,6 +21,7 @@ const startLaedt = ref(false)
 
 const einheit = ref(null)
 const laufend = ref(false)
+const markierungsModus = ref(false)   // Runde 1, Zeit um: jetzt anklicken, bis wohin gelesen wurde
 const vergangen = ref(0)
 let startZeit = 0
 let timer = null
@@ -31,9 +34,12 @@ const verlaufFehler = ref('')
 
 const maxKapitel = computed(() => buecher.value.find((b) => b.short === gewaehltesBuch.value)?.kapitel_gesamt || 1)
 const zielDieserRunde = computed(() => einheit.value ? ZIEL_SEKUNDEN[einheit.value.naechste_runde - 1] : null)
+const verbleibend = computed(() => zielDieserRunde.value == null ? 0 : zielDieserRunde.value - vergangen.value)
+const zeitUm = computed(() => verbleibend.value <= 0)
+const woerterDesTexts = computed(() => einheit.value ? einheit.value.text.split(/\s+/).filter(Boolean) : [])
 
 function formatZeit(sekunden) {
-  const s = Math.round(sekunden)
+  const s = Math.max(0, Math.round(sekunden))
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
@@ -55,15 +61,9 @@ async function starten() {
   startLaedt.value = true
   try {
     einheit.value = await schnelllesen.starten(gewaehltesBuch.value, gewaehlteKapitel.value)
+    markierungsModus.value = false
   } catch (e) { startFehler.value = e.message }
   finally { startLaedt.value = false }
-}
-
-function rundeStarten() {
-  vergangen.value = 0
-  startZeit = performance.now()
-  laufend.value = true
-  timer = setInterval(() => { vergangen.value = (performance.now() - startZeit) / 1000 }, 100)
 }
 
 function timerAnhalten() {
@@ -72,8 +72,35 @@ function timerAnhalten() {
   laufend.value = false
 }
 
+function rundeStarten() {
+  vergangen.value = 0
+  startZeit = performance.now()
+  laufend.value = true
+  const istRundeEins = einheit.value.naechste_runde === 1
+  timer = setInterval(() => {
+    vergangen.value = (performance.now() - startZeit) / 1000
+    // Runde 1 ist strikt auf 3 Minuten begrenzt: erst lesen, DANACH sagen, wie weit man gekommen ist.
+    // Ab Runde 2 läuft die Zeit nur noch als Vergleich weiter – „Fertig“ bleibt dem Lesenden überlassen.
+    if (istRundeEins && vergangen.value >= ZIEL_SEKUNDEN[0]) {
+      vergangen.value = ZIEL_SEKUNDEN[0]
+      timerAnhalten()
+      markierungsModus.value = true
+    }
+  }, 100)
+}
+
+async function wortAuswaehlen(index) {
+  rundeFehler.value = ''
+  abschliessenLaedt.value = true
+  try {
+    einheit.value = await schnelllesen.durchgangAbschliessen(einheit.value.id, vergangen.value, index + 1)
+    markierungsModus.value = false
+  } catch (e) { rundeFehler.value = e.message }
+  finally { abschliessenLaedt.value = false }
+}
+
 async function rundeFertig() {
-  const sekunden = (performance.now() - startZeit) / 1000
+  const sekunden = vergangen.value
   timerAnhalten()
   rundeFehler.value = ''
   abschliessenLaedt.value = true
@@ -87,6 +114,7 @@ async function rundeFertig() {
 function neuesTraining() {
   einheit.value = null
   vergangen.value = 0
+  markierungsModus.value = false
   rundeFehler.value = ''
 }
 
@@ -102,8 +130,8 @@ onMounted(() => { load(); ladeVerlauf() })
 <template>
   <h1 class="text-3xl font-semibold tracking-tight">Schnelllesen</h1>
   <p class="mt-1 text-slate-500 dark:text-slate-400">
-    Ein Kapitel dreimal lesen, nach der 3-2-1-Methode: zuerst mit 3 Minuten Ziel, dann 2, dann 1 – derselbe
-    Text, immer schneller. Der Verstext kommt vom Bibel-Dienst.
+    Die 3-2-1-Methode: erst 3 Minuten im Kapitel lesen und markieren, wie weit es ging – dann denselben
+    Abschnitt noch zweimal, in 2 und dann in 1 Minute. Der Text kommt vom Bibel-Dienst.
   </p>
 
   <p v-if="ladeFehler" class="mt-6 text-sm text-rose-600 dark:text-rose-400">{{ ladeFehler }}</p>
@@ -133,7 +161,10 @@ onMounted(() => { load(); ladeVerlauf() })
   <div v-else class="panel mt-6 p-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <h2 class="text-xl font-semibold">{{ einheit.buch_name }} {{ einheit.kapitel }}</h2>
-      <span class="text-sm text-slate-500 dark:text-slate-400">{{ einheit.wortanzahl }} Wörter</span>
+      <span class="text-sm text-slate-500 dark:text-slate-400">
+        {{ einheit.naechste_runde === 1 || einheit.naechste_runde == null
+          ? `${einheit.wortanzahl} Wörter im Kapitel` : `Abschnitt: ${einheit.text.split(/\s+/).length} Wörter` }}
+      </span>
     </div>
 
     <!-- Abgeschlossene Durchgänge -->
@@ -147,20 +178,40 @@ onMounted(() => { load(); ladeVerlauf() })
     <template v-if="!einheit.fertig">
       <div class="mt-4 flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
         <AppIcon name="stoppuhr" class="h-4 w-4" />
-        <span>Runde {{ einheit.naechste_runde }} von 3 – Ziel: unter {{ formatZeit(zielDieserRunde) }}</span>
+        <span v-if="einheit.naechste_runde === 1">
+          Runde 1 von 3 – 3 Minuten lesen, danach markieren, wie weit du gekommen bist
+        </span>
+        <span v-else>Runde {{ einheit.naechste_runde }} von 3 – nur noch dieser Abschnitt, Ziel: unter
+          {{ formatZeit(zielDieserRunde) }}</span>
       </div>
 
-      <p class="mt-4 font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">{{ einheit.text }}</p>
+      <!-- Runde 1, Zeit um: Text zum Anklicken, bis wohin gelesen wurde -->
+      <template v-if="markierungsModus">
+        <p class="mt-3 text-sm font-medium text-primary">Zeit um! Auf das letzte gelesene Wort klicken.</p>
+        <p class="mt-2 font-serif text-lg leading-[2.3] text-slate-800 dark:text-slate-200">
+          <button v-for="(w, i) in woerterDesTexts" :key="i" type="button"
+                  class="cursor-pointer rounded px-0.5 hover:bg-primary/15 hover:ring-1 hover:ring-primary/30"
+                  :disabled="abschliessenLaedt" @click="wortAuswaehlen(i)">{{ w }}</button>
+        </p>
+      </template>
 
-      <div class="mt-5 flex items-center gap-3">
-        <button v-if="!laufend" class="btn btn-primary" @click="rundeStarten">Los lesen</button>
-        <template v-else>
-          <span class="font-mono text-lg tabular-nums">{{ formatZeit(vergangen) }}</span>
-          <button class="btn btn-primary" :disabled="abschliessenLaedt" @click="rundeFertig">
-            {{ abschliessenLaedt ? 'Speichert …' : 'Fertig gelesen' }}
+      <template v-else>
+        <p class="mt-4 font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">{{ einheit.text }}</p>
+
+        <div class="mt-5 flex items-center gap-3">
+          <button v-if="!laufend" class="btn btn-primary" @click="rundeStarten">
+            Los lesen ({{ formatZeit(zielDieserRunde) }})
           </button>
-        </template>
-      </div>
+          <template v-else>
+            <span class="font-mono text-lg tabular-nums" :class="einheit.naechste_runde > 1 && zeitUm ? 'text-rose-600 dark:text-rose-400' : ''">
+              {{ formatZeit(verbleibend) }}
+            </span>
+            <button v-if="einheit.naechste_runde > 1" class="btn btn-primary" :disabled="abschliessenLaedt" @click="rundeFertig">
+              {{ abschliessenLaedt ? 'Speichert …' : 'Fertig gelesen' }}
+            </button>
+          </template>
+        </div>
+      </template>
       <p v-if="rundeFehler" class="mt-3 text-sm text-rose-600 dark:text-rose-400">{{ rundeFehler }}</p>
     </template>
 

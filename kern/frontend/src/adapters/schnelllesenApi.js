@@ -8,7 +8,8 @@ export function createSchnelllesenApi(base = '/api/schnelllesen') {
     liste: () => call('GET', '/einheiten'),
     get: (id) => call('GET', `/einheiten/${id}`),
     starten: (buch, kapitel) => call('POST', '/einheiten', { buch, kapitel: Number(kapitel) }),
-    durchgangAbschliessen: (id, sekunden) => call('POST', `/einheiten/${id}/durchgaenge`, { sekunden }),
+    durchgangAbschliessen: (id, sekunden, woerterErreicht) =>
+      call('POST', `/einheiten/${id}/durchgaenge`, { sekunden, woerter_erreicht: woerterErreicht ?? null }),
     loeschen: (id) => call('DELETE', `/einheiten/${id}`),
   }
 }

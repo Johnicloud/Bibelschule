@@ -5,7 +5,7 @@ export function createSchnelllesenService(api) {
     liste: () => api.liste(),
     get: (id) => api.get(id),
     starten: (buch, kapitel) => api.starten(buch, kapitel),
-    durchgangAbschliessen: (id, sekunden) => api.durchgangAbschliessen(id, sekunden),
+    durchgangAbschliessen: (id, sekunden, woerterErreicht) => api.durchgangAbschliessen(id, sekunden, woerterErreicht),
     loeschen: (id) => api.loeschen(id),
   }
 }

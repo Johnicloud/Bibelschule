@@ -12,20 +12,22 @@ from app.domain.models import Durchgang, Einheit
 
 
 def _durchgang_aus_dict(d: dict) -> Durchgang:
-    return Durchgang(runde=d["runde"], sekunden=d["sekunden"], ziel_sekunden=d["ziel_sekunden"])
+    return Durchgang(runde=d["runde"], sekunden=d["sekunden"], ziel_sekunden=d["ziel_sekunden"],
+                      woerter=d.get("woerter", d.get("wortanzahl", 0)))
 
 
 def _einheit_aus_dict(d: dict) -> Einheit:
     return Einheit(id=d["id"], buch=d["buch"], buch_name=d["buch_name"], kapitel=d["kapitel"],
                    text=d["text"], wortanzahl=d["wortanzahl"], erstellt=d["erstellt"],
+                   segment_woerter=d.get("segment_woerter"),
                    durchgaenge=[_durchgang_aus_dict(x) for x in d.get("durchgaenge", [])])
 
 
 def _einheit_zu_dict(e: Einheit) -> dict:
     return {"id": e.id, "buch": e.buch, "buch_name": e.buch_name, "kapitel": e.kapitel, "text": e.text,
-            "wortanzahl": e.wortanzahl, "erstellt": e.erstellt,
-            "durchgaenge": [{"runde": d.runde, "sekunden": d.sekunden, "ziel_sekunden": d.ziel_sekunden}
-                            for d in e.durchgaenge]}
+            "wortanzahl": e.wortanzahl, "erstellt": e.erstellt, "segment_woerter": e.segment_woerter,
+            "durchgaenge": [{"runde": d.runde, "sekunden": d.sekunden, "ziel_sekunden": d.ziel_sekunden,
+                              "woerter": d.woerter} for d in e.durchgaenge]}
 
 
 class JsonEinheitRepository(EinheitRepository):

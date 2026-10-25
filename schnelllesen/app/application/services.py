@@ -28,7 +28,7 @@ class SchnelllesenService:
         self.repo.save(einheit)
         return einheit
 
-    def durchgang_abschliessen(self, einheit_id: str, sekunden: float) -> Einheit:
+    def durchgang_abschliessen(self, einheit_id: str, sekunden: float, woerter_erreicht: int | None = None) -> Einheit:
         einheit = self.repo.get(einheit_id)
         if einheit is None:
             raise NotFound("Trainingseinheit nicht gefunden.")
@@ -36,7 +36,16 @@ class SchnelllesenService:
             raise InvalidInput("Diese Einheit hat schon alle drei Durchgänge.")
         if sekunden is None or sekunden <= 0:
             raise InvalidInput("Die gebrauchte Zeit muss größer als null sein.")
-        einheit.durchgang_hinzufuegen(sekunden)
+        if einheit.naechste_runde == 1:
+            # Runde 1 legt den Abschnitt für Runde 2 und 3 fest: wie weit ist man in den 3 Minuten gekommen?
+            if woerter_erreicht is None or not 1 <= woerter_erreicht <= einheit.wortanzahl:
+                raise InvalidInput(f"Bitte angeben, wie weit du gekommen bist (zwischen 1 und "
+                                    f"{einheit.wortanzahl} Wörtern).")
+            woerter = woerter_erreicht
+        else:
+            # Ab Runde 2 ist der Abschnitt aus Runde 1 der ganze zu lesende Text.
+            woerter = einheit.segment_woerter
+        einheit.durchgang_hinzufuegen(sekunden, woerter)
         self.repo.save(einheit)
         return einheit
 

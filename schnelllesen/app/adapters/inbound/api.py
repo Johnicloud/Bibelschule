@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from app.application.services import SchnelllesenService
 from app.domain.bible import BOOKS
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Durchgang, Einheit
+from app.domain.models import RUNDEN, Durchgang, Einheit
 
 
 class EinheitIn(BaseModel):
@@ -17,6 +17,7 @@ class EinheitIn(BaseModel):
 
 class DurchgangIn(BaseModel):
     sekunden: float
+    woerter_erreicht: int | None = None   # nur für Runde 1: wie weit man in den 3 Minuten gekommen ist
 
 
 class SubjectIn(BaseModel):
@@ -32,7 +33,8 @@ def einheit_out(e: Einheit, mit_text: bool = False) -> dict:
          "wortanzahl": e.wortanzahl, "erstellt": e.erstellt, "fertig": e.fertig,
          "naechste_runde": e.naechste_runde, "durchgaenge": [durchgang_out(e, x) for x in e.durchgaenge]}
     if mit_text:
-        d["text"] = e.text
+        # Ab Runde 2 nur noch der Abschnitt aus Runde 1 – derselbe Text wie beim letzten Durchgang, wenn fertig.
+        d["text"] = e.text_fuer_runde(e.naechste_runde or RUNDEN)
     return d
 
 
@@ -77,7 +79,8 @@ def create_app(service: SchnelllesenService) -> FastAPI:
 
     @api.post("/einheiten/{einheit_id}/durchgaenge", status_code=201)
     def durchgang_abschliessen(einheit_id: str, body: DurchgangIn):
-        return einheit_out(service.durchgang_abschliessen(einheit_id, body.sekunden), mit_text=True)
+        return einheit_out(service.durchgang_abschliessen(einheit_id, body.sekunden, body.woerter_erreicht),
+                            mit_text=True)
 
     @api.delete("/einheiten/{einheit_id}", status_code=204)
     def loeschen(einheit_id: str):
