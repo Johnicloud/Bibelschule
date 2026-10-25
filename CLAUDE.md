@@ -496,6 +496,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (Rückseite spaltenverkehrt je Zeile, passt zu „Wenden an der langen Kante“), `GET /api/karteikarten/decks/
   {id}/druckbogen`.
 
+- [fertig] Der Karteikarten-Druckbogen (siehe oben) lag auf einem eigenen Branch (`pdf-drucken-im-browser`),
+  der nie in diesen Arbeitsbranch gemergt wurde – im Code fehlte die Funktion deshalb komplett, obwohl diese
+  Datei sie schon als fertig führte. Nachträglich per `git cherry-pick` nachgeholt. Dabei auf Wunsch gleich auf
+  A7 umgestellt: `CELL_W`/`CELL_H` in `print_renderer.py` sind jetzt exakt 105 x 74 mm (A7 quer) statt aus der
+  A4-Seite mit 28pt Rand berechnet – 2 Spalten x 105 mm treffen die A4-Breite (210 mm) genau, 4 Zeilen x 74 mm
+  die A4-Höhe (297 mm) fast genau, die Karten füllen das Blatt also randlos („platt voll“, auf Wunsch).
+- [fertig] Register-Eintrag bearbeiten: bisher gab es nur Anlegen (ergänzt Stellen bei gleichem Namen) und
+  Löschen, keine Möglichkeit, Name oder Stellen eines bestehenden Eintrags zu ändern, ohne ihn zu löschen und
+  neu anzulegen. Neuer Anwendungsfall `RegisterService.update_entry` (ersetzt Name und Stellen vollständig,
+  anders als `add_entry`, das nur ergänzt), Route `PUT /api/register/entries/{id}`. Name muss weiterhin im
+  Register eindeutig sein (der bearbeitete Eintrag selbst zählt dabei nicht mit). Oberfläche
+  (`RegisterPanel.vue`): „Bearbeiten“-Knopf neben „Löschen“ öffnet ein Inline-Formular an derselben Stelle
+  (Name + Bibelstellen, wie beim Anlegen), „Speichern“/„Abbrechen“.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
