@@ -1,13 +1,16 @@
 """Ausgehender Adapter: baut aus Karten einen PDF-Druckbogen (reportlab, kein Overlay nötig – anders als beim
 pdfcreator-Dienst wird hier eine ganz neue PDF-Seite gezeichnet statt eine Vorlage befüllt).
 
-Raster je Bogen: `COLS` x `ROWS` Karten. Je Bogen zwei Seiten im Wechsel (Vorderseiten, dann Rückseiten) –
+Raster je Bogen: `COLS` x `ROWS` Karten, jede Zelle genau A7 groß (105 x 74 mm, quer) – zwei Spalten mal
+105 mm treffen die A4-Breite (210 mm) exakt, vier Zeilen mal 74 mm die A4-Höhe (297 mm) fast exakt, die
+Karten füllen das Blatt also randlos. Je Bogen zwei Seiten im Wechsel (Vorderseiten, dann Rückseiten) –
 so liegen aufeinanderfolgende PDF-Seiten beim doppelseitigen Drucken direkt richtig. Die Rückseite ist je
 Zeile spaltenverkehrt gezeichnet (Karte oben-links vorne landet oben-rechts hinten), das passt zum
 „Wenden an der langen Kante“, der verbreitetsten Standardeinstellung am Drucker."""
 import io
 
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
 from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
 
@@ -16,9 +19,9 @@ from app.domain.models import Card
 
 COLS, ROWS = 2, 4
 PAGE_W, PAGE_H = A4
-MARGIN = 28
-CELL_W = (PAGE_W - 2 * MARGIN) / COLS
-CELL_H = (PAGE_H - 2 * MARGIN) / ROWS
+CELL_W, CELL_H = 105 * mm, 74 * mm             # A7 quer – 2x4 Zellen füllen die A4-Seite randlos
+MARGIN_X = (PAGE_W - COLS * CELL_W) / 2         # 0 bei exakter A4-Breite, sonst zentriert
+MARGIN_Y = (PAGE_H - ROWS * CELL_H) / 2         # geringer Rest (A4 ist etwas höher als 4x A7)
 FONT, FONT_SIZE, PADDING = "Helvetica", 11, 14
 
 
@@ -39,8 +42,8 @@ class ReportlabPrintRenderer(PrintRenderer):
         for i in range(len(bogen)):
             row, col = divmod(i, COLS)
             zeichen_col = COLS - 1 - col if spiegeln else col
-            x = MARGIN + zeichen_col * CELL_W
-            y = PAGE_H - MARGIN - (row + 1) * CELL_H
+            x = MARGIN_X + zeichen_col * CELL_W
+            y = PAGE_H - MARGIN_Y - (row + 1) * CELL_H
             c.setDash(3, 3)
             c.rect(x, y, CELL_W, CELL_H)
             c.setDash()

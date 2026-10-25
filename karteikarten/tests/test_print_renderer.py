@@ -1,8 +1,9 @@
 import io
 
 from pypdf import PdfReader
+from reportlab.lib.units import mm
 
-from app.adapters.outbound.print_renderer import COLS, ROWS, ReportlabPrintRenderer
+from app.adapters.outbound.print_renderer import CELL_H, CELL_W, COLS, ROWS, ReportlabPrintRenderer
 from app.domain.models import Card
 
 
@@ -26,3 +27,8 @@ def test_empty_list_makes_an_empty_but_valid_pdf():
     pdf = ReportlabPrintRenderer().druckbogen([])
     reader = PdfReader(io.BytesIO(pdf))
     assert len(reader.pages) == 0
+
+
+def test_cells_are_exactly_a7():
+    assert CELL_W == 105 * mm
+    assert CELL_H == 74 * mm
