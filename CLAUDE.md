@@ -502,14 +502,19 @@ Sprache der Oberfläche und der Texte: Deutsch.
   A7 umgestellt: `CELL_W`/`CELL_H` in `print_renderer.py` sind jetzt exakt 105 x 74 mm (A7 quer) statt aus der
   A4-Seite mit 28pt Rand berechnet – 2 Spalten x 105 mm treffen die A4-Breite (210 mm) genau, 4 Zeilen x 74 mm
   die A4-Höhe (297 mm) fast genau, die Karten füllen das Blatt also randlos („platt voll“, auf Wunsch).
-- [fertig] Druckbogen weiter ausgearbeitet: Format wählbar, A7 (2x4, 8 Karten je Bogen) oder A8 hochkant
-  (52 x 74 mm, 4x4, 16 Karten je Bogen – 4 Spalten x 52 mm treffen die A4-Breite fast genau, 4 Zeilen x 74 mm
-  die A4-Höhe fast genau). `FORMATE`-Dict in `print_renderer.py`, `ReportlabPrintRenderer.druckbogen(cards,
-  format)`, durchgereicht über `FlashcardService.druckbogen` und `GET .../druckbogen?format=a7|a8`. Dropdown
-  neben „Als PDF drucken“ in `DeckPanel.vue`. Dazu jede Karte oben links mit laufender Nummer (auf Vorder- UND
+- [fertig] Druckbogen weiter ausgearbeitet: Format wählbar, A7 (2x4, 8 Karten je Bogen) oder A8 (4x4, 16
+  Karten je Bogen). `FORMATE`-Dict in `print_renderer.py`, `ReportlabPrintRenderer.druckbogen(cards, format)`,
+  durchgereicht über `FlashcardService.druckbogen` und `GET .../druckbogen?format=a7|a8`. Dropdown neben
+  „Als PDF drucken“ in `DeckPanel.vue`. Dazu jede Karte oben links mit laufender Nummer (auf Vorder- UND
   Rückseite dieselbe, hilft beim Zuschneiden/Sortieren) und größere Schrift (`FONT_SIZE` 11 auf 13, auf Wunsch
   „dürfen ruhig mehr Zeilenumbrüche haben“ – kein automatisches Verkleinern bei langem Text, wächst einfach
   in die Höhe).
+- [fertig] A8 druckt jetzt auch quer (auf Wunsch, „immer quer drucken“): Zelle 74 x 52 mm (statt 52 x 74 mm
+  hochkant), dafür die ganze Seite quer gedreht (`landscape(A4)`, 297 x 210 mm) statt der bisherigen A4-Seite
+  hochkant – 4 Spalten x 74 mm treffen die (jetzt breitere) Seite fast genau, 4 Zeilen x 52 mm die (jetzt
+  niedrigere) Höhe fast genau, weiterhin 16 Karten je Bogen. Ohne die gedrehte Seite blieben bei quer-Zellen
+  mehrere Zentimeter Papier ungenutzt. `FORMATE[format]["page"]` hält jetzt die Seitengröße pro Format,
+  `canvas.Canvas(..., pagesize=...)` nutzt sie statt der festen `A4`-Konstante.
 - [fertig] Register-Eintrag bearbeiten: bisher gab es nur Anlegen (ergänzt Stellen bei gleichem Namen) und
   Löschen, keine Möglichkeit, Name oder Stellen eines bestehenden Eintrags zu ändern, ohne ihn zu löschen und
   neu anzulegen. Neuer Anwendungsfall `RegisterService.update_entry` (ersetzt Name und Stellen vollständig,
