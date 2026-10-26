@@ -41,10 +41,11 @@ def test_cells_are_exactly_a7_by_default():
     assert a7["cols"] * a7["rows"] == 8
 
 
-def test_a8_format_fits_more_cards_per_sheet():
+def test_a8_format_is_quer_on_a_landscape_sheet():
     a8 = FORMATE["a8"]
-    assert a8["cell_w"] == 52 * mm
-    assert a8["cell_h"] == 74 * mm
+    assert a8["cell_w"] == 74 * mm   # quer wie A7: breiter als hoch
+    assert a8["cell_h"] == 52 * mm
+    assert a8["page"][0] > a8["page"][1]   # Seite selbst quer gedreht, sonst bleibt Papier ungenutzt
     assert a8["cols"] * a8["rows"] == 16
 
     pdf = ReportlabPrintRenderer().druckbogen(_cards(16), format="a8")
