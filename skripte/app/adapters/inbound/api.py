@@ -61,6 +61,17 @@ def create_app(service: SkriptService) -> FastAPI:
         return Response(content=inhalt, media_type=skript.content_type,
                          headers={"Content-Disposition": f'inline; filename="{dateiname}"'})
 
+    @api.get("/skripte/{skript_id}/vorschau")
+    def vorschau(skript_id: str):
+        pdf = service.vorschau_pdf(skript_id)
+        if pdf is None:
+            raise NotFound("Für diese Datei gibt es keine eigene Vorschau.")
+        return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": "inline"})
+
+    @api.get("/skripte/{skript_id}/fragen")
+    def fragen(skript_id: str):
+        return {"fragen": service.fragen(skript_id)}
+
     @api.delete("/skripte/{skript_id}", status_code=204)
     def delete(skript_id: str):
         service.delete(skript_id)

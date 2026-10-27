@@ -645,6 +645,21 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Das alte `.doc`-Format kann die Bibliothek nicht: dort ist „Öffnen“ deaktiviert, Herunterladen geht weiter.
   Upload-Limit nun 200 MB (Dienst und nginx, siehe oben), vorher stoppte nginx schon bei 1 MB mit 413.
 
+- [fertig] Skripte: Fragenlisten automatisch zu Karteikarten (PDF, Word .docx, Pages). Je Datei der Knopf „Fragen →
+  Karteikarten“: `GET /api/skripte/{id}/fragen` liest die Datei (`DateiLeser`-Port, Adapter `datei_leser.py`: pypdf,
+  `word/document.xml`, bei Pages die eingebettete `QuickLook/Preview.pdf`) und `domain/fragen.py` erkennt die Fragen
+  – reine Textbearbeitung, keine KI. Mit Nummern („1. …“, Zeilenumbruch/Silbentrennung mitten in der Frage, doppelte
+  „1.“ stört nicht, eine Bibelstelle wie „2,42-47“ am Zeilenanfang zählt nicht als neue Frage); ohne Nummern
+  (Word-Listen mit automatischer Nummerierung: die Zahlen stehen nicht im Text) ist jeder Absatz eine Frage. Die
+  Oberfläche (`ui.html` im Reiter) zeigt die Fragen als Liste (abwählbar, je Frage ein optionales Antwortfeld) und legt
+  sie über die Karteikarten-API des Fachs an (Deck-ID = Fach-ID, wie bei `FragenKiView`); schon vorhandene Fragen
+  (gleiche Vorderseite) werden übersprungen, ein zweiter Klick legt also nichts doppelt an. Die Fragenliste enthält
+  keine Antworten: ohne eingetragene Antwort steht auf der Rückseite „(Antwort noch nicht eingetragen)“ (eine
+  Karteikarte braucht eine Rückseite; Karten lassen sich bisher nicht nachträglich bearbeiten, nur löschen).
+  Pages-Dateien zeigt „Öffnen“ über `GET /api/skripte/{id}/vorschau` an (die eingebettete PDF-Vorschau; ob Pages
+  darin das ganze Dokument oder nur die erste Seite ablegt, hängt von der Pages-Version ab, ohne Vorschau kommt eine
+  klare Fehlermeldung). Gegen die echte „Fragen Apostelgeschichte“ geprüft: PDF und docx liefern beide dieselben 55 Fragen.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

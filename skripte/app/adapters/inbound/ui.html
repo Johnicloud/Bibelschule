@@ -10,11 +10,14 @@
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
   .uk-docx { background: #fff; color: #111; overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; padding: .5rem; }
+  .uk-fragen { margin-top: .75rem; display: grid; gap: .5rem; }
+  .uk-frage { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; align-items: start; }
+  .uk-frage input[type=text] { grid-column: 2; }
   iframe.uk-vorschau { width: 100%; height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; }
 </style>
 </head>
 <body class="ui-kit">
-<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF, Word .docx), herunterladen, löschen. -->
+<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF, Word .docx, Pages), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
 <form id="form" class="uk-form">
   <input id="datei" class="uk-input" type="file" aria-label="Datei auswählen" required>
   <button class="uk-btn">Hochladen</button>
@@ -37,6 +40,8 @@
   // lokal unter /vendor, kein Fremdserver). Das alte .doc-Format kann sie nicht – das bleibt zum Herunterladen.
   const istDocx = (s) => /\.docx$/i.test(s.dateiname)
   const istDoc = (s) => /\.doc$/i.test(s.dateiname)
+  const istPages = (s) => /\.pages$/i.test(s.dateiname)
+  const kannFragen = (s) => /\.(pdf|docx|pages)$/i.test(s.dateiname)
   function skriptLaden(src) {
     return new Promise((ok, fehler) => {
       const t = document.createElement('script')
@@ -61,7 +66,7 @@
       vorschau.hidden = !zu
       oeffnenBtn.textContent = zu ? 'Schließen' : 'Öffnen'
       if (!zu || geladen) return
-      if (!docx) { if (!vorschau.src) vorschau.src = url; return }
+      if (!docx) { if (!vorschau.src) vorschau.src = istPages(s) ? `skripte/${s.id}/vorschau` : url; return }
       try {
         vorschau.textContent = 'Lädt …'
         const [res] = await Promise.all([fetch(url), docxLaden()])
@@ -71,12 +76,22 @@
         geladen = true
       } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
+    const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
+    const fragenBtn = el('button', { class: 'uk-btn-ghost', title: 'Fragen aus dieser Datei als Karteikarten anlegen' }, 'Fragen → Karteikarten')
+    fragenBtn.onclick = async () => {
+      if (!fragenBox.hidden) { fragenBox.hidden = true; return }
+      fragenBox.hidden = false
+      fragenBox.textContent = 'Liest die Datei …'
+      try { fragenZeigen(fragenBox, s, (await call('GET', `skripte/${s.id}/fragen`)).fragen) }
+      catch (err) { fragenBox.textContent = err.message }
+    }
     if (istDoc(s)) { oeffnenBtn.disabled = true; oeffnenBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
         el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`)]),
         el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
           oeffnenBtn,
+          ...(kannFragen(s) ? [fragenBtn] : []),
           el('a', { class: 'uk-btn-ghost', href: url, download: s.dateiname }, 'Herunterladen'),
           el('button', { class: 'uk-btn-danger', onclick: async () => {
             if (!confirm(`„${s.dateiname}“ löschen?`)) return
@@ -84,8 +99,44 @@
           } }, 'Löschen'),
         ]),
       ]),
+      fragenBox,
       vorschau,
     ])
+  }
+
+  // Die erkannten Fragen sind nur ein Vorschlag: abwählen und die Antwort eintragen geht vor dem Anlegen.
+  // Karteikarten brauchen eine Rückseite – ohne eingetragene Antwort steht dort ein Platzhalter.
+  const KARTEN = `/api/karteikarten/decks/${encodeURIComponent(subject)}/cards`
+  const OHNE_ANTWORT = '(Antwort noch nicht eingetragen)'
+  function fragenZeigen(box, s, fragen) {
+    if (!fragen.length) { box.textContent = 'Keine Fragen gefunden.'; return }
+    const zeilen = fragen.map((f) => {
+      const haken = el('input', { type: 'checkbox', checked: 'true', 'aria-label': 'Frage übernehmen' })
+      const antwort = el('input', { class: 'uk-input', type: 'text', placeholder: 'Antwort (optional, kann leer bleiben)' })
+      return { f, haken, antwort, node: el('label', { class: 'uk-frage' }, [haken, el('span', {}, f), antwort]) }
+    })
+    const meldung = el('p', { class: 'uk-sub', role: 'status' })
+    const anlegen = el('button', { class: 'uk-btn' }, 'Karteikarten anlegen')
+    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.textContent = `${n} Karteikarte${n === 1 ? '' : 'n'} anlegen`; anlegen.disabled = n === 0 }
+    zeilen.forEach((z) => z.haken.addEventListener('change', zaehlen))
+    zaehlen()
+    anlegen.onclick = async () => {
+      anlegen.disabled = true
+      meldung.textContent = ''
+      try {
+        const vorhanden = new Set(((await call('GET', `/api/karteikarten/decks/${encodeURIComponent(subject)}`)).cards || []).map((c) => c.front))
+        let neu = 0, doppelt = 0
+        for (const z of zeilen.filter((z) => z.haken.checked)) {
+          if (vorhanden.has(z.f)) { doppelt++; continue }
+          await call('POST', KARTEN, { kind: 'classic', front: z.f, back: z.antwort.value.trim() || OHNE_ANTWORT, options: [], correct_index: null })
+          neu++
+        }
+        meldung.textContent = `${neu} Karteikarte${neu === 1 ? '' : 'n'} angelegt` + (doppelt ? `, ${doppelt} gab es schon.` : '.')
+      } catch (err) { meldung.textContent = err.message }
+      zaehlen()
+    }
+    box.replaceChildren(el('p', { class: 'uk-sub' }, `${fragen.length} Fragen erkannt – abwählen oder Antwort ergänzen, dann anlegen. Sie landen im Reiter „Karteikarten“ dieses Fachs.`),
+      ...zeilen.map((z) => z.node), anlegen, meldung)
   }
 
   async function laden() {

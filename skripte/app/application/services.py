@@ -1,17 +1,19 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
 from datetime import date
 
-from app.application.ports import DateiSpeicher, SkriptRepository
+from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository
 from app.domain.errors import InvalidInput, NotFound
+from app.domain.fragen import fragen_erkennen
 from app.domain.models import Skript
 
 MAX_BYTES = 200 * 1024 * 1024   # 200 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
 
 
 class SkriptService:
-    def __init__(self, repo: SkriptRepository, dateien: DateiSpeicher):
+    def __init__(self, repo: SkriptRepository, dateien: DateiSpeicher, leser: DateiLeser | None = None):
         self.repo = repo
         self.dateien = dateien
+        self.leser = leser
 
     def _skript(self, skript_id: str) -> Skript:
         skript = self.repo.get(skript_id)
@@ -40,6 +42,17 @@ class SkriptService:
         if inhalt is None:
             raise NotFound("Die Datei fehlt leider (nur die Angaben sind noch da).")
         return skript, inhalt
+
+    def fragen(self, skript_id: str) -> list[str]:
+        """Die Fragen einer Fragenliste (PDF, Word, Pages) – nur ein Vorschlag, die Karteikarten legt der Nutzer an."""
+        skript, inhalt = self.datei(skript_id)
+        if self.leser is None:
+            raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
+        return fragen_erkennen(self.leser.zeilen(skript.dateiname, inhalt))
+
+    def vorschau_pdf(self, skript_id: str) -> bytes | None:
+        skript, inhalt = self.datei(skript_id)
+        return self.leser.pdf_vorschau(skript.dateiname, inhalt) if self.leser else None
 
     def delete(self, skript_id: str) -> None:
         self._skript(skript_id)

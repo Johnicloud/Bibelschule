@@ -2,3 +2,4 @@ fastapi>=0.110
 uvicorn>=0.29
 pytest>=8
 python-multipart>=0.0.9
+pypdf>=4

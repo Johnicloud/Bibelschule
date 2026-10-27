@@ -35,3 +35,14 @@ class DateiSpeicher(ABC):
 
     @abstractmethod
     def loesche(self, skript_id: str) -> None: ...
+
+
+class DateiLeser(ABC):
+    """Ausgehender Port: liest Text aus einer Datei (PDF, Word .docx, Pages)."""
+    @abstractmethod
+    def zeilen(self, dateiname: str, inhalt: bytes) -> list[str]:
+        """Der Text als Zeilen (PDF) bzw. Absätze (Word). Wirft InvalidInput, wenn das Format nicht lesbar ist."""
+
+    @abstractmethod
+    def pdf_vorschau(self, dateiname: str, inhalt: bytes) -> bytes | None:
+        """Eine PDF-Ansicht der Datei, wenn der Browser sie nicht selbst anzeigen kann (Pages), sonst None."""
