@@ -482,6 +482,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
+<<<<<<< HEAD
 - [fertig] PDFs direkt im Browser drucken UND herunterladen (statt nur erzwungenem Download): gemeinsame
   Funktion `kern/frontend/src/application/pdf.js` (`fensterOeffnen`/`pdfZeigen`) – öffnet die PDF-Datei in
   einem neuen Reiter, wo der Browser seine eigene PDF-Ansicht mit Drucken- und Herunterladen-Knopf mitbringt,
@@ -586,6 +587,24 @@ Sprache der Oberfläche und der Texte: Deutsch.
   frei eintippen (`bibel.nachschlagen(text)` löst sie auf, die kanonische Adresse baut das Frontend selbst aus
   `buch`/`kapitel`/`markiert` zusammen, kein eigener Stellen-Parser im Frontend nötig), Kommentar schreiben,
   Liste bisheriger Kommentare zu dieser Stelle.
+=======
+- [fertig] Neuer Dienst `fragenki` (Arbeitspaket D): schlägt zu einem gewählten Bibelkapitel 3-5
+  Verständnisfragen vor (Ollama, wie `aufgabenleser`/`pdfcreator`: `OLLAMA_URL`/`OLLAMA_MODEL`, 180 Sekunden
+  Zeitlimit, ohne `OLLAMA_URL` liefert `/api/generieren` 422, da die KI hier der ganze Zweck ist). Holt sich
+  den Verstext des Kapitels direkt vom Bibel-Dienst (`BIBEL_URL`, wie `schnelllesen` → `HttpBibelQuelle`,
+  eigene eingebettete Kopie von `domain/bible.py`). Ergebnis ist IMMER nur ein Vorschlag (siehe Entscheidungen):
+  die KI liefert sicher nur die Frage, keine zuverlässige Antwort dazu – die rohe KI-Antwort bleibt in einem
+  Klapptext sichtbar, auch ohne gültiges JSON. Fachübergreifend wie `aufgabenleser`/`schnelllesen` (kein
+  `panel`, nur die drei Pflicht-Endpunkte als No-ops). Oberfläche: neuer globaler Reiter „Fragen und KI“
+  (`FragenKiView.vue`) – Buch/Kapitel wählen, Fragen generieren, je Vorschlag ein Kontrollkästchen und ein
+  Antwortfeld (die Antwort trägt der Nutzer selbst ein), dann Fach wählen und die ausgewählten Fragen als
+  Karteikarten anlegen (Frontend-Orchestrierung über die bestehende Karteikarten-API des Kerns, Deck-ID =
+  Fach-ID, wie `AufgabenPanel.vue` es für Aufgaben/Lesepensen macht).
+  Nebenbei behoben: `neuer-dienst.sh` schlug auf macOS fehl (`awk: newline in string`) – das installierte
+  BSD-awk ("one true awk") bricht bei `-v` mit einem mehrzeiligen String ab, anders als gawk. Der Dienst-Block
+  kommt jetzt über eine Temp-Datei (`getline … < bf`) statt über `-v block="$block"` ins Skript, das läuft auf
+  beiden awk-Varianten.
+>>>>>>> origin/claude/fragenki-724ef6
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
