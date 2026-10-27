@@ -45,7 +45,7 @@ class FakeGateway(ServiceGateway):
         return True
 
     def status(self, s, i): return {"n": len(self.known[s])} if i in self.known[s] else {"n": 0}
-    def forward(self, service, method, path, query, body, content_type): return 200, b"{}", "application/json"
+    def forward(self, service, method, path, query, body, content_type, range_header=None): return 200, b"{}", "application/json", {}
 
 
 @pytest.fixture

@@ -16,11 +16,13 @@
   .uk-fragen { margin-top: .75rem; display: grid; gap: .5rem; }
   .uk-frage { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; align-items: start; }
   .uk-frage input[type=text] { grid-column: 2; }
+  .uk-medien { display: block; width: 100%; max-height: 75vh; margin-top: .75rem; border-radius: .7rem; }
+  img.uk-medien { width: auto; max-width: 100%; object-fit: contain; }
   iframe.uk-vorschau { width: 100%; height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; }
 </style>
 </head>
 <body class="ui-kit">
-<!-- Skripte dieses Fachs: hochladen (+ öffnet das Formular: Datei wählen oder hineinziehen, Name änderbar), direkt im Browser lesen (PDF, Word .docx, Pages), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
+<!-- Skripte dieses Fachs: hochladen (+ öffnet das Formular: Datei wählen oder hineinziehen, Name änderbar), direkt im Browser ansehen (PDF, Word .docx, Pages, Text/Markdown, PowerPoint/OpenDocument als Text, Bilder, Audio, Video), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
 <div class="uk-kopf">
   <button class="uk-btn uk-icon-btn" id="neu" type="button" title="Neue Datei" aria-label="Neue Datei" aria-expanded="false"></button>
 </div>
@@ -48,10 +50,22 @@
 
   // Word (.docx) kann der Browser nicht selbst anzeigen: docx-preview zeichnet es im Browser (Bibliotheken liegen
   // lokal unter /vendor, kein Fremdserver). Das alte .doc-Format kann sie nicht – das bleibt zum Herunterladen.
-  const istDocx = (s) => /\.docx$/i.test(s.dateiname)
-  const istDoc = (s) => /\.doc$/i.test(s.dateiname)
-  const istPages = (s) => /\.pages$/i.test(s.dateiname)
-  const kannFragen = (s) => /\.(pdf|docx|pages|png|jpe?g)$/i.test(s.dateiname)
+  // Die Art der Datei (pdf, docx, pages, text, ansichtstext, bild, audio, video, doc, sonst) und ob sich Fragen auslesen
+  // lassen, kommt vom Dienst (domain/dateitypen.py) – eine Stelle, nicht hier noch einmal.
+  const istDocx = (s) => s.art === 'docx'
+  const istDoc = (s) => s.art === 'doc'
+  const istPages = (s) => s.art === 'pages'
+  const kannAnzeigen = (s) => s.art !== 'doc' && s.art !== 'sonst'
+  const kannFragen = (s) => s.kann_fragen
+  // Wohin die Vorschau zeigt: Pages über die eingebettete PDF, PowerPoint/OpenDocument als reiner Text, sonst die Datei selbst
+  const vorschauUrl = (s) => `skripte/${s.id}/${s.art === 'pages' ? 'vorschau' : s.art === 'ansichtstext' ? 'text' : 'datei'}`
+  function vorschauElement(s) {
+    if (s.art === 'docx') return el('div', { class: 'uk-docx', hidden: 'true' })
+    if (s.art === 'bild') return el('img', { class: 'uk-medien', alt: s.dateiname, hidden: 'true' })
+    if (s.art === 'audio') return el('audio', { class: 'uk-medien', controls: 'true', preload: 'none', hidden: 'true' })
+    if (s.art === 'video') return el('video', { class: 'uk-medien', controls: 'true', preload: 'metadata', playsinline: 'true', hidden: 'true' })
+    return el('iframe', { class: 'uk-vorschau', hidden: 'true' })
+  }
   function skriptLaden(src) {
     return new Promise((ok, fehler) => {
       const t = document.createElement('script')
@@ -92,14 +106,14 @@
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
     const docx = istDocx(s)
-    const vorschau = el(docx ? 'div' : 'iframe', { class: docx ? 'uk-docx' : 'uk-vorschau', hidden: 'true' })
+    const vorschau = vorschauElement(s)
     let geladen = false
     // Vorschau: ein Tipp auf den Namen klappt sie auf oder zu
     async function vorschauUmschalten() {
       const zu = vorschau.hidden
       vorschau.hidden = !zu
       if (!zu || geladen) return
-      if (!docx) { if (!vorschau.src) vorschau.src = istPages(s) ? `skripte/${s.id}/vorschau` : url; return }
+      if (!docx) { if (!vorschau.getAttribute('src')) vorschau.src = vorschauUrl(s); return }
       try {
         vorschau.textContent = 'Lädt …'
         const [res] = await Promise.all([fetch(url), docxLaden()])
@@ -111,7 +125,7 @@
     }
     const nameBtn = el('button', { class: 'uk-name', type: 'button', title: 'Vorschau ein-/ausblenden' }, s.dateiname)
     nameBtn.onclick = vorschauUmschalten
-    if (istDoc(s)) { nameBtn.disabled = true; nameBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
+    if (!kannAnzeigen(s)) { nameBtn.disabled = true; nameBtn.title = istDoc(s) ? 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' : 'Dieser Dateityp lässt sich nicht anzeigen, nur herunterladen' }
 
     const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
     async function kartenOeffnen() {
@@ -159,7 +173,7 @@
     }
 
     const m = menu([
-      ...(istDoc(s) ? [] : [{ icon: 'extern', text: 'In neuem Tab öffnen', href: `skripte/${s.id}/${istPages(s) ? 'vorschau' : docx ? 'ansicht' : 'datei'}` }]),
+      ...(kannAnzeigen(s) ? [{ icon: 'extern', text: 'In neuem Tab öffnen', href: docx ? `skripte/${s.id}/ansicht` : vorschauUrl(s) }] : []),
       { id: 'text', icon: 'scan', text: 'Text erkennen', title: 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt', onclick: textAktion },
       ...(kannFragen(s) ? [{ icon: 'karten', text: 'Karten übernehmen', onclick: kartenOeffnen }] : []),
       { icon: 'stift', text: 'Umbenennen', onclick: umbenennenStarten },

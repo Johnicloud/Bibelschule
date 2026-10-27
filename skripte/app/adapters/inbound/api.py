@@ -3,11 +3,14 @@ Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json"""
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, FastAPI, Form, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+import re
+
+from fastapi import APIRouter, FastAPI, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 from app.application.services import SkriptService
+from app.domain.dateitypen import art, kann_fragen, media_type
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import Skript
 
@@ -23,6 +26,7 @@ class UmbenennenIn(BaseModel):
 def skript_out(s: Skript, text: dict | None = None) -> dict:
     return {"id": s.id, "subject_id": s.subject_id, "dateiname": s.dateiname, "content_type": s.content_type,
             "groesse": s.groesse, "hochgeladen_am": s.hochgeladen_am,
+            "art": art(s.dateiname), "kann_fragen": kann_fragen(s.dateiname),
             "text_status": (text or {}).get("status"), "text_fehler": (text or {}).get("fehler")}
 
 
@@ -61,14 +65,32 @@ def create_app(service: SkriptService) -> FastAPI:
         return skript_out(service.upload(subject_id, datei.filename or "", datei.content_type, inhalt, dateiname))
 
     @api.get("/skripte/{skript_id}/datei")
-    def datei(skript_id: str, original: bool = False):
-        skript, inhalt = service.datei(skript_id, original)
+    def datei(skript_id: str, request: Request, original: bool = False):
         # HTTP-Kopfzeilen sind Latin-1: Namen mit Sonderzeichen (z. B. unsichtbare Richtungszeichen) gehen nur als
         # filename*= (RFC 5987), dazu ein einfacher Ersatzname für alte Programme.
-        dateiname = skript.dateiname.replace('"', "")
-        einfach = dateiname.encode("ascii", "ignore").decode() or "datei"
-        return Response(content=inhalt, media_type=skript.content_type,
-                         headers={"Content-Disposition": f"inline; filename=\"{einfach}\"; filename*=UTF-8''{quote(dateiname)}"})
+        def kopf(skript, extra=None):
+            name = skript.dateiname.replace('"', "")
+            einfach = name.encode("ascii", "ignore").decode() or "datei"
+            return {"Content-Disposition": f"inline; filename=\"{einfach}\"; filename*=UTF-8''{quote(name)}",
+                    "Accept-Ranges": "bytes", **(extra or {})}
+
+        spanne = re.fullmatch(r"bytes=(\d*)-(\d*)", request.headers.get("range", "").strip())
+        if spanne and (spanne.group(1) or spanne.group(2)):
+            # Audio/Video (Safari verlangt es): nur das angefragte Stück liefern, Antwort 206
+            if spanne.group(1):
+                start, ende = int(spanne.group(1)), (int(spanne.group(2)) if spanne.group(2) else None)
+            else:      # „die letzten n Bytes“
+                gesamt = service.bereich(skript_id, 0, 0, original)[4]
+                start, ende = max(gesamt - int(spanne.group(2)), 0), None
+            skript, stueck, start, ende, gesamt = service.bereich(skript_id, start, ende, original)
+            return Response(content=stueck, status_code=206, media_type=media_type(skript.dateiname, skript.content_type),
+                            headers=kopf(skript, {"Content-Range": f"bytes {start}-{ende}/{gesamt}"}))
+        skript, inhalt = service.datei(skript_id, original)
+        return Response(content=inhalt, media_type=media_type(skript.dateiname, skript.content_type), headers=kopf(skript))
+
+    @api.get("/skripte/{skript_id}/text", response_class=PlainTextResponse)
+    def ansichtstext(skript_id: str):
+        return PlainTextResponse(service.ansichtstext(skript_id), media_type="text/plain; charset=utf-8")
 
     @api.put("/skripte/{skript_id}")
     def umbenennen(skript_id: str, body: UmbenennenIn):

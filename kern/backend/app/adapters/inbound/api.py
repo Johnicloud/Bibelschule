@@ -278,10 +278,10 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
                    include_in_schema=False)
     async def proxy(service_name: str, path: str, request: Request):
         body = await request.body()
-        status, content, content_type = await run_in_threadpool(
+        status, content, content_type, extra = await run_in_threadpool(
             service.forward, service_name, request.method, path, request.url.query, body,
-            request.headers.get("content-type"))
-        return Response(content=content, status_code=status, media_type=content_type)
+            request.headers.get("content-type"), request.headers.get("range"))
+        return Response(content=content, status_code=status, media_type=content_type, headers=extra)
 
     app.include_router(api)
     return app

@@ -273,7 +273,7 @@ class SubjectService:
 
     # Weiterleitung: die Oberfläche spricht nur mit dem Kern, der Kern mit den Diensten
     def forward(self, service: str, method: str, path: str, query: str, body: bytes,
-                content_type: str | None) -> tuple[int, bytes, str]:
+                content_type: str | None, range_header: str | None = None) -> tuple[int, bytes, str, dict[str, str]]:
         if service not in self.gateway.names():
             raise NotFound(f"Einen Dienst „{service}“ gibt es nicht.")
-        return self.gateway.forward(service, method, path, query, body, content_type)
+        return self.gateway.forward(service, method, path, query, body, content_type, range_header)

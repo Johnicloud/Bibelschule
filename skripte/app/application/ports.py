@@ -40,6 +40,13 @@ class DateiSpeicher(ABC):
     @abstractmethod
     def vorhanden(self, skript_id: str) -> bool: ...
 
+    @abstractmethod
+    def groesse(self, skript_id: str) -> int | None: ...
+
+    @abstractmethod
+    def lies_bereich(self, skript_id: str, start: int, ende: int) -> bytes:
+        """Die Bytes von `start` bis `ende` (beide einschließlich) – für Audio/Video, damit nicht alles geladen wird."""
+
 
 class DateiLeser(ABC):
     """Ausgehender Port: liest Text aus einer Datei (PDF, Word .docx, Pages)."""
@@ -56,6 +63,10 @@ class DateiLeser(ABC):
         """Die Textstücke eines PDFs mit Lage und Schriftgröße (für Druckbögen); leer, wenn es nichts Passendes gibt."""
 
     @abstractmethod
+    def ansichtstext(self, dateiname: str, inhalt: bytes) -> str:
+        """Der Text einer Datei als reiner Text zum Anzeigen (PowerPoint mit „Folie n“, OpenDocument)."""
+
+    @abstractmethod
     def pdf_vorschau(self, dateiname: str, inhalt: bytes) -> bytes | None:
         """Eine PDF-Ansicht der Datei, wenn der Browser sie nicht selbst anzeigen kann (Pages), sonst None."""
 
@@ -65,3 +76,9 @@ class Texterkennung(ABC):
     @abstractmethod
     def erkennen(self, pdf: bytes) -> bytes:
         """Das PDF mit unsichtbarer Textebene über den Seitenbildern (Aussehen bleibt gleich). Wirft InvalidInput bei Fehlern."""
+
+
+class BildWandler(ABC):
+    """Ausgehender Port: wandelt Bilder, die nicht jeder Browser anzeigt (iPhone-Fotos: HEIC), in JPEG um."""
+    @abstractmethod
+    def zu_jpeg(self, inhalt: bytes) -> bytes: ...

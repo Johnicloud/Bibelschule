@@ -1,5 +1,6 @@
 """Ausgehender Adapter: Text aus PDF (pypdf), Word .docx (document.xml) und Pages (eingebettete Preview.pdf)."""
 import io
+import re
 import subprocess
 import tempfile
 import zipfile
@@ -44,14 +45,26 @@ def _pdf_stuecke(inhalt: bytes) -> list[Textstueck]:
     return stuecke
 
 
-BILD_ENDUNGEN = ("png", "jpg", "jpeg")
+BILD_ENDUNGEN = ("png", "jpg", "jpeg", "webp", "gif")
+
+
+def _als_png(inhalt: bytes) -> bytes:
+    """Jedes Bildformat als PNG (Tesseract liest nicht alle) und mit der Drehung, die im Foto gespeichert ist."""
+    try:
+        from PIL import Image, ImageOps
+        bild = ImageOps.exif_transpose(Image.open(io.BytesIO(inhalt))).convert("RGB")
+        aus = io.BytesIO()
+        bild.save(aus, "PNG")
+        return aus.getvalue()
+    except Exception as e:
+        raise InvalidInput("Das Bild ließ sich nicht lesen.") from e
 
 
 def _bild_zeilen(inhalt: bytes, endung: str) -> list[str]:
     """Text aus einem Bild (z. B. Bildschirmfoto einer Fragenliste) per Tesseract, lokal im Container."""
     with tempfile.TemporaryDirectory() as ordner:
-        bild = Path(ordner) / f"bild.{endung}"
-        bild.write_bytes(inhalt)
+        bild = Path(ordner) / "bild.png"
+        bild.write_bytes(_als_png(inhalt))
         try:
             lauf = subprocess.run(["tesseract", str(bild), "stdout", "-l", "deu", "--psm", "6"],
                                   capture_output=True, text=True, timeout=300)
@@ -62,6 +75,41 @@ def _bild_zeilen(inhalt: bytes, endung: str) -> list[str]:
         if lauf.returncode != 0:
             raise InvalidInput("Das Bild ließ sich nicht lesen.")
         return lauf.stdout.splitlines()
+
+
+def _text_zeilen(inhalt: bytes, endung: str) -> list[str]:
+    try:
+        text = inhalt.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = inhalt.decode("latin-1")
+    zeilen = text.splitlines()
+    if endung in ("md", "markdown"):      # Listenpunkte und Überschriften-Zeichen gehören nicht zur Frage
+        zeilen = [re.sub(r"^\s*(?:[-*+]\s+|#+\s+)", "", z) for z in zeilen]
+    return zeilen
+
+
+ODF_TEXT = "{urn:oasis:names:tc:opendocument:xmlns:text:1.0}"
+A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+
+
+def _odf_absaetze(inhalt: bytes) -> list[str]:
+    try:
+        with zipfile.ZipFile(io.BytesIO(inhalt)) as z:
+            wurzel = ElementTree.fromstring(z.read("content.xml"))
+    except Exception as e:
+        raise InvalidInput("Die OpenDocument-Datei ließ sich nicht lesen.") from e
+    return ["".join(p.itertext()) for p in wurzel.iter() if p.tag in (f"{ODF_TEXT}p", f"{ODF_TEXT}h")]
+
+
+def _pptx_folien(inhalt: bytes) -> list[list[str]]:
+    try:
+        with zipfile.ZipFile(io.BytesIO(inhalt)) as z:
+            namen = sorted((n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+                           key=lambda n: int(re.findall(r"\d+", n)[-1]))
+            return [["".join(t.text or "" for t in p.iter(f"{A}t")) for p in ElementTree.fromstring(z.read(n)).iter(f"{A}p")]
+                    for n in namen]
+    except Exception as e:
+        raise InvalidInput("Die PowerPoint-Datei ließ sich nicht lesen.") from e
 
 
 def _docx_absaetze(inhalt: bytes) -> list[str]:
@@ -91,12 +139,18 @@ class DateiLeserAdapter(DateiLeser):
             return _docx_absaetze(inhalt)
         if endung in BILD_ENDUNGEN:
             return _bild_zeilen(inhalt, endung)
+        if endung in ("txt", "md", "markdown"):
+            return _text_zeilen(inhalt, endung)
+        if endung in ("odt", "odp"):
+            return _odf_absaetze(inhalt)
+        if endung == "pptx":
+            return [z for folie in _pptx_folien(inhalt) for z in folie]
         if endung == "pages":
             pdf = _pages_pdf(inhalt)
             if pdf is None:
                 raise InvalidInput("In dieser Pages-Datei steckt keine lesbare Vorschau. In Pages „Ablage > Exportieren > Word“ oder PDF wählen.")
             return _pdf_zeilen(pdf)
-        raise InvalidInput("Nur PDF, Word (.docx), Pages und Bilder (PNG, JPG) lassen sich nach Fragen durchsuchen.")
+        raise InvalidInput("Diesen Dateityp kann ich nicht nach Fragen durchsuchen.")
 
     def hat_text(self, dateiname: str, inhalt: bytes) -> bool:
         if _endung(dateiname) != "pdf":
@@ -115,6 +169,14 @@ class DateiLeserAdapter(DateiLeser):
             pdf = _pages_pdf(inhalt)
             return _pdf_stuecke(pdf) if pdf else []
         return []
+
+    def ansichtstext(self, dateiname: str, inhalt: bytes) -> str:
+        if _endung(dateiname) == "pptx":
+            teile = []
+            for nummer, folie in enumerate(_pptx_folien(inhalt), 1):
+                teile.append(f"── Folie {nummer} ──\n" + "\n".join(z for z in folie if z.strip()))
+            return "\n\n".join(teile)
+        return "\n\n".join(z for z in self.zeilen(dateiname, inhalt) if z.strip())
 
     def pdf_vorschau(self, dateiname: str, inhalt: bytes) -> bytes | None:
         return _pages_pdf(inhalt) if _endung(dateiname) == "pages" else None

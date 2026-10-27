@@ -22,6 +22,8 @@ class InMemoryDateien(DateiSpeicher):
     def lies(self, i): return self.d.get(i)
     def loesche(self, i): self.d.pop(i, None)
     def vorhanden(self, i): return i in self.d
+    def groesse(self, i): return len(self.d[i]) if i in self.d else None
+    def lies_bereich(self, i, start, ende): return self.d[i][start:ende + 1]
 
 
 @pytest.fixture

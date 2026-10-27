@@ -4,12 +4,14 @@ import threading
 import unicodedata
 from datetime import date
 
-from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
+from app.application.ports import BildWandler, DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
+from app.domain.dateitypen import UMZUWANDELN, endung
 from app.domain.druckbogen import karten_aus_druckbogen
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.fragen import fragen_erkennen
 from app.domain.models import Skript
 
+BEREICH_MAX = 8 * 1024 * 1024   # größtes Stück pro Antwort beim Spulen
 MAX_BYTES = 200 * 1024 * 1024   # 200 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
 
 
@@ -32,11 +34,12 @@ def _text_key(skript_id: str) -> str:
 
 class SkriptService:
     def __init__(self, repo: SkriptRepository, dateien: DateiSpeicher, leser: DateiLeser | None = None,
-                 erkennung: Texterkennung | None = None):
+                 erkennung: Texterkennung | None = None, bilder: BildWandler | None = None):
         self.repo = repo
         self.dateien = dateien
         self.leser = leser
         self.erkennung = erkennung
+        self.bilder = bilder
         self._laufend: set[str] = set()       # Texterkennung läuft gerade (nur im Speicher: nach Neustart ist sie ohnehin weg)
         self._fehler: dict[str, str] = {}
 
@@ -52,6 +55,12 @@ class SkriptService:
         dateiname = _sauberer_name(dateiname)
         if not dateiname:
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
+        if endung(dateiname) in UMZUWANDELN:      # iPhone-Foto (HEIC) -> JPEG, damit es sich anzeigen und lesen lässt
+            if self.bilder is None:
+                raise InvalidInput("HEIC-Fotos kann ich hier nicht umwandeln.")
+            inhalt = self.bilder.zu_jpeg(inhalt)
+            dateiname = dateiname.rsplit(".", 1)[0] + ".jpg"
+            content_type = "image/jpeg"
         if _sauberer_name(wunschname or ""):
             dateiname = _mit_endung(_sauberer_name(wunschname), dateiname)
         if len(inhalt) > MAX_BYTES:
@@ -97,6 +106,27 @@ class SkriptService:
                 and self.dateien.vorhanden(_text_key(skript_id)):
             return skript, self.dateien.lies(_text_key(skript_id))
         return skript, original
+
+    def ansichtstext(self, skript_id: str) -> str:
+        """Reiner Text einer Datei zum Anzeigen (PowerPoint, OpenDocument) – ohne Layout."""
+        skript, inhalt = self.datei(skript_id, original=True)
+        if self.leser is None:
+            raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
+        return self.leser.ansichtstext(skript.dateiname, inhalt)
+
+    def bereich(self, skript_id: str, start: int, ende: int | None, original: bool = False) -> tuple[Skript, bytes, int, int, int]:
+        """Ein Stück einer Datei (HTTP Range): (Skript, Bytes, start, ende, Gesamtgröße). Audio und Video werden so
+        gespult, ohne dass jedes Mal die ganze Datei geladen wird; ein offenes Ende wird auf ein Stück begrenzt."""
+        skript = self._skript(skript_id)
+        schluessel = _text_key(skript_id) if not original and self.dateien.vorhanden(_text_key(skript_id)) else skript_id
+        gesamt = self.dateien.groesse(schluessel)
+        if gesamt is None:
+            raise NotFound("Die Datei fehlt leider (nur die Angaben sind noch da).")
+        if start >= gesamt or start < 0:
+            raise InvalidInput("Dieser Abschnitt liegt hinter dem Ende der Datei.")
+        ende = gesamt - 1 if ende is None else min(ende, gesamt - 1)
+        ende = min(ende, start + BEREICH_MAX - 1)
+        return skript, self.dateien.lies_bereich(schluessel, start, ende), start, ende, gesamt
 
     def fragen(self, skript_id: str) -> list[str]:
         """Die Fragen einer Fragenliste (PDF, Word, Pages) – nur ein Vorschlag, die Karteikarten legt der Nutzer an."""

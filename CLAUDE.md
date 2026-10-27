@@ -747,6 +747,22 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Formular (dieselbe `CardForm.vue` wie beim Anlegen, mit `card`-Prop vorbefüllt, „Speichern“/„Abbrechen“), dazu ein
   Feld „Set (optional)“ auch beim Anlegen. Noch nicht in der Ansicht „Alle Karten“ (dort nur Löschen).
 
+- [fertig] Skripte: weitere Dateitypen. Die Art einer Datei bestimmt eine Stelle, `skripte/app/domain/dateitypen.py` (Endung ->
+  `art`, Content-Type, `kann_fragen`); `skript_out` liefert `art` und `kann_fragen`, die Oberfläche hat keine eigenen
+  Endungs-Listen mehr. Neu: (1) **iPhone-Fotos (HEIC/HEIF)** werden beim Hochladen zu JPEG (`BildWandler`-Port, Pillow +
+  pillow-heif, Drehung aus dem Foto übernommen), dazu **WEBP/GIF**; die Texterkennung wandelt jedes Bild vorher mit Pillow
+  nach PNG (Tesseract liest nicht alle Formate). (2) **Audio** (mp3, m4a, aac, wav, ogg, flac) und **Video** (mp4, m4v, mov,
+  webm) spielen direkt im Reiter (`<audio>`/`<video controls>`). Dafür kann `GET …/datei` jetzt HTTP **Range** (Antwort 206,
+  `DateiSpeicher.lies_bereich` liest nur das Stück, höchstens 8 MB je Antwort) – Safari spielt Medien ohne das gar nicht ab.
+  **Kern geändert** (Ausnahme zur Regel „Kern nie anfassen“, weil sonst Spulen über den Kern unmöglich ist): `forward()`
+  reicht den `Range`-Header an den Dienst weiter und gibt `Accept-Ranges`/`Content-Range` samt Status 206 zurück (Rückgabe
+  jetzt ein 4er-Tupel, alle anderen Antwort-Header gehen weiter verloren). (3) **Text/Markdown** (txt, md, in Latin-1 falls
+  kein UTF-8; Listen- und Überschriftszeichen fallen bei Fragen weg) werden als reiner Text gezeigt und gelesen.
+  (4) **OpenDocument (odt, odp) und PowerPoint (pptx)**: Text wird ausgelesen (`content.xml`, `ppt/slides/slideN.xml`), die
+  Vorschau ist die reine Textansicht `GET …/text` (pptx mit „── Folie n ──“), kein Layout; Fragen/Karten gehen auch daraus.
+  Weiter nur Download: altes `.doc` und alles Unbekannte. Nicht automatisch geprüft (kein Werkzeug da): echte
+  .pptx-Datei und Video, nur mit nachgebauten Dateien/Tests.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
