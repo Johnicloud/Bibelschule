@@ -27,17 +27,11 @@ const PATHS = {
   bibliothek: 'M3 21h18M4 21V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v16M10 21V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v12M16 21V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v14',
   x: 'M6 6l12 12M18 6 6 18',
   stoppuhr: 'M10 2h4M12 14 15 11M12 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16z',
-<<<<<<< HEAD
-<<<<<<< HEAD
   predigten: 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8',
 
   notizen: 'M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z',
-=======
   fragezeichen: 'M9.5 9a2.5 2.5 0 1 1 4.5 1.5c-.5.6-1.5 1-1.8 1.8-.2.5-.2 1-.2 1.7M12 17.5h.01',
->>>>>>> origin/claude/fragenki-724ef6
-=======
   glossar: 'M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z',
->>>>>>> origin/claude/glossar-470fb7
 }
 
 const path = () => PATHS[props.name] || PATHS.baustein

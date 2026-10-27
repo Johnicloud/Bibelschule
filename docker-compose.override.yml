@@ -1,15 +1,13 @@
 services:
-<<<<<<< HEAD
-<<<<<<< HEAD
-  predigten:
-    build: ./predigten
+  glossar:
+    build: ./glossar
     environment:
       KERN_URL: http://kern:8000
-      SERVICE_URL: http://predigten:8000
-      BIBEL_URL: http://bibel:8000       # legt Verweise auf Bibelstellen direkt beim Bibel-Dienst an
+      SERVICE_URL: http://glossar:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise ("art=glossar") beim Bibel-Dienst an
     volumes:
-      - ./data/predigten:/app/data
-=======
+      - ./data/glossar:/app/data
+    restart: unless-stopped
   fragenki:
     build: ./fragenki
     environment:
@@ -19,17 +17,15 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
       BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
     networks: [default, ki]
->>>>>>> origin/claude/fragenki-724ef6
-=======
-  glossar:
-    build: ./glossar
+    restart: unless-stopped
+  predigten:
+    build: ./predigten
     environment:
       KERN_URL: http://kern:8000
-      SERVICE_URL: http://glossar:8000
-      BIBEL_URL: http://bibel:8000       # legt Verweise ("art=glossar") beim Bibel-Dienst an
+      SERVICE_URL: http://predigten:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise auf Bibelstellen direkt beim Bibel-Dienst an
     volumes:
-      - ./data/glossar:/app/data
->>>>>>> origin/claude/glossar-470fb7
+      - ./data/predigten:/app/data
     restart: unless-stopped
   adressbuch:
     build: ./adressbuch

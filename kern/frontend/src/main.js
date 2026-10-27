@@ -7,11 +7,8 @@ import { createAufgabenleserApi } from './adapters/aufgabenleserApi'
 import { createAuthApi } from './adapters/authApi'
 import { createBibelApi } from './adapters/bibelApi'
 import { createBibliothekApi } from './adapters/bibliothekApi'
-<<<<<<< HEAD
 import { createFragenkiApi } from './adapters/fragenkiApi'
-=======
 import { createGlossarApi } from './adapters/glossarApi'
->>>>>>> origin/claude/glossar-470fb7
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
 import { createNotizenApi } from './adapters/notizenApi'
@@ -26,15 +23,9 @@ import { createAuthService } from './application/authService'
 import { createBibelService } from './application/bibelService'
 import { createBibliothekService } from './application/bibliothekService'
 import { createFlashcardService } from './application/flashcardService'
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { createNotizenService } from './application/notizenService'
-=======
 import { createFragenkiService } from './application/fragenkiService'
->>>>>>> origin/claude/fragenki-724ef6
-=======
 import { createGlossarService } from './application/glossarService'
->>>>>>> origin/claude/glossar-470fb7
 import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createPredigtenService } from './application/predigtenService'
 import { createSubjectService } from './application/subjectService'
@@ -54,15 +45,9 @@ createApp(App)
   .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
   .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
-<<<<<<< HEAD
-<<<<<<< HEAD
   .provide('predigten', createPredigtenService(createPredigtenApi('/api/predigten')))
 
   .provide('notizen', createNotizenService(createNotizenApi('/api/notizen')))
-=======
   .provide('fragenki', createFragenkiService(createFragenkiApi('/api/fragenki')))
->>>>>>> origin/claude/fragenki-724ef6
-=======
   .provide('glossar', createGlossarService(createGlossarApi('/api/glossar')))
->>>>>>> origin/claude/glossar-470fb7
   .mount('#app')

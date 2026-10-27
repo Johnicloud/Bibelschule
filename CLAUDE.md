@@ -482,8 +482,6 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durch `pdfcreator`/`aufgabenleser`/`bibliothek`) den neuen Dienst fälschlich dort einhängte (kaputtes YAML) –
   fügt jetzt direkt nach `services:` ein.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 - [fertig] PDFs direkt im Browser drucken UND herunterladen (statt nur erzwungenem Download): gemeinsame
   Funktion `kern/frontend/src/application/pdf.js` (`fensterOeffnen`/`pdfZeigen`) – öffnet die PDF-Datei in
   einem neuen Reiter, wo der Browser seine eigene PDF-Ansicht mit Drucken- und Herunterladen-Knopf mitbringt,
@@ -588,7 +586,6 @@ Sprache der Oberfläche und der Texte: Deutsch.
   frei eintippen (`bibel.nachschlagen(text)` löst sie auf, die kanonische Adresse baut das Frontend selbst aus
   `buch`/`kapitel`/`markiert` zusammen, kein eigener Stellen-Parser im Frontend nötig), Kommentar schreiben,
   Liste bisheriger Kommentare zu dieser Stelle.
-=======
 - [fertig] Neuer Dienst `fragenki` (Arbeitspaket D): schlägt zu einem gewählten Bibelkapitel 3-5
   Verständnisfragen vor (Ollama, wie `aufgabenleser`/`pdfcreator`: `OLLAMA_URL`/`OLLAMA_MODEL`, 180 Sekunden
   Zeitlimit, ohne `OLLAMA_URL` liefert `/api/generieren` 422, da die KI hier der ganze Zweck ist). Holt sich
@@ -605,8 +602,6 @@ Sprache der Oberfläche und der Texte: Deutsch.
   BSD-awk ("one true awk") bricht bei `-v` mit einem mehrzeiligen String ab, anders als gawk. Der Dienst-Block
   kommt jetzt über eine Temp-Datei (`getline … < bf`) statt über `-v block="$block"` ins Skript, das läuft auf
   beiden awk-Varianten.
->>>>>>> origin/claude/fragenki-724ef6
-=======
 - [fertig] Arbeitspaket F umgesetzt: neuer Dienst `glossar` für griechische Wörter (Transliteration, Erklärung,
   beliebig viele Bibelstellen). Fachübergreifend wie `bibel`/`bibliothek`/`schnelllesen` (kein `panel`, die drei
   Pflicht-Endpunkte als No-ops). Jede Bibelstelle eines Eintrags legt beim Anlegen/Ändern einen Verweis
@@ -631,7 +626,6 @@ Sprache der Oberfläche und der Texte: Deutsch.
   erst bei mit Pausen simulierten Klicks betroffen) – naheliegend eine Eigenheit der automatisierten
   Browser-Vorschau unter der Systemlast der parallel laufenden Docker-Builds mehrerer Geschwister-Sitzungen,
   keine Serverseite (`MemorySessionStore`) betroffen.
->>>>>>> origin/claude/glossar-470fb7
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

@@ -10,17 +10,10 @@ const tabs = [
   { id: 'bibel', label: 'Bibel', icon: 'buch' },
   { id: 'bibliothek', label: 'Bibliothek', icon: 'bibliothek' },
   { id: 'schnelllesen', label: 'Schnelllesen', icon: 'stoppuhr' },
-<<<<<<< HEAD
-<<<<<<< HEAD
   { id: 'predigten', label: 'Predigten', icon: 'predigten' },
-
   { id: 'notizen', label: 'Notizen', icon: 'notizen' },
-=======
   { id: 'fragenki', label: 'Fragen und KI', icon: 'fragezeichen' },
->>>>>>> origin/claude/fragenki-724ef6
-=======
   { id: 'glossar', label: 'Glossar', icon: 'glossar' },
->>>>>>> origin/claude/glossar-470fb7
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>
