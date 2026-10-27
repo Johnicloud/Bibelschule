@@ -13,6 +13,13 @@ from app.domain.models import Skript
 MAX_BYTES = 200 * 1024 * 1024   # 200 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
 
 
+def _sauberer_name(name: str) -> str:
+    """Ohne unsichtbare Formatzeichen (z. B. die Links-nach-rechts-Marke, die beim Kopieren eines Dateinamens mitkommt)
+    und ohne Pfadanteile oder Zeilenumbrüche."""
+    name = "".join(z for z in (name or "") if unicodedata.category(z) not in ("Cf", "Cc"))
+    return name.replace("/", "-").replace("\\", "-").strip()
+
+
 def _text_key(skript_id: str) -> str:
     return f"{skript_id}.text"
 
@@ -34,17 +41,29 @@ class SkriptService:
         return skript
 
     def upload(self, subject_id: str, dateiname: str, content_type: str | None, inhalt: bytes) -> Skript:
-        # unsichtbare Formatzeichen (z. B. Links-nach-rechts-Marke aus dem Kopieren eines Dateinamens) entfernen
-        dateiname = "".join(z for z in (dateiname or "") if unicodedata.category(z) != "Cf")
-        if not dateiname.strip():
+        dateiname = _sauberer_name(dateiname)
+        if not dateiname:
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
         if len(inhalt) > MAX_BYTES:
             raise InvalidInput("Die Datei ist zu groß (maximal 200 MB).")
-        skript = Skript(subject_id=subject_id, dateiname=dateiname.strip(),
+        skript = Skript(subject_id=subject_id, dateiname=dateiname,
                          content_type=content_type or "application/octet-stream",
                          groesse=len(inhalt), hochgeladen_am=date.today().isoformat())
         self.repo.save(skript)
         self.dateien.speichere(skript.id, inhalt)
+        return skript
+
+    def umbenennen(self, skript_id: str, dateiname: str) -> Skript:
+        """Neuer Name. Die Endung bleibt: sie entscheidet, wie die Datei angezeigt und gelesen wird."""
+        skript = self._skript(skript_id)
+        name = _sauberer_name(dateiname)
+        if not name:
+            raise InvalidInput("Der Dateiname darf nicht leer sein.")
+        endung = skript.dateiname.rsplit(".", 1)[-1] if "." in skript.dateiname else ""
+        if endung and not name.lower().endswith("." + endung.lower()):
+            name = f"{name}.{endung}"
+        skript.dateiname = name
+        self.repo.save(skript)
         return skript
 
     def list_skripte(self, subject_id: str | None = None) -> list[Skript]:

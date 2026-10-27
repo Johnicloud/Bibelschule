@@ -16,6 +16,10 @@ class SubjectIn(BaseModel):
     name: str
 
 
+class UmbenennenIn(BaseModel):
+    dateiname: str
+
+
 def skript_out(s: Skript, text: dict | None = None) -> dict:
     return {"id": s.id, "subject_id": s.subject_id, "dateiname": s.dateiname, "content_type": s.content_type,
             "groesse": s.groesse, "hochgeladen_am": s.hochgeladen_am,
@@ -65,6 +69,10 @@ def create_app(service: SkriptService) -> FastAPI:
         einfach = dateiname.encode("ascii", "ignore").decode() or "datei"
         return Response(content=inhalt, media_type=skript.content_type,
                          headers={"Content-Disposition": f"inline; filename=\"{einfach}\"; filename*=UTF-8''{quote(dateiname)}"})
+
+    @api.put("/skripte/{skript_id}")
+    def umbenennen(skript_id: str, body: UmbenennenIn):
+        return skript_out(service.umbenennen(skript_id, body.dateiname), service.text_status(skript_id))
 
     @api.post("/skripte/{skript_id}/text-erkennen", status_code=202)
     def text_erkennen(skript_id: str):

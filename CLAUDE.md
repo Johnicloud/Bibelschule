@@ -709,6 +709,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
   `GET /api/skripte/{id}/ansicht` (`ansicht.html`, gleiche lokale `docx-preview`-Bibliothek wie die Inline-Vorschau, holt die
   Datei relativ über `datei`). Für das alte .doc gibt es den Knopf nicht.
 
+- [fertig] Skripte: Umbenennen, Vorschau per Tipp auf den Namen, Aktionen im Drei-Punkte-Menü. Der Name der Datei ist jetzt
+  selbst der Knopf für die Inline-Vorschau (an/aus); alles andere (neuer Tab, Text erkennen, Karten übernehmen, Umbenennen,
+  Herunterladen, Löschen) liegt hinter dem Drei-Punkte-Symbol (`.uk-menu` im UI-Kit, schließt beim Klick daneben und mit
+  Escape, immer nur eins offen). Umbenennen: `PUT /api/skripte/{id}` {dateiname}, `SkriptService.umbenennen` – die Endung
+  bleibt automatisch erhalten (sie entscheidet über Anzeige und Auslesen), unsichtbare Zeichen und Schrägstriche werden
+  entfernt, leerer Name abgelehnt; in der Oberfläche wird der Name zum Eingabefeld (Enter speichert, Escape bricht ab).
+  Falle: `hidden` auf einem Element mit eigenem `display` (z. B. `.uk-menu-item`) wirkt nicht – dafür steht
+  `.uk-menu-item[hidden] { display: none }` im UI-Kit.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

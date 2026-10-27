@@ -57,35 +57,30 @@
 
   document.getElementById('hochladen').append(icon('upload'), 'Hochladen')
 
-  function downloadLink(href, name) {
-    const a = el('a', { class: 'uk-btn-ghost uk-icon-btn', href, download: name })
-    setIcon(a, 'download', 'Herunterladen')
-    return a
-  }
-  // Vorschau in einem eigenen Browser-Tab: PDF/Bild direkt, Pages über die eingebettete Vorschau, Word über die Ansichtsseite
-  function neuerTab(s) {
-    const art = istPages(s) ? 'vorschau' : istDocx(s) ? 'ansicht' : 'datei'
-    const a = el('a', { class: 'uk-btn-ghost uk-icon-btn', href: `skripte/${s.id}/${art}`, target: '_blank', rel: 'noopener' })
-    setIcon(a, 'extern', 'In neuem Tab öffnen')
-    return a
-  }
-  function loeschBtn(onclick) {
-    const b = el('button', { class: 'uk-btn-danger uk-icon-btn', onclick })
-    setIcon(b, 'trash', 'Löschen')
-    return b
+  // Menü hinter den drei Punkten: immer nur eins offen, schließt beim Klick daneben oder mit Escape
+  let offenesMenue = null
+  const menueZu = () => { if (offenesMenue) { offenesMenue.hidden = true; offenesMenue = null } }
+  document.addEventListener('click', menueZu)
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') menueZu() })
+
+  function punkt(iconName, text, aktion, extra = '') {
+    const inhalt = [icon(iconName), text]
+    const knoten = typeof aktion === 'string'
+      ? el('a', { class: 'uk-menu-item ' + extra, href: aktion, target: '_blank', rel: 'noopener' }, inhalt)
+      : el('button', { class: 'uk-menu-item ' + extra, type: 'button' }, inhalt)
+    if (typeof aktion === 'function') knoten.onclick = aktion
+    return knoten
   }
 
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
     const docx = istDocx(s)
     const vorschau = el(docx ? 'div' : 'iframe', { class: docx ? 'uk-docx' : 'uk-vorschau', hidden: 'true' })
-    const oeffnenBtn = el('button', { class: 'uk-btn uk-icon-btn' })
-    setIcon(oeffnenBtn, 'eye', 'Öffnen')
     let geladen = false
-    oeffnenBtn.onclick = async () => {
+    // Vorschau: ein Tipp auf den Namen klappt sie auf oder zu
+    async function vorschauUmschalten() {
       const zu = vorschau.hidden
       vorschau.hidden = !zu
-      setIcon(oeffnenBtn, zu ? 'eyeoff' : 'eye', zu ? 'Schließen' : 'Öffnen')
       if (!zu || geladen) return
       if (!docx) { if (!vorschau.src) vorschau.src = istPages(s) ? `skripte/${s.id}/vorschau` : url; return }
       try {
@@ -97,52 +92,82 @@
         geladen = true
       } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
+    const nameBtn = el('button', { class: 'uk-name', type: 'button', title: 'Vorschau ein-/ausblenden' }, s.dateiname)
+    nameBtn.onclick = vorschauUmschalten
+    if (istDoc(s)) { nameBtn.disabled = true; nameBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
+
     const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
-    const fragenBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn' })
-    setIcon(fragenBtn, 'karten', 'Karteikarten aus dieser Datei übernehmen (Fragenliste oder Druckbogen mit Antworten)')
-    fragenBtn.onclick = async () => {
+    async function kartenOeffnen() {
       if (!fragenBox.hidden) { fragenBox.hidden = true; return }
       fragenBox.hidden = false
       fragenBox.textContent = 'Liest die Datei …'
       try { kartenZeigen(fragenBox, s, await call('GET', `skripte/${s.id}/karten`)) }
       catch (err) { fragenBox.textContent = err.message }
     }
+
     // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
     // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
-    const textBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn' })
     const textInfo = el('span', { class: 'uk-sub', role: 'status' })
+    const textPunkt = punkt('scan', 'Text erkennen', async () => {
+      textPunkt.disabled = true
+      try { const t = await call('POST', `skripte/${s.id}/text-erkennen`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler }) }
+      catch (err) { textInfo.textContent = err.message; textPunkt.disabled = false }
+    })
+    textPunkt.title = 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt'
     const textZeigen = (t) => {
-      textBtn.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
-      textBtn.disabled = t.text_status === 'laeuft'
-      if (t.text_status === 'laeuft') setIcon(textBtn, 'uhr', 'Text wird erkannt …')
-      else setIcon(textBtn, 'scan', 'Text erkennen: gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt')
-      textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : ''
+      textPunkt.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
+      textPunkt.disabled = t.text_status === 'laeuft'
+      textPunkt.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'), t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen')
+      textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : t.text_status === 'laeuft' ? 'Text wird erkannt …' : ''
       if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
     }
     const textAbfragen = async () => {
       try { textZeigen((await call('GET', 'skripte?subject_id=' + encodeURIComponent(subject))).find((x) => x.id === s.id) || s) } catch { /* nächster Versuch */ }
     }
-    textBtn.onclick = async () => {
-      textBtn.disabled = true
-      try { const t = await call('POST', `skripte/${s.id}/text-erkennen`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler }) }
-      catch (err) { textInfo.textContent = err.message; textBtn.disabled = false }
-    }
     textZeigen(s)
-    if (istDoc(s)) { oeffnenBtn.disabled = true; oeffnenBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
+
+    // Umbenennen: Name wird zum Eingabefeld (Enter speichert, Escape bricht ab); die Endung bleibt erhalten
+    const kopf = el('div', {}, [nameBtn])
+    function umbenennenStarten() {
+      const feld = el('input', { class: 'uk-input', type: 'text', value: s.dateiname, 'aria-label': 'Neuer Dateiname' })
+      const fehlerZeile = el('div', { class: 'uk-error', role: 'alert' })
+      const fertig = async () => {
+        try { await call('PUT', `skripte/${s.id}`, { dateiname: feld.value }); laden() }
+        catch (err) { fehlerZeile.textContent = err.message }
+      }
+      feld.onkeydown = (e) => { if (e.key === 'Enter') fertig(); if (e.key === 'Escape') kopf.replaceChildren(nameBtn) }
+      const ok = el('button', { class: 'uk-btn uk-icon-btn', type: 'button', onclick: fertig }); setIcon(ok, 'haken', 'Speichern')
+      const nein = el('button', { class: 'uk-btn-ghost uk-icon-btn', type: 'button', onclick: () => kopf.replaceChildren(nameBtn) }); setIcon(nein, 'x', 'Abbrechen')
+      kopf.replaceChildren(el('div', { style: 'display:flex;gap:.4rem;align-items:center' }, [feld, ok, nein]), fehlerZeile)
+      feld.focus(); feld.select()
+    }
+
+    const menue = el('div', { class: 'uk-menu', hidden: 'true', role: 'menu' }, [
+      ...(istDoc(s) ? [] : [punkt('extern', 'In neuem Tab öffnen', `skripte/${s.id}/${istPages(s) ? 'vorschau' : docx ? 'ansicht' : 'datei'}`)]),
+      textPunkt,
+      ...(kannFragen(s) ? [punkt('karten', 'Karten übernehmen', kartenOeffnen)] : []),
+      punkt('stift', 'Umbenennen', umbenennenStarten),
+      punkt('download', 'Herunterladen', () => { const a = el('a', { href: url + '?original=1', download: s.dateiname }); a.click() }),
+      punkt('trash', 'Löschen', async () => {
+        if (!confirm(`„${s.dateiname}“ löschen?`)) return
+        await call('DELETE', `skripte/${s.id}`); laden()
+      }, 'uk-menu-danger'),
+    ])
+    const mehrBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn', type: 'button', 'aria-haspopup': 'menu' })
+    setIcon(mehrBtn, 'mehr', 'Weitere Aktionen')
+    mehrBtn.style.color = 'var(--text)'
+    mehrBtn.onclick = (e) => {
+      e.stopPropagation()
+      const war = offenesMenue === menue
+      menueZu()
+      if (!war) { menue.hidden = false; offenesMenue = menue }
+    }
+    menue.onclick = () => menueZu()
+
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
-        el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
-        el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
-          oeffnenBtn,
-          ...(istDoc(s) ? [] : [neuerTab(s)]),
-          textBtn,
-          ...(kannFragen(s) ? [fragenBtn] : []),
-          downloadLink(url + '?original=1', s.dateiname),
-          loeschBtn(async () => {
-            if (!confirm(`„${s.dateiname}“ löschen?`)) return
-            await call('DELETE', `skripte/${s.id}`); laden()
-          }),
-        ]),
+        el('div', {}, [kopf, el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
+        el('div', { class: 'uk-menu-wrap' }, [mehrBtn, menue]),
       ]),
       fragenBox,
       vorschau,

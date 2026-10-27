@@ -163,3 +163,12 @@ def test_pdf_mit_text_braucht_keine_erkennung_und_wird_im_original_gelesen(svc):
 def test_unsichtbare_zeichen_im_dateinamen_werden_entfernt(svc):
     s = svc.upload("f", "‎localhost:8170:x.pdf", None, b"x")
     assert s.dateiname == "localhost:8170:x.pdf"
+
+
+def test_umbenennen_behaelt_die_endung_und_bereinigt(svc):
+    s = svc.upload("f", "alt.docx", None, b"x")
+    assert svc.umbenennen(s.id, "  Neuer ‎Name ").dateiname == "Neuer Name.docx"
+    assert svc.umbenennen(s.id, "Anderer.DOCX").dateiname == "Anderer.DOCX"
+    assert svc.umbenennen(s.id, "a/b").dateiname == "a-b.DOCX"   # Endung des aktuellen Namens
+    with pytest.raises(InvalidInput):
+        svc.umbenennen(s.id, " ‎ ")
