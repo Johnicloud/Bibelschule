@@ -15,9 +15,10 @@ class SubjectIn(BaseModel):
     name: str
 
 
-def skript_out(s: Skript) -> dict:
+def skript_out(s: Skript, text: dict | None = None) -> dict:
     return {"id": s.id, "subject_id": s.subject_id, "dateiname": s.dateiname, "content_type": s.content_type,
-            "groesse": s.groesse, "hochgeladen_am": s.hochgeladen_am}
+            "groesse": s.groesse, "hochgeladen_am": s.hochgeladen_am,
+            "text_status": (text or {}).get("status"), "text_fehler": (text or {}).get("fehler")}
 
 
 def create_app(service: SkriptService) -> FastAPI:
@@ -47,7 +48,7 @@ def create_app(service: SkriptService) -> FastAPI:
 
     @api.get("/skripte")
     def list_skripte(subject_id: str | None = None):
-        return [skript_out(s) for s in service.list_skripte(subject_id)]
+        return [skript_out(s, service.text_status(s.id)) for s in service.list_skripte(subject_id)]
 
     @api.post("/skripte", status_code=201)
     async def upload(subject_id: str = Form(...), datei: UploadFile = None):
@@ -55,11 +56,16 @@ def create_app(service: SkriptService) -> FastAPI:
         return skript_out(service.upload(subject_id, datei.filename or "", datei.content_type, inhalt))
 
     @api.get("/skripte/{skript_id}/datei")
-    def datei(skript_id: str):
-        skript, inhalt = service.datei(skript_id)
+    def datei(skript_id: str, original: bool = False):
+        skript, inhalt = service.datei(skript_id, original)
         dateiname = skript.dateiname.replace('"', "")
         return Response(content=inhalt, media_type=skript.content_type,
                          headers={"Content-Disposition": f'inline; filename="{dateiname}"'})
+
+    @api.post("/skripte/{skript_id}/text-erkennen", status_code=202)
+    def text_erkennen(skript_id: str):
+        service.text_erkennen_starten(skript_id)
+        return service.text_status(skript_id)
 
     @api.get("/skripte/{skript_id}/vorschau")
     def vorschau(skript_id: str):

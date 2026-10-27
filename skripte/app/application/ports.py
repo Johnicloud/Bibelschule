@@ -36,6 +36,9 @@ class DateiSpeicher(ABC):
     @abstractmethod
     def loesche(self, skript_id: str) -> None: ...
 
+    @abstractmethod
+    def vorhanden(self, skript_id: str) -> bool: ...
+
 
 class DateiLeser(ABC):
     """Ausgehender Port: liest Text aus einer Datei (PDF, Word .docx, Pages)."""
@@ -46,3 +49,10 @@ class DateiLeser(ABC):
     @abstractmethod
     def pdf_vorschau(self, dateiname: str, inhalt: bytes) -> bytes | None:
         """Eine PDF-Ansicht der Datei, wenn der Browser sie nicht selbst anzeigen kann (Pages), sonst None."""
+
+
+class Texterkennung(ABC):
+    """Ausgehender Port: macht ein gescanntes PDF (nur Bilder) durchsuchbar und kopierbar."""
+    @abstractmethod
+    def erkennen(self, pdf: bytes) -> bytes:
+        """Das PDF mit unsichtbarer Textebene über den Seitenbildern (Aussehen bleibt gleich). Wirft InvalidInput bei Fehlern."""

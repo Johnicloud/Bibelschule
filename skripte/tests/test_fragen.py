@@ -81,3 +81,31 @@ def test_unbekanntes_format_wird_abgelehnt(svc):
     s = svc.upload("f", "bild.png", None, b"x")
     with pytest.raises(InvalidInput):
         svc.fragen(s.id)
+
+
+class FakeOcr:
+    def erkennen(self, pdf): return b"%PDF-MIT-TEXT"
+
+
+def test_texterkennung_ersetzt_die_anzeige_aber_nicht_das_original():
+    svc = SkriptService(InMemoryRepo(), InMemoryDateien(), DateiLeserAdapter(), FakeOcr())
+    s = svc.upload("f", "Skript.pdf", None, b"%PDF-SCAN")
+    assert svc.text_status(s.id)["status"] == "keine"
+    svc.text_erkennen_starten(s.id, im_hintergrund=False)
+    assert svc.text_status(s.id)["status"] == "fertig"
+    assert svc.datei(s.id)[1] == b"%PDF-MIT-TEXT"
+    assert svc.datei(s.id, original=True)[1] == b"%PDF-SCAN"
+    svc.delete(s.id)
+    assert not svc.dateien.vorhanden(s.id + ".text")
+
+
+def test_texterkennung_nur_fuer_pdf_und_fehler_werden_gemeldet():
+    class Kaputt:
+        def erkennen(self, pdf): raise RuntimeError("boom")
+    svc = SkriptService(InMemoryRepo(), InMemoryDateien(), DateiLeserAdapter(), Kaputt())
+    w = svc.upload("f", "Fragen.docx", None, b"x")
+    with pytest.raises(InvalidInput):
+        svc.text_erkennen_starten(w.id, im_hintergrund=False)
+    p = svc.upload("f", "Skript.pdf", None, b"x")
+    svc.text_erkennen_starten(p.id, im_hintergrund=False)
+    assert svc.text_status(p.id)["status"] == "fehler"

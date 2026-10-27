@@ -660,6 +660,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
   darin das ganze Dokument oder nur die erste Seite ablegt, hängt von der Pages-Version ab, ohne Vorschau kommt eine
   klare Fehlermeldung). Gegen die echte „Fragen Apostelgeschichte“ geprüft: PDF und docx liefern beide dieselben 55 Fragen.
 
+- [fertig] Skripte: Text in gescannten PDFs markieren und kopieren. Das Skript des Nutzers bestand nur aus Seitenbildern
+  (keine Textebene), darum ging weder Markieren noch Kopieren. Knopf „Text erkennen“ je PDF (`POST /api/skripte/{id}/
+  text-erkennen`, 202): `ocrmypdf` + Tesseract (deutsch) laufen lokal im Container des Skripte-Dienstes (Dockerfile
+  installiert sie per apt, keine KI/Ollama nötig, anders als `bibliothek`), legen eine unsichtbare Textebene über die
+  Bilder – Aussehen bleibt gleich. Läuft als eigener Hintergrund-Thread (ein ganzes Skript braucht Minuten), Status
+  (`text_status`: keine/laeuft/fertig/fehler) steht nur im Speicher, die Oberfläche fragt alle 5 Sekunden nach. Das
+  Ergebnis liegt als `<id>.text` neben dem Original; `GET .../datei` zeigt die Textfassung, `?original=1` (Herunterladen)
+  immer die hochgeladene Datei. Auch „Fragen → Karteikarten“ liest die Textfassung, wenn es sie gibt.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

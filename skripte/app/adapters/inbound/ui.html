@@ -85,14 +85,36 @@
       try { fragenZeigen(fragenBox, s, (await call('GET', `skripte/${s.id}/fragen`)).fragen) }
       catch (err) { fragenBox.textContent = err.message }
     }
+    // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
+    // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
+    const textBtn = el('button', { class: 'uk-btn-ghost' })
+    const textInfo = el('span', { class: 'uk-sub', role: 'status' })
+    const textZeigen = (t) => {
+      textBtn.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
+      textBtn.disabled = t.text_status === 'laeuft'
+      textBtn.textContent = t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen'
+      textBtn.title = 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt'
+      textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : ''
+      if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
+    }
+    const textAbfragen = async () => {
+      try { textZeigen((await call('GET', 'skripte?subject_id=' + encodeURIComponent(subject))).find((x) => x.id === s.id) || s) } catch { /* nächster Versuch */ }
+    }
+    textBtn.onclick = async () => {
+      textBtn.disabled = true
+      try { const t = await call('POST', `skripte/${s.id}/text-erkennen`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler }) }
+      catch (err) { textInfo.textContent = err.message; textBtn.disabled = false }
+    }
+    textZeigen(s)
     if (istDoc(s)) { oeffnenBtn.disabled = true; oeffnenBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
-        el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`)]),
+        el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
         el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
           oeffnenBtn,
+          textBtn,
           ...(kannFragen(s) ? [fragenBtn] : []),
-          el('a', { class: 'uk-btn-ghost', href: url, download: s.dateiname }, 'Herunterladen'),
+          el('a', { class: 'uk-btn-ghost', href: url + '?original=1', download: s.dateiname }, 'Herunterladen'),
           el('button', { class: 'uk-btn-danger', onclick: async () => {
             if (!confirm(`„${s.dateiname}“ löschen?`)) return
             await call('DELETE', `skripte/${s.id}`); laden()

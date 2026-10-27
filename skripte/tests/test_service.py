@@ -21,6 +21,7 @@ class InMemoryDateien(DateiSpeicher):
     def speichere(self, i, inhalt): self.d[i] = inhalt
     def lies(self, i): return self.d.get(i)
     def loesche(self, i): self.d.pop(i, None)
+    def vorhanden(self, i): return i in self.d
 
 
 @pytest.fixture

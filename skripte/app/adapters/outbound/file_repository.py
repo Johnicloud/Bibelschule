@@ -22,3 +22,6 @@ class FileSystemDateiSpeicher(DateiSpeicher):
 
     def loesche(self, skript_id: str) -> None:
         self._pfad(skript_id).unlink(missing_ok=True)
+
+    def vorhanden(self, skript_id: str) -> bool:
+        return self._pfad(skript_id).exists()

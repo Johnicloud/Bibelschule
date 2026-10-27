@@ -1,7 +1,9 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
+import logging
+import threading
 from datetime import date
 
-from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository
+from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.fragen import fragen_erkennen
 from app.domain.models import Skript
@@ -9,11 +11,19 @@ from app.domain.models import Skript
 MAX_BYTES = 200 * 1024 * 1024   # 200 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
 
 
+def _text_key(skript_id: str) -> str:
+    return f"{skript_id}.text"
+
+
 class SkriptService:
-    def __init__(self, repo: SkriptRepository, dateien: DateiSpeicher, leser: DateiLeser | None = None):
+    def __init__(self, repo: SkriptRepository, dateien: DateiSpeicher, leser: DateiLeser | None = None,
+                 erkennung: Texterkennung | None = None):
         self.repo = repo
         self.dateien = dateien
         self.leser = leser
+        self.erkennung = erkennung
+        self._laufend: set[str] = set()       # Texterkennung läuft gerade (nur im Speicher: nach Neustart ist sie ohnehin weg)
+        self._fehler: dict[str, str] = {}
 
     def _skript(self, skript_id: str) -> Skript:
         skript = self.repo.get(skript_id)
@@ -36,8 +46,12 @@ class SkriptService:
     def list_skripte(self, subject_id: str | None = None) -> list[Skript]:
         return sorted(self.repo.list(subject_id), key=lambda s: (s.hochgeladen_am, s.dateiname), reverse=True)
 
-    def datei(self, skript_id: str) -> tuple[Skript, bytes]:
+    def datei(self, skript_id: str, original: bool = False) -> tuple[Skript, bytes]:
+        """Der Inhalt. Gibt es eine Fassung mit erkanntem Text, zeigt sie sich statt des Originals (sieht gleich aus,
+        lässt sich aber markieren und kopieren); `original=True` liefert immer die hochgeladene Datei."""
         skript = self._skript(skript_id)
+        if not original and self.dateien.vorhanden(_text_key(skript_id)):
+            return skript, self.dateien.lies(_text_key(skript_id))
         inhalt = self.dateien.lies(skript_id)
         if inhalt is None:
             raise NotFound("Die Datei fehlt leider (nur die Angaben sind noch da).")
@@ -54,15 +68,55 @@ class SkriptService:
         skript, inhalt = self.datei(skript_id)
         return self.leser.pdf_vorschau(skript.dateiname, inhalt) if self.leser else None
 
+    # Texterkennung für gescannte PDFs (ohne Text lässt sich nichts markieren oder kopieren)
+    def text_status(self, skript_id: str) -> dict:
+        if skript_id in self._laufend:
+            return {"status": "laeuft", "fehler": None}
+        if self.dateien.vorhanden(_text_key(skript_id)):
+            return {"status": "fertig", "fehler": None}
+        if skript_id in self._fehler:
+            return {"status": "fehler", "fehler": self._fehler[skript_id]}
+        return {"status": "keine", "fehler": None}
+
+    def text_erkennen_starten(self, skript_id: str, im_hintergrund: bool = True) -> None:
+        """Startet die Erkennung (dauert bei einem ganzen Skript Minuten, darum eigener Thread, nicht abgewartet)."""
+        skript = self._skript(skript_id)
+        if self.erkennung is None:
+            raise InvalidInput("Texterkennung ist hier nicht eingerichtet.")
+        if not skript.dateiname.lower().endswith(".pdf"):
+            raise InvalidInput("Texterkennung gibt es nur für PDF-Dateien.")
+        if skript_id in self._laufend:
+            return
+        self._fehler.pop(skript_id, None)
+        self._laufend.add(skript_id)
+        if im_hintergrund:
+            threading.Thread(target=self._erkennen, args=(skript_id,), daemon=True).start()
+        else:
+            self._erkennen(skript_id)
+
+    def _erkennen(self, skript_id: str) -> None:
+        try:
+            original = self.dateien.lies(skript_id)
+            if original is None:
+                raise InvalidInput("Die Datei fehlt leider.")
+            self.dateien.speichere(_text_key(skript_id), self.erkennung.erkennen(original))
+        except Exception as e:
+            logging.getLogger(__name__).exception("Texterkennung fehlgeschlagen")
+            self._fehler[skript_id] = str(e) if isinstance(e, InvalidInput) else "Die Texterkennung ist fehlgeschlagen."
+        finally:
+            self._laufend.discard(skript_id)
+
     def delete(self, skript_id: str) -> None:
         self._skript(skript_id)
         self.repo.delete(skript_id)
         self.dateien.loesche(skript_id)
+        self.dateien.loesche(_text_key(skript_id))
 
     # Fach-Hooks
     def discard_subject(self, subject_id: str) -> None:
         for skript in self.repo.delete_subject(subject_id):
             self.dateien.loesche(skript.id)
+            self.dateien.loesche(_text_key(skript.id))
 
     def subject_status(self, subject_id: str) -> dict:
         return {"count": len(self.repo.list(subject_id))}
