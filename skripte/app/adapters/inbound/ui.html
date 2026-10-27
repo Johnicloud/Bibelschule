@@ -9,11 +9,12 @@
   .uk-list-item { flex-direction: column; align-items: stretch; }
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
+  .uk-docx { background: #fff; color: #111; overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; padding: .5rem; }
   iframe.uk-vorschau { width: 100%; height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; }
 </style>
 </head>
 <body class="ui-kit">
-<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF), herunterladen, löschen. -->
+<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF, Word .docx), herunterladen, löschen. -->
 <form id="form" class="uk-form">
   <input id="datei" class="uk-input" type="file" aria-label="Datei auswählen" required>
   <button class="uk-btn">Hochladen</button>
@@ -32,16 +33,45 @@
     return Math.round(bytes / 1024) + ' KB'
   }
 
+  // Word (.docx) kann der Browser nicht selbst anzeigen: docx-preview zeichnet es im Browser (Bibliotheken liegen
+  // lokal unter /vendor, kein Fremdserver). Das alte .doc-Format kann sie nicht – das bleibt zum Herunterladen.
+  const istDocx = (s) => /\.docx$/i.test(s.dateiname)
+  const istDoc = (s) => /\.doc$/i.test(s.dateiname)
+  function skriptLaden(src) {
+    return new Promise((ok, fehler) => {
+      const t = document.createElement('script')
+      t.src = src; t.onload = ok; t.onerror = () => fehler(new Error('Anzeige konnte nicht geladen werden.'))
+      document.head.appendChild(t)
+    })
+  }
+  let docxBereit = null
+  function docxLaden() {
+    docxBereit ||= skriptLaden('/vendor/jszip.min.js').then(() => skriptLaden('/vendor/docx-preview.min.js'))
+    return docxBereit
+  }
+
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
-    const vorschau = el('iframe', { class: 'uk-vorschau', hidden: 'true' })
+    const docx = istDocx(s)
+    const vorschau = el(docx ? 'div' : 'iframe', { class: docx ? 'uk-docx' : 'uk-vorschau', hidden: 'true' })
     const oeffnenBtn = el('button', { class: 'uk-btn' }, 'Öffnen')
-    oeffnenBtn.onclick = () => {
+    let geladen = false
+    oeffnenBtn.onclick = async () => {
       const zu = vorschau.hidden
       vorschau.hidden = !zu
-      if (zu && !vorschau.src) vorschau.src = url
       oeffnenBtn.textContent = zu ? 'Schließen' : 'Öffnen'
+      if (!zu || geladen) return
+      if (!docx) { if (!vorschau.src) vorschau.src = url; return }
+      try {
+        vorschau.textContent = 'Lädt …'
+        const [res] = await Promise.all([fetch(url), docxLaden()])
+        if (!res.ok) throw new Error('Datei konnte nicht geladen werden.')
+        vorschau.textContent = ''
+        await window.docx.renderAsync(await res.blob(), vorschau)
+        geladen = true
+      } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
+    if (istDoc(s)) { oeffnenBtn.disabled = true; oeffnenBtn.title = 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' }
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
         el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`)]),

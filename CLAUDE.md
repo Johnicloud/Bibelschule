@@ -639,6 +639,12 @@ Sprache der Oberfläche und der Texte: Deutsch.
   durchlesen“; „Bibelstelle nachschlagen“ und die Konkordanz bleiben. Dafür liefert `GET /api/bibel/index` jetzt je
   Buch `kapitel_gesamt` (`index_out`, Test in `bibel/tests/test_api.py`).
 
+- [fertig] Skripte: Word-Dateien (.docx) lassen sich wie PDFs direkt im Reiter lesen. Der Browser kann .docx nicht
+  selbst anzeigen, darum zeichnet `docx-preview` (mit `jszip`, beides lokal unter `kern/frontend/public/vendor/`, kein
+  Fremdserver) die Datei im Browser (`ui.html` des Skripte-Dienstes, lädt die Bibliotheken erst beim ersten Öffnen).
+  Das alte `.doc`-Format kann die Bibliothek nicht: dort ist „Öffnen“ deaktiviert, Herunterladen geht weiter.
+  Upload-Limit nun 200 MB (Dienst und nginx, siehe oben), vorher stoppte nginx schon bei 1 MB mit 413.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
