@@ -158,3 +158,8 @@ def test_pdf_mit_text_braucht_keine_erkennung_und_wird_im_original_gelesen(svc):
         svc.text_erkennen_starten(s.id, im_hintergrund=False)
     svc.dateien.speichere(s.id + ".text", b"%PDF-ohne-umlaute")      # selbst eine alte Textfassung stört nicht
     assert svc.fragen(s.id) == ["Nenne und begründe die Jünger.", "Schlüsselvers?"]
+
+
+def test_unsichtbare_zeichen_im_dateinamen_werden_entfernt(svc):
+    s = svc.upload("f", "‎localhost:8170:x.pdf", None, b"x")
+    assert s.dateiname == "localhost:8170:x.pdf"

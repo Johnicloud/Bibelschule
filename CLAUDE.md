@@ -698,6 +698,12 @@ Sprache der Oberfläche und der Texte: Deutsch.
   speichern“, „Verwerfen“) behalten Text neben dem Symbol. Neue Symbole kommen in `ICONS` in `ui-kit.js`, nicht in einzelne
   Seiten. Andere Dienst-Oberflächen (Adressbuch, Bibelverse) nutzen sie noch nicht.
 
+- [fertig] Skripte: Datei mit unsichtbarem Zeichen im Namen war „kaputt“ (500 beim Öffnen). Der Name der Druckbogen-PDF enthielt
+  eine unsichtbare Links-nach-rechts-Marke (U+200E, beim Kopieren/Speichern aus dem Browser entstanden); HTTP-Kopfzeilen sind
+  Latin-1, `Content-Disposition: filename="…"` brach dabei mit `UnicodeEncodeError` ab. Jetzt `filename*=UTF-8''…` (RFC 5987)
+  mit ASCII-Ersatzname, und beim Hochladen werden unsichtbare Formatzeichen (Unicode-Kategorie Cf) aus dem Namen entfernt.
+  Lehre: jeder Dienst, der Dateinamen in Kopfzeilen schreibt, darf sie nie roh einsetzen.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

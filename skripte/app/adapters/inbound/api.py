@@ -1,6 +1,7 @@
 """Eingehender Adapter: HTTP-API (FastAPI) ruft die Anwendungsfälle auf.
 Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json"""
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, FastAPI, Form, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -58,9 +59,12 @@ def create_app(service: SkriptService) -> FastAPI:
     @api.get("/skripte/{skript_id}/datei")
     def datei(skript_id: str, original: bool = False):
         skript, inhalt = service.datei(skript_id, original)
+        # HTTP-Kopfzeilen sind Latin-1: Namen mit Sonderzeichen (z. B. unsichtbare Richtungszeichen) gehen nur als
+        # filename*= (RFC 5987), dazu ein einfacher Ersatzname für alte Programme.
         dateiname = skript.dateiname.replace('"', "")
+        einfach = dateiname.encode("ascii", "ignore").decode() or "datei"
         return Response(content=inhalt, media_type=skript.content_type,
-                         headers={"Content-Disposition": f'inline; filename="{dateiname}"'})
+                         headers={"Content-Disposition": f"inline; filename=\"{einfach}\"; filename*=UTF-8''{quote(dateiname)}"})
 
     @api.post("/skripte/{skript_id}/text-erkennen", status_code=202)
     def text_erkennen(skript_id: str):

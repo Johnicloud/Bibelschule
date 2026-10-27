@@ -1,6 +1,7 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
 import logging
 import threading
+import unicodedata
 from datetime import date
 
 from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
@@ -33,7 +34,9 @@ class SkriptService:
         return skript
 
     def upload(self, subject_id: str, dateiname: str, content_type: str | None, inhalt: bytes) -> Skript:
-        if not (dateiname or "").strip():
+        # unsichtbare Formatzeichen (z. B. Links-nach-rechts-Marke aus dem Kopieren eines Dateinamens) entfernen
+        dateiname = "".join(z for z in (dateiname or "") if unicodedata.category(z) != "Cf")
+        if not dateiname.strip():
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
         if len(inhalt) > MAX_BYTES:
             raise InvalidInput("Die Datei ist zu groß (maximal 200 MB).")
