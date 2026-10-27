@@ -5,7 +5,7 @@ from app.application.ports import DateiSpeicher, SkriptRepository
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import Skript
 
-MAX_BYTES = 50 * 1024 * 1024   # 50 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
+MAX_BYTES = 200 * 1024 * 1024   # 200 MB: genug für ein Skript, schützt vor versehentlich riesigen Uploads
 
 
 class SkriptService:
@@ -23,7 +23,7 @@ class SkriptService:
         if not (dateiname or "").strip():
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
         if len(inhalt) > MAX_BYTES:
-            raise InvalidInput("Die Datei ist zu groß (maximal 50 MB).")
+            raise InvalidInput("Die Datei ist zu groß (maximal 200 MB).")
         skript = Skript(subject_id=subject_id, dateiname=dateiname.strip(),
                          content_type=content_type or "application/octet-stream",
                          groesse=len(inhalt), hochgeladen_am=date.today().isoformat())

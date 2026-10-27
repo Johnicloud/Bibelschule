@@ -46,7 +46,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Zuordnungsliste je Dozent, nicht über die Fach-ID hinaus geteilt). Löscht der Kern ein Fach, verschwindet nur die
   Zuordnung, der Dozent bleibt. „Mail vorbereiten“ öffnet einen mailto-Link (Betreff = Fachname, geholt per
   Browser-Fetch direkt vom Kern) – nichts wird automatisch verschickt.
-- [fertig] Skripte-Dienst: Dateien (PDF u. a.) je Fach hochladen (multipart, max. 50 MB), Angaben in `skripte.json`,
+- [fertig] Skripte-Dienst: Dateien (PDF u. a.) je Fach hochladen (multipart, max. 200 MB), Angaben in `skripte.json`,
   Inhalt in `data/skripte/dateien/<id>` (beides über `storage.py`, der Inhalt ohne tägliche Sicherung). Direkt im
   Reiter lesbar (Inline-iframe-Vorschau über `/datei`, `Content-Disposition: inline`) und herunterladbar.
 - [fertig] Bibelverse-Dienst: Verse mit Bibelstelle + Text, `subject_id = null` heißt „allgemein“ (kein Fach).
