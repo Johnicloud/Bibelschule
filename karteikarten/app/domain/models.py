@@ -46,6 +46,19 @@ class Deck:
     name: str
     id: str = field(default_factory=new_id)
     cards: list[Card] = field(default_factory=list)
+    sets: list[str] = field(default_factory=list)    # angelegte Sets (auch leere); Sets, die nur auf Karten stehen, kommen dazu
+
+    def set_namen(self) -> list[str]:
+        namen = list(self.sets)
+        for c in self.cards:
+            if c.set_name and c.set_name not in namen:
+                namen.append(c.set_name)
+        return namen
+
+    def finde_set(self, name: str) -> str | None:
+        """Der vorhandene Name zu einer Eingabe (Groß/Klein egal), sonst None."""
+        wunsch = (name or "").strip().casefold()
+        return next((n for n in self.set_namen() if n.casefold() == wunsch), None) if wunsch else None
 
     def get_card(self, card_id: str) -> Card | None:
         return next((c for c in self.cards if c.id == card_id), None)

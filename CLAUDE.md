@@ -763,6 +763,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Weiter nur Download: altes `.doc` und alles Unbekannte. Nicht automatisch geprüft (kein Werkzeug da): echte
   .pptx-Datei und Video, nur mit nachgebauten Dateien/Tests.
 
+- [fertig] Sets als eigene Ebene unter dem Fach (Fach > Set > Karten), Bearbeiten in beiden Karten-Ansichten. Ein Set ist ein
+  Name: `Deck.sets` (angelegte Sets, auch leere, `.get("sets", [])` – kein Migrationsschritt) plus alle Namen, die auf Karten
+  stehen (`Deck.set_namen()`, so erscheinen die früher aus Dateien übernommenen Sets von allein); `Card.set_name` bleibt das
+  Feld an der Karte. Anwendungsfälle (Tests zuerst): `create_set`, `rename_set` (ändert alle Karten; ein Name, den es schon
+  gibt, wird abgelehnt statt zwei Sets stillschweigend zusammenzuwerfen, Groß/Klein egal), `delete_set(mit_karten)` (Karten
+  bleiben ohne Set oder werden mitgelöscht). `add_card`/`update_card` ordnen eine Karte einem vorhandenen Set auch bei anderer
+  Schreibweise zu, ein neuer Name legt das Set an. Routen: `POST/PUT/DELETE /api/karteikarten/decks/{id}/sets` (beim Löschen
+  steht der Name als Abfrage-Parameter, nicht im Pfad, weil er jedes Zeichen enthalten darf); `deck_out` liefert `sets`
+  (Name, Karten, fällige). Oberfläche: im Fach-Reiter Karteikarten eine Chip-Leiste (Alle · jedes Set mit Anzahl · Ohne Set ·
+  „+ Set“), das gewählte Set zeigt Name, Umbenennen (Stift) und „Set löschen“ (Karten behalten oder mitlöschen); „+ Neue Karte“
+  wählt das gerade offene Set vor, im Karten-Formular (Neu und Bearbeiten, `CardForm.vue`) gibt es eine Set-Auswahl mit
+  „Kein Set“ und „+ Neues Set …“. „Alle Karten“ (oberer Reiter, `CardsView.vue`) kann jetzt ebenfalls Karten bearbeiten und nach
+  Set filtern. Beide Ansichten nutzen dieselbe `CardForm.vue`/`CardItem.vue` (kein zweiter Bearbeiten-Code).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

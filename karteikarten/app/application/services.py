@@ -32,6 +32,12 @@ def build_card(kind: str, front: str, back: str, options: list[str], correct_ind
     raise InvalidInput("Unbekannter Kartentyp.")
 
 
+def _set_fuer_karte(deck: Deck, set_name: str | None) -> str:
+    """Name des Sets, in das eine Karte kommt: ein vorhandenes (Schreibweise egal) oder der neue Name, leer = kein Set."""
+    name = (set_name or "").strip()
+    return deck.finde_set(name) or name
+
+
 class FlashcardService:
     def __init__(self, decks: DeckRepository, events: EventPublisher | None = None,
                  printer: PrintRenderer | None = None):
@@ -99,7 +105,7 @@ class FlashcardService:
                  options: list[str] | None = None, correct_index: int | None = None, set_name: str = "") -> Pair:
         deck = self._deck(deck_id)
         card = build_card(kind, front, back, options or [], correct_index)
-        card.set_name = (set_name or "").strip()
+        card.set_name = _set_fuer_karte(deck, set_name)
         deck.cards.append(card)
         self.decks.save(deck)
         self._emit("card.created", {"deck_id": deck.id, "card_id": card.id, "kind": card.kind})
@@ -118,10 +124,54 @@ class FlashcardService:
         card.kind, card.front, card.back = neu.kind, neu.front, neu.back
         card.options, card.correct_index = neu.options, neu.correct_index
         if set_name is not None:
-            card.set_name = set_name.strip()
+            card.set_name = _set_fuer_karte(deck, set_name)
         self.decks.save(deck)
         self._emit("card.updated", {"deck_id": deck.id, "card_id": card.id, "kind": card.kind})
         return deck, card
+
+    # Sets: eine Ebene unter dem Fach (Fach > Set > Karten)
+    def create_set(self, deck_id: str, name: str) -> Deck:
+        deck = self._deck(deck_id)
+        name = _clean(name, "Der Name des Sets")
+        if deck.finde_set(name):
+            raise InvalidInput("Ein Set mit diesem Namen gibt es schon.")
+        deck.sets.append(name)
+        self.decks.save(deck)
+        self._emit("set.created", {"deck_id": deck.id, "name": name})
+        return deck
+
+    def rename_set(self, deck_id: str, name: str, neu: str) -> Deck:
+        deck = self._deck(deck_id)
+        alt = deck.finde_set(name)
+        if alt is None:
+            raise NotFound("Set nicht gefunden.")
+        neu = _clean(neu, "Der Name des Sets")
+        vorhanden = deck.finde_set(neu)
+        if vorhanden is not None and vorhanden != alt:
+            raise InvalidInput("Ein Set mit diesem Namen gibt es schon.")
+        deck.sets = [neu if n == alt else n for n in deck.sets]      # Reihenfolge bleibt
+        for c in deck.cards:
+            if c.set_name == alt:
+                c.set_name = neu
+        self.decks.save(deck)
+        self._emit("set.renamed", {"deck_id": deck.id, "name": alt, "neu": neu})
+        return deck
+
+    def delete_set(self, deck_id: str, name: str, mit_karten: bool = False) -> Deck:
+        deck = self._deck(deck_id)
+        alt = deck.finde_set(name)
+        if alt is None:
+            raise NotFound("Set nicht gefunden.")
+        deck.sets = [n for n in deck.sets if n != alt]
+        if mit_karten:
+            deck.cards = [c for c in deck.cards if c.set_name != alt]
+        else:
+            for c in deck.cards:
+                if c.set_name == alt:
+                    c.set_name = ""
+        self.decks.save(deck)
+        self._emit("set.deleted", {"deck_id": deck.id, "name": alt, "mit_karten": mit_karten})
+        return deck
 
     def delete_card(self, deck_id: str, card_id: str) -> None:
         deck = self._deck(deck_id)

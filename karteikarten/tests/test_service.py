@@ -157,3 +157,63 @@ def test_karte_bearbeiten_prueft_wie_beim_anlegen(svc):
     assert svc.get_deck(deck.id).cards[0].front == "Frage?"     # abgelehnte Änderung lässt die Karte unverändert
     with pytest.raises(NotFound):
         svc.update_card(deck.id, "gibts-nicht", "classic", "a", "b")
+
+
+# ---- Sets: eine Ebene unter dem Fach ----
+
+def test_set_anlegen_ist_auch_ohne_karten_sichtbar_und_eindeutig(svc):
+    deck = svc.create_deck("Apg")
+    svc.create_set(deck.id, "  Fragen 1 ")
+    assert svc.get_deck(deck.id).set_namen() == ["Fragen 1"]
+    with pytest.raises(InvalidInput):
+        svc.create_set(deck.id, "fragen 1")          # gleicher Name, Groß/Klein egal
+    with pytest.raises(InvalidInput):
+        svc.create_set(deck.id, "  ")
+
+
+def test_karte_landet_im_bestehenden_set_auch_bei_anderer_schreibweise(svc):
+    deck = svc.create_deck("Apg")
+    svc.create_set(deck.id, "Fragen 1")
+    _, karte = svc.add_card(deck.id, "classic", "F?", "A", set_name="fragen 1")
+    assert karte.set_name == "Fragen 1"
+    svc.add_card(deck.id, "classic", "G?", "B", set_name="Nur auf Karte")       # nie angelegt, entsteht durch die Karte
+    assert svc.get_deck(deck.id).set_namen() == ["Fragen 1", "Nur auf Karte"]
+
+
+def test_set_umbenennen_aendert_alle_karten(svc):
+    deck = svc.create_deck("Apg")
+    svc.create_set(deck.id, "Alt")
+    svc.add_card(deck.id, "classic", "F?", "A", set_name="Alt")
+    svc.add_card(deck.id, "classic", "G?", "B", set_name="Anderes")
+    svc.rename_set(deck.id, "Alt", "Neu")
+    d = svc.get_deck(deck.id)
+    assert d.set_namen() == ["Neu", "Anderes"]
+    assert [c.set_name for c in d.cards] == ["Neu", "Anderes"]
+    with pytest.raises(InvalidInput):
+        svc.rename_set(deck.id, "Neu", "anderes")        # würde zwei Sets zusammenwerfen
+    with pytest.raises(NotFound):
+        svc.rename_set(deck.id, "Gibt es nicht", "X")
+    svc.rename_set(deck.id, "Neu", "neu")                 # nur die Schreibweise ändern geht
+
+
+def test_set_loeschen_behaelt_die_karten_oder_loescht_sie_mit(svc):
+    deck = svc.create_deck("Apg")
+    svc.add_card(deck.id, "classic", "F?", "A", set_name="Weg")
+    svc.add_card(deck.id, "classic", "G?", "B", set_name="Weg")
+    svc.delete_set(deck.id, "Weg")
+    d = svc.get_deck(deck.id)
+    assert d.set_namen() == [] and [c.set_name for c in d.cards] == ["", ""]
+    svc.add_card(deck.id, "classic", "H?", "C", set_name="Mit")
+    svc.delete_set(deck.id, "Mit", mit_karten=True)
+    assert [c.front for c in svc.get_deck(deck.id).cards] == ["F?", "G?"]
+    with pytest.raises(NotFound):
+        svc.delete_set(deck.id, "Mit")
+
+
+def test_sets_ueberleben_das_speichern(svc, tmp_path):
+    from app.adapters.outbound.json_repository import JsonDeckRepository
+    deck = svc.create_deck("Apg")
+    svc.create_set(deck.id, "Leer")
+    repo = JsonDeckRepository(tmp_path / "decks.json")
+    repo.save(svc.get_deck(deck.id))
+    assert repo.get(deck.id).sets == ["Leer"]

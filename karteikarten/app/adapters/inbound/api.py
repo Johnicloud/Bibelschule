@@ -24,6 +24,11 @@ class CardIn(BaseModel):
     set_name: str = ""
 
 
+class SetIn(BaseModel):
+    name: str
+    neu: str | None = None      # nur beim Umbenennen
+
+
 class SubjectIn(BaseModel):
     name: str
 
@@ -41,7 +46,9 @@ def card_out(pair: Pair) -> dict:
 
 
 def deck_out(d: Deck, with_cards: bool = False) -> dict:
-    out = {"id": d.id, "name": d.name, "card_count": len(d.cards), "due_count": len(d.due_cards())}
+    out = {"id": d.id, "name": d.name, "card_count": len(d.cards), "due_count": len(d.due_cards()),
+           "sets": [{"name": n, "card_count": sum(1 for c in d.cards if c.set_name == n),
+                     "due_count": sum(1 for c in d.due_cards() if c.set_name == n)} for n in d.set_namen()]}
     if with_cards:
         out["cards"] = [card_out((d, c)) for c in d.cards]
     return out
@@ -93,6 +100,19 @@ def create_app(service: FlashcardService) -> FastAPI:
     def add_card(deck_id: str, body: CardIn):
         return card_out(service.add_card(deck_id, body.kind, body.front, body.back,
                                          body.options, body.correct_index, body.set_name))
+
+    @api.post("/decks/{deck_id}/sets", status_code=201)
+    def create_set(deck_id: str, body: SetIn):
+        return deck_out(service.create_set(deck_id, body.name))
+
+    @api.put("/decks/{deck_id}/sets")
+    def rename_set(deck_id: str, body: SetIn):
+        return deck_out(service.rename_set(deck_id, body.name, body.neu or ""))
+
+    @api.delete("/decks/{deck_id}/sets")
+    def delete_set(deck_id: str, name: str, mit_karten: bool = False):
+        # Name als Abfrage-Parameter, nicht im Pfad: Set-Namen dürfen jedes Zeichen enthalten (auch „/“)
+        return deck_out(service.delete_set(deck_id, name, mit_karten))
 
     @api.put("/decks/{deck_id}/cards/{card_id}")
     def update_card(deck_id: str, card_id: str, body: CardIn):

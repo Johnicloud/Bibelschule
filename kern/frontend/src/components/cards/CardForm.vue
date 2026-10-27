@@ -3,7 +3,7 @@ import { inject, ref } from 'vue'
 import { KINDS } from '../../domain/kinds'
 
 // Ohne `card`: neue Karte anlegen. Mit `card`: diese Karte bearbeiten (Lernstufe und Fälligkeit bleiben erhalten).
-const props = defineProps({ deckId: String, card: Object })
+const props = defineProps({ deckId: String, card: Object, sets: { type: Array, default: () => [] }, vorgabeSet: String })
 const emit = defineEmits(['added', 'saved', 'cancel'])
 const service = inject('service')
 
@@ -13,7 +13,12 @@ const front = ref(props.card?.front || '')
 const back = ref(props.card?.kind === 'classic' ? props.card.back : '')
 const options = ref(props.card?.kind === 'choice' ? [...props.card.options] : ['', '', '', ''])
 const correct = ref(props.card?.correct_index ?? 0) // Multiple Choice: Index 0-3, Richtig/Falsch: 0 = Richtig, 1 = Falsch
-const setName = ref(props.card?.set_name || '')
+// Set: ein vorhandenes wählen, kein Set oder ein neues benennen (das Set entsteht mit der Karte)
+const NEUES_SET = '__neu__'
+const startSet = props.card ? props.card.set_name || '' : props.vorgabeSet || ''
+const setWahl = ref(startSet && !props.sets.includes(startSet) ? NEUES_SET : startSet)
+const neuesSet = ref(setWahl.value === NEUES_SET ? startSet : '')
+const setName = () => (setWahl.value === NEUES_SET ? neuesSet.value.trim() : setWahl.value)
 const error = ref('')
 const busy = ref(false)
 
@@ -35,11 +40,11 @@ async function submit() {
       correct_index: kind.value === 'classic' ? null : correct.value,
     }
     if (bearbeiten) {
-      await service.updateCard(props.deckId, props.card.id, { ...inhalt, set_name: setName.value.trim() })
+      await service.updateCard(props.deckId, props.card.id, { ...inhalt, set_name: setName() })
       emit('saved')
       return
     }
-    await service.addCard(props.deckId, { ...inhalt, set_name: setName.value.trim() })
+    await service.addCard(props.deckId, { ...inhalt, set_name: setName() })
     front.value = ''
     back.value = ''
     options.value = ['', '', '', '']
@@ -93,7 +98,14 @@ async function submit() {
       </label>
     </fieldset>
 
-    <input v-model="setName" class="input" placeholder="Set (optional)" aria-label="Set" />
+    <div class="grid gap-2 sm:grid-cols-2">
+      <select v-model="setWahl" class="input" aria-label="Set">
+        <option value="">Kein Set</option>
+        <option v-for="s in sets" :key="s" :value="s">Set: {{ s }}</option>
+        <option :value="NEUES_SET">+ Neues Set …</option>
+      </select>
+      <input v-if="setWahl === NEUES_SET" v-model="neuesSet" class="input" placeholder="Name des neuen Sets" aria-label="Name des neuen Sets" />
+    </div>
 
     <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
     <div class="flex gap-2">
