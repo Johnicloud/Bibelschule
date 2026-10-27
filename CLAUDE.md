@@ -632,7 +632,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (Megafon), Notizen (Notizzettel), Fragen und KI (Funken, Name `funken` statt `fragezeichen`) und Glossar
   (Omega). Unverändert: Karten, Noten, Bibliothek, Adressbuch. Alle bleiben zentral in `AppIcon.vue`.
 - [fertig] Bibel als Bücherregal (`BibelView.vue`, Abschnitt „Lesen“): die 66 Bücher stehen als Buchrücken auf zwei
-  Regalen (Altes/Neues Testament, je Reihe ein Brett), in drei Dicken nach Länge – bis 8 Kapitel dünn, bis 29
+  Regalen (Altes/Neues Testament, genau zwei Bretter, je Testament eine Reihe, die bei schmalem Fenster seitlich scrollt), in drei Dicken nach Länge – bis 8 Kapitel dünn, bis 29
   mittel, ab 30 dick (`dicke()`, Breite per `RUECKEN`; Vorbild war das Bibliothek-Symbol auf Wunsch des Nutzers).
   Klick auf ein Buch wählt es nur aus (lädt noch kein Kapitel), darunter erscheint die Kapitelleiste 1…n, ein Klick
   auf eine Nummer zeigt das ganze Kapitel mit den bestehenden Vor-/Zurück-Pfeilen. Ersetzt das Dropdown „Buch

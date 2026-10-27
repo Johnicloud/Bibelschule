@@ -82,7 +82,7 @@ const regale = computed(() => !index.value ? [] : [
   { titel: 'Altes Testament', buecher: index.value.buecher.filter((b) => b.index < TESTAMENT_GRENZE), farbe: 'bg-teal-800' },
   { titel: 'Neues Testament', buecher: index.value.buecher.filter((b) => b.index >= TESTAMENT_GRENZE), farbe: 'bg-teal-600' },
 ])
-const RUECKEN = { 1: 'w-8 h-32', 2: 'w-11 h-36', 3: 'w-14 h-40' }
+const RUECKEN = { 1: 'w-4 h-32', 2: 'w-5 h-36', 3: 'w-7 h-40' }
 function dicke(b) { return b.kapitel_gesamt <= 8 ? 1 : b.kapitel_gesamt <= 29 ? 2 : 3 }
 const gewaehltesBuchInfo = computed(() => index.value?.buecher.find((b) => b.short === gewaehltesBuch.value) || null)
 function buchWaehlen(b) {
@@ -180,16 +180,14 @@ onMounted(load)
 
       <div v-for="r in regale" :key="r.titel" class="mt-6">
         <p class="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">{{ r.titel }}</p>
-        <div class="flex flex-wrap items-end gap-y-3">
-          <div v-for="b in r.buecher" :key="b.index" class="border-b-8 border-amber-900/70 px-0.5 dark:border-amber-800/70">
-          <button type="button" :title="`${b.name} – ${b.kapitel_gesamt} Kapitel`"
+        <div class="flex items-end gap-0.5 overflow-x-auto border-b-8 border-amber-900/70 px-1 pt-3 dark:border-amber-800/70">
+          <button v-for="b in r.buecher" :key="b.index" type="button" :title="`${b.name} – ${b.kapitel_gesamt} Kapitel`"
             :aria-label="`${b.name}, ${b.kapitel_gesamt} Kapitel`" :aria-pressed="gewaehltesBuch === b.short"
-            class="flex items-start justify-center rounded-t-md pt-2 text-xs font-medium tracking-wide text-white shadow-sm transition hover:-translate-y-1"
+            class="flex shrink-0 items-start justify-center rounded-t-sm pt-2 text-[11px] font-medium text-white shadow-sm transition hover:-translate-y-1"
             :class="[RUECKEN[dicke(b)], r.farbe, gewaehltesBuch === b.short ? '-translate-y-2 ring-2 ring-amber-400' : '']"
             @click="buchWaehlen(b)">
             <span class="whitespace-nowrap [writing-mode:vertical-rl]">{{ b.name }}</span>
           </button>
-          </div>
         </div>
       </div>
 
