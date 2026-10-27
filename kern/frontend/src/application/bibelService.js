@@ -7,6 +7,7 @@ export function createBibelService(api) {
     stelle: (text) => api.stelle(text),
     nachschlagen: (text) => api.nachschlagen(text),
     kapitel: (buch, nummer) => api.kapitel(buch, nummer),
+    suche: (wort) => api.suche(wort),
     dateiUrl: (seite) => api.dateiUrl(seite),
   }
 }

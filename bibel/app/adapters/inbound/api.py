@@ -102,6 +102,10 @@ def create_app(service: BibelService) -> FastAPI:
     def wort(stelle: str):
         return service.wort(stelle)
 
+    @api.get("/suche")
+    def suche(wort: str):
+        return service.suche(wort)
+
     @api.post("/verweise", status_code=201)
     def verweis_anlegen(body: VerweisIn):
         return verweis_out(service.verweis_anlegen(body.stelle, body.art, body.referenz, body.titel))

@@ -24,6 +24,13 @@ const gelesenesKapitel = ref(null)
 const gewaehltesBuch = ref('')
 const gewaehlteKapitelnummer = ref(1)
 
+// Konkordanz/Stichwortsuche (Arbeitspaket B): durchsucht den Verstext aller Bücher, Treffer springen ins
+// gelesene Kapitel (gleiche Anzeige wie oben, nur mit dem Treffer-Vers markiert statt einer nachgeschlagenen Stelle).
+const sucheWort = ref('')
+const sucheTreffer = ref(null)
+const sucheLaedt = ref(false)
+const sucheFehler2 = ref('')
+
 async function load() {
   try { index.value = await bibel.index(); loadError.value = '' }
   catch (e) { loadError.value = e.message }
@@ -42,17 +49,30 @@ async function nachschlagen() {
   finally { kapitelLaedt.value = false }
 }
 
-async function kapitelLesen(buch, nummer) {
+async function kapitelLesen(buch, nummer, markierterVers = null) {
   sucheFehler.value = ''
   kapitelLaedt.value = true
   try {
     const ergebnis = await bibel.kapitel(buch, nummer)
-    ergebnis.markiert = null
+    ergebnis.markiert = markierterVers
     gelesenesKapitel.value = ergebnis
     gewaehltesBuch.value = buch
     gewaehlteKapitelnummer.value = nummer
   } catch (e) { sucheFehler.value = e.message }
   finally { kapitelLaedt.value = false }
+}
+
+async function suchen() {
+  if (!sucheWort.value.trim()) return
+  sucheFehler2.value = ''
+  sucheLaedt.value = true
+  try { sucheTreffer.value = await bibel.suche(sucheWort.value) }
+  catch (e) { sucheFehler2.value = e.message; sucheTreffer.value = null }
+  finally { sucheLaedt.value = false }
+}
+
+function trefferSpringen(t) {
+  kapitelLesen(t.buch, t.kapitel, t.vers)
 }
 
 function buchGewaehlt() {
@@ -175,6 +195,31 @@ onMounted(load)
           </span>
         </p>
       </div>
+    </div>
+
+    <h2 class="mb-3 mt-8 text-lg font-semibold">Konkordanz</h2>
+    <div class="panel p-5">
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="suchen">
+        <div class="min-w-48 flex-1">
+          <label class="mb-1 block text-sm text-slate-500 dark:text-slate-400">Stichwort</label>
+          <input v-model="sucheWort" type="text" class="input" placeholder="z. B. Gnade" />
+        </div>
+        <button class="btn btn-primary" :disabled="sucheLaedt">{{ sucheLaedt ? 'Sucht …' : 'Suchen' }}</button>
+      </form>
+      <p v-if="sucheFehler2" class="mt-3 text-sm text-rose-600 dark:text-rose-400">{{ sucheFehler2 }}</p>
+
+      <p v-if="sucheTreffer && sucheTreffer.length === 0" class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        Keine Fundstelle für „{{ sucheWort }}“.
+      </p>
+      <ul v-else-if="sucheTreffer" class="mt-4 space-y-2">
+        <li v-for="t in sucheTreffer" :key="t.stelle">
+          <button type="button" class="w-full rounded-lg p-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800"
+                  @click="trefferSpringen(t)">
+            <span class="font-medium text-primary">{{ t.name }} {{ t.kapitel }},{{ t.vers }}</span>
+            <span class="ml-2 text-sm text-slate-600 dark:text-slate-300">{{ t.kontext }}</span>
+          </button>
+        </li>
+      </ul>
     </div>
   </template>
 
