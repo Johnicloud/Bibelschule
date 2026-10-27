@@ -172,3 +172,8 @@ def test_umbenennen_behaelt_die_endung_und_bereinigt(svc):
     assert svc.umbenennen(s.id, "a/b").dateiname == "a-b.DOCX"   # Endung des aktuellen Namens
     with pytest.raises(InvalidInput):
         svc.umbenennen(s.id, " ‎ ")
+
+
+def test_upload_mit_wunschname_behaelt_die_endung_der_datei(svc):
+    assert svc.upload("f", "scan_0017.pdf", None, b"x", wunschname="Apostelgeschichte Skript").dateiname == "Apostelgeschichte Skript.pdf"
+    assert svc.upload("f", "scan.pdf", None, b"x", wunschname="  ").dateiname == "scan.pdf"

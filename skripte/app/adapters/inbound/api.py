@@ -56,9 +56,9 @@ def create_app(service: SkriptService) -> FastAPI:
         return [skript_out(s, service.text_status(s.id)) for s in service.list_skripte(subject_id)]
 
     @api.post("/skripte", status_code=201)
-    async def upload(subject_id: str = Form(...), datei: UploadFile = None):
+    async def upload(subject_id: str = Form(...), datei: UploadFile = None, dateiname: str | None = Form(None)):
         inhalt = await datei.read()
-        return skript_out(service.upload(subject_id, datei.filename or "", datei.content_type, inhalt))
+        return skript_out(service.upload(subject_id, datei.filename or "", datei.content_type, inhalt, dateiname))
 
     @api.get("/skripte/{skript_id}/datei")
     def datei(skript_id: str, original: bool = False):

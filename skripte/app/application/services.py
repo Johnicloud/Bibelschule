@@ -20,6 +20,12 @@ def _sauberer_name(name: str) -> str:
     return name.replace("/", "-").replace("\\", "-").strip()
 
 
+def _mit_endung(neu: str, alt: str) -> str:
+    """Der neue Name behält die Endung des alten (sie entscheidet über Anzeige und Auslesen)."""
+    endung = alt.rsplit(".", 1)[-1] if "." in alt else ""
+    return f"{neu}.{endung}" if endung and not neu.lower().endswith("." + endung.lower()) else neu
+
+
 def _text_key(skript_id: str) -> str:
     return f"{skript_id}.text"
 
@@ -40,10 +46,14 @@ class SkriptService:
             raise NotFound("Skript nicht gefunden.")
         return skript
 
-    def upload(self, subject_id: str, dateiname: str, content_type: str | None, inhalt: bytes) -> Skript:
+    def upload(self, subject_id: str, dateiname: str, content_type: str | None, inhalt: bytes,
+               wunschname: str | None = None) -> Skript:
+        """`wunschname`: ein anderer Name als der der Datei (die Endung der Datei bleibt)."""
         dateiname = _sauberer_name(dateiname)
         if not dateiname:
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
+        if _sauberer_name(wunschname or ""):
+            dateiname = _mit_endung(_sauberer_name(wunschname), dateiname)
         if len(inhalt) > MAX_BYTES:
             raise InvalidInput("Die Datei ist zu groß (maximal 200 MB).")
         skript = Skript(subject_id=subject_id, dateiname=dateiname,
@@ -59,10 +69,7 @@ class SkriptService:
         name = _sauberer_name(dateiname)
         if not name:
             raise InvalidInput("Der Dateiname darf nicht leer sein.")
-        endung = skript.dateiname.rsplit(".", 1)[-1] if "." in skript.dateiname else ""
-        if endung and not name.lower().endswith("." + endung.lower()):
-            name = f"{name}.{endung}"
-        skript.dateiname = name
+        skript.dateiname = _mit_endung(name, skript.dateiname)
         self.repo.save(skript)
         return skript
 

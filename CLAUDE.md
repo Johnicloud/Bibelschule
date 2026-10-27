@@ -718,6 +718,13 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Falle: `hidden` auf einem Element mit eigenem `display` (z. B. `.uk-menu-item`) wirkt nicht – dafür steht
   `.uk-menu-item[hidden] { display: none }` im UI-Kit.
 
+- [fertig] Skripte: Hochladen über ein „+“ (statt dauerhaftem Datei-Feld oben). Das Plus klappt ein Formular auf: Ablagefläche
+  zum Anklicken oder Hineinziehen (Drag & Drop), darunter der Name der Datei (vorbelegt mit dem Dateinamen ohne Endung, vor
+  dem Hochladen änderbar), „Hochladen“ und „Abbrechen“. `POST /api/skripte` nimmt dafür ein optionales Formularfeld
+  `dateiname` (`SkriptService.upload(..., wunschname=…)`, die Endung der Datei bleibt immer erhalten, gleiche Regel wie beim
+  Umbenennen, gemeinsame Hilfe `_mit_endung`). Wieder die `hidden`-Falle: `.uk-upload[hidden]` braucht eigenes
+  `display: none`, weil die Klasse `display: grid` setzt.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

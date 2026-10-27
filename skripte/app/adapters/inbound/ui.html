@@ -8,6 +8,11 @@
 <style>
   .uk-list-item { flex-direction: column; align-items: stretch; }
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .uk-kopf { display: flex; justify-content: flex-end; margin-bottom: .75rem; }
+  .uk-upload { display: grid; gap: .75rem; margin-bottom: 1rem; }
+  .uk-upload[hidden] { display: none; }
+  .uk-ablage { border: 2px dashed var(--border); border-radius: .9rem; padding: 1.6rem 1rem; text-align: center; color: var(--muted); cursor: pointer; }
+  .uk-ablage:hover, .uk-ablage:focus-visible, .uk-ablage.uk-drop { border-color: var(--accent); color: var(--text); outline: none; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
   .uk-docx { background: #fff; color: #111; overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; padding: .5rem; }
   .uk-fragen { margin-top: .75rem; display: grid; gap: .5rem; }
@@ -17,10 +22,20 @@
 </style>
 </head>
 <body class="ui-kit">
-<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF, Word .docx, Pages), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
-<form id="form" class="uk-form">
-  <input id="datei" class="uk-input" type="file" aria-label="Datei auswählen" required>
-  <button class="uk-btn uk-icon-btn" id="hochladen" title="Hochladen" aria-label="Hochladen"></button>
+<!-- Skripte dieses Fachs: hochladen (+ öffnet das Formular: Datei wählen oder hineinziehen, Name änderbar), direkt im Browser lesen (PDF, Word .docx, Pages), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
+<div class="uk-kopf">
+  <button class="uk-btn uk-icon-btn" id="neu" type="button" title="Neue Datei" aria-label="Neue Datei" aria-expanded="false"></button>
+</div>
+<form id="form" class="uk-panel uk-upload" hidden>
+  <div id="ablage" class="uk-ablage" tabindex="0" role="button" aria-label="Datei auswählen oder hierher ziehen">
+    <span id="ablage-text">Datei hierher ziehen oder auswählen</span>
+    <input id="datei" type="file" hidden>
+  </div>
+  <input id="name" class="uk-input" type="text" placeholder="Name der Datei" aria-label="Name der Datei" disabled>
+  <div class="uk-form" style="margin:0">
+    <button class="uk-btn uk-icon-btn" id="hochladen" type="submit" disabled></button>
+    <button class="uk-btn-ghost uk-icon-btn" id="abbrechen" type="button"></button>
+  </div>
 </form>
 <p id="fehler" class="uk-error" role="alert"></p>
 <ul id="liste" class="uk-list"></ul>
@@ -55,7 +70,33 @@
     return docxBereit
   }
 
-  document.getElementById('hochladen').append(icon('upload'), 'Hochladen')
+  // Neue Datei: „+“ klappt das Formular auf – Datei per Klick wählen oder hineinziehen, Name vorab änderbar
+  const $ = (id) => document.getElementById(id)
+  setIcon($('neu'), 'plus', 'Neue Datei')
+  $('hochladen').append(icon('upload'), 'Hochladen')
+  $('abbrechen').append(icon('x'), 'Abbrechen')
+  let gewaehlt = null
+  function dateiSetzen(datei) {
+    gewaehlt = datei || null
+    $('ablage-text').textContent = datei ? `${datei.name} (${groesse(datei.size)})` : 'Datei hierher ziehen oder auswählen'
+    $('name').disabled = !datei
+    $('name').value = datei ? datei.name.replace(/\.[^.]+$/, '') : ''      // ohne Endung: sie bleibt automatisch
+    $('hochladen').disabled = !datei
+    if (datei) $('name').focus()
+  }
+  function formularZu() { $('form').hidden = true; $('neu').setAttribute('aria-expanded', 'false'); $('fehler').textContent = ''; dateiSetzen(null) }
+  $('neu').onclick = () => {
+    const auf = $('form').hidden
+    if (!auf) return formularZu()
+    $('form').hidden = false; $('neu').setAttribute('aria-expanded', 'true')
+  }
+  $('abbrechen').onclick = formularZu
+  $('ablage').onclick = () => $('datei').click()
+  $('ablage').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('datei').click() } }
+  $('datei').onchange = () => dateiSetzen($('datei').files[0])
+  for (const ev of ['dragenter', 'dragover']) $('ablage').addEventListener(ev, (e) => { e.preventDefault(); $('ablage').classList.add('uk-drop') })
+  for (const ev of ['dragleave', 'drop']) $('ablage').addEventListener(ev, (e) => { e.preventDefault(); $('ablage').classList.remove('uk-drop') })
+  $('ablage').addEventListener('drop', (e) => dateiSetzen(e.dataTransfer.files[0]))
 
   // Menü hinter den drei Punkten: immer nur eins offen, schließt beim Klick daneben oder mit Escape
   let offenesMenue = null
@@ -226,22 +267,23 @@
     document.getElementById('leer').hidden = skripte.length > 0
   }
 
-  document.getElementById('form').onsubmit = async (e) => {
+  $('form').onsubmit = async (e) => {
     e.preventDefault()
-    const fehler = document.getElementById('fehler')
+    const fehler = $('fehler')
     fehler.textContent = ''
-    const feld = document.getElementById('datei')
-    const datei = feld.files[0]
-    if (!datei) return
+    if (!gewaehlt) return
     const formdata = new FormData()
     formdata.append('subject_id', subject)
-    formdata.append('datei', datei)
+    formdata.append('datei', gewaehlt)
+    if ($('name').value.trim()) formdata.append('dateiname', $('name').value.trim())
+    $('hochladen').disabled = true
     try {
       const res = await fetch('skripte', { method: 'POST', body: formdata })
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(typeof err.detail === 'string' ? err.detail : 'Hochladen fehlgeschlagen.') }
-      feld.value = ''
+      $('datei').value = ''
+      formularZu()
       await laden()
-    } catch (err) { fehler.textContent = err.message }
+    } catch (err) { fehler.textContent = err.message; $('hochladen').disabled = false }
   }
 
   laden().catch((err) => { document.getElementById('fehler').textContent = err.message })
