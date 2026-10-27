@@ -729,6 +729,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (`.uk-icon-rund` in `ui-kit.css`), nur beim Darüberfahren erscheint ein runder Hintergrund. Dafür bekam `.uk-btn-ghost`
   generell keinen Browser-Rahmen mehr (vorher sah jeder Ghost-Knopf wie ein eckiges Kästchen aus) und einen Hover-Hintergrund.
 
+- [fertig] UI-Kit mit fertigen Bausteinen (`kern/frontend/public/ui-kit.js` + `.css`): jeder Dienst nimmt sie von dort,
+  statt sie in seiner `ui.html` neu zu bauen. Aus `skripte` herausgezogen und dort schon im Einsatz:
+  `UIKit.menu([{ id, icon, text, onclick | href, danger, title }])` (Drei-Punkte-Menü, `.node` einfügen, `.punkt(id)` für
+  einen einzelnen Eintrag; ein Menü offen, schließt beim Klick daneben/Escape/nach Auswahl),
+  `UIKit.dropzone({ onFile, text, accept })` (Klick oder Drag & Drop, `.node`, `.zeigen(text)`),
+  `UIKit.iconButton(name, beschriftung, { danger, primary, rund, onclick })`, `UIKit.icon(name)`/`setIcon(...)`.
+  Neue Symbole in `ICONS`, neue Bausteine ebenfalls dort (nicht in einzelne Seiten). Regel: ein Baustein, den ein
+  zweiter Dienst brauchen könnte, gehört ins UI-Kit.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

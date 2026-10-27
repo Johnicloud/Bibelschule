@@ -11,8 +11,6 @@
   .uk-kopf { display: flex; justify-content: flex-end; margin-bottom: .75rem; }
   .uk-upload { display: grid; gap: .75rem; margin-bottom: 1rem; }
   .uk-upload[hidden] { display: none; }
-  .uk-ablage { border: 2px dashed var(--border); border-radius: .9rem; padding: 1.6rem 1rem; text-align: center; color: var(--muted); cursor: pointer; }
-  .uk-ablage:hover, .uk-ablage:focus-visible, .uk-ablage.uk-drop { border-color: var(--accent); color: var(--text); outline: none; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
   .uk-docx { background: #fff; color: #111; overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; padding: .5rem; }
   .uk-fragen { margin-top: .75rem; display: grid; gap: .5rem; }
@@ -27,10 +25,7 @@
   <button class="uk-btn uk-icon-btn" id="neu" type="button" title="Neue Datei" aria-label="Neue Datei" aria-expanded="false"></button>
 </div>
 <form id="form" class="uk-panel uk-upload" hidden>
-  <div id="ablage" class="uk-ablage" tabindex="0" role="button" aria-label="Datei auswählen oder hierher ziehen">
-    <span id="ablage-text">Datei hierher ziehen oder auswählen</span>
-    <input id="datei" type="file" hidden>
-  </div>
+  <div id="ablage-platz"></div>
   <input id="name" class="uk-input" type="text" placeholder="Name der Datei" aria-label="Name der Datei" disabled>
   <div class="uk-form" style="margin:0">
     <button class="uk-btn uk-icon-btn" id="hochladen" type="submit" disabled></button>
@@ -43,7 +38,7 @@
 
 <script src="/ui-kit.js"></script>
 <script>
-  const { call, el, subjectId, icon, setIcon } = UIKit
+  const { call, el, subjectId, icon, setIcon, menu, dropzone } = UIKit
   const subject = subjectId()
 
   function groesse(bytes) {
@@ -76,9 +71,11 @@
   $('hochladen').append(icon('upload'), 'Hochladen')
   $('abbrechen').append(icon('x'), 'Abbrechen')
   let gewaehlt = null
+  const ablage = dropzone({ onFile: (datei) => dateiSetzen(datei) })
+  $('ablage-platz').replaceWith(ablage.node)
   function dateiSetzen(datei) {
     gewaehlt = datei || null
-    $('ablage-text').textContent = datei ? `${datei.name} (${groesse(datei.size)})` : 'Datei hierher ziehen oder auswählen'
+    ablage.zeigen(datei ? `${datei.name} (${groesse(datei.size)})` : null)
     $('name').disabled = !datei
     $('name').value = datei ? datei.name.replace(/\.[^.]+$/, '') : ''      // ohne Endung: sie bleibt automatisch
     $('hochladen').disabled = !datei
@@ -91,27 +88,6 @@
     $('form').hidden = false; $('neu').setAttribute('aria-expanded', 'true')
   }
   $('abbrechen').onclick = formularZu
-  $('ablage').onclick = () => $('datei').click()
-  $('ablage').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('datei').click() } }
-  $('datei').onchange = () => dateiSetzen($('datei').files[0])
-  for (const ev of ['dragenter', 'dragover']) $('ablage').addEventListener(ev, (e) => { e.preventDefault(); $('ablage').classList.add('uk-drop') })
-  for (const ev of ['dragleave', 'drop']) $('ablage').addEventListener(ev, (e) => { e.preventDefault(); $('ablage').classList.remove('uk-drop') })
-  $('ablage').addEventListener('drop', (e) => dateiSetzen(e.dataTransfer.files[0]))
-
-  // Menü hinter den drei Punkten: immer nur eins offen, schließt beim Klick daneben oder mit Escape
-  let offenesMenue = null
-  const menueZu = () => { if (offenesMenue) { offenesMenue.hidden = true; offenesMenue = null } }
-  document.addEventListener('click', menueZu)
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') menueZu() })
-
-  function punkt(iconName, text, aktion, extra = '') {
-    const inhalt = [icon(iconName), text]
-    const knoten = typeof aktion === 'string'
-      ? el('a', { class: 'uk-menu-item ' + extra, href: aktion, target: '_blank', rel: 'noopener' }, inhalt)
-      : el('button', { class: 'uk-menu-item ' + extra, type: 'button' }, inhalt)
-    if (typeof aktion === 'function') knoten.onclick = aktion
-    return knoten
-  }
 
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
@@ -149,23 +125,22 @@
     // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
     // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
     const textInfo = el('span', { class: 'uk-sub', role: 'status' })
-    const textPunkt = punkt('scan', 'Text erkennen', async () => {
-      textPunkt.disabled = true
+    const textAktion = async () => {
+      m.punkt('text').disabled = true
       try { const t = await call('POST', `skripte/${s.id}/text-erkennen`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler }) }
-      catch (err) { textInfo.textContent = err.message; textPunkt.disabled = false }
-    })
-    textPunkt.title = 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt'
+      catch (err) { textInfo.textContent = err.message; m.punkt('text').disabled = false }
+    }
     const textZeigen = (t) => {
-      textPunkt.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
-      textPunkt.disabled = t.text_status === 'laeuft'
-      textPunkt.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'), t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen')
+      const p = m.punkt('text')
+      p.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
+      p.disabled = t.text_status === 'laeuft'
+      p.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'), t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen')
       textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : t.text_status === 'laeuft' ? 'Text wird erkannt …' : ''
       if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
     }
     const textAbfragen = async () => {
       try { textZeigen((await call('GET', 'skripte?subject_id=' + encodeURIComponent(subject))).find((x) => x.id === s.id) || s) } catch { /* nächster Versuch */ }
     }
-    textZeigen(s)
 
     // Umbenennen: Name wird zum Eingabefeld (Enter speichert, Escape bricht ab); die Endung bleibt erhalten
     const kopf = el('div', {}, [nameBtn])
@@ -183,31 +158,23 @@
       feld.focus(); feld.select()
     }
 
-    const menue = el('div', { class: 'uk-menu', hidden: 'true', role: 'menu' }, [
-      ...(istDoc(s) ? [] : [punkt('extern', 'In neuem Tab öffnen', `skripte/${s.id}/${istPages(s) ? 'vorschau' : docx ? 'ansicht' : 'datei'}`)]),
-      textPunkt,
-      ...(kannFragen(s) ? [punkt('karten', 'Karten übernehmen', kartenOeffnen)] : []),
-      punkt('stift', 'Umbenennen', umbenennenStarten),
-      punkt('download', 'Herunterladen', () => { const a = el('a', { href: url + '?original=1', download: s.dateiname }); a.click() }),
-      punkt('trash', 'Löschen', async () => {
+    const m = menu([
+      ...(istDoc(s) ? [] : [{ icon: 'extern', text: 'In neuem Tab öffnen', href: `skripte/${s.id}/${istPages(s) ? 'vorschau' : docx ? 'ansicht' : 'datei'}` }]),
+      { id: 'text', icon: 'scan', text: 'Text erkennen', title: 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt', onclick: textAktion },
+      ...(kannFragen(s) ? [{ icon: 'karten', text: 'Karten übernehmen', onclick: kartenOeffnen }] : []),
+      { icon: 'stift', text: 'Umbenennen', onclick: umbenennenStarten },
+      { icon: 'download', text: 'Herunterladen', onclick: () => el('a', { href: url + '?original=1', download: s.dateiname }).click() },
+      { icon: 'trash', text: 'Löschen', danger: true, onclick: async () => {
         if (!confirm(`„${s.dateiname}“ löschen?`)) return
         await call('DELETE', `skripte/${s.id}`); laden()
-      }, 'uk-menu-danger'),
+      } },
     ])
-    const mehrBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn uk-icon-rund', type: 'button', 'aria-haspopup': 'menu' })
-    setIcon(mehrBtn, 'mehr', 'Weitere Aktionen')
-    mehrBtn.onclick = (e) => {
-      e.stopPropagation()
-      const war = offenesMenue === menue
-      menueZu()
-      if (!war) { menue.hidden = false; offenesMenue = menue }
-    }
-    menue.onclick = () => menueZu()
+    textZeigen(s)
 
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
         el('div', {}, [kopf, el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
-        el('div', { class: 'uk-menu-wrap' }, [mehrBtn, menue]),
+        m.node,
       ]),
       fragenBox,
       vorschau,

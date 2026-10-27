@@ -66,9 +66,69 @@ window.UIKit = (() => {
     node.setAttribute('aria-label', label)
   }
 
+  // ---- Fertige Bausteine: jeder Dienst nimmt sie von hier, statt sie selbst zu bauen ----
+
+  // Symbol-Knopf: iconButton('trash', 'Löschen', { danger: true, onclick })
+  function iconButton(name, label, opts = {}) {
+    const b = el('button', { type: 'button', class: (opts.danger ? 'uk-btn-danger' : opts.primary ? 'uk-btn' : 'uk-btn-ghost') + ' uk-icon-btn' + (opts.rund ? ' uk-icon-rund' : '') })
+    setIcon(b, name, label)
+    if (opts.onclick) b.onclick = opts.onclick
+    return b
+  }
+
+  // Drei-Punkte-Menü: menu([{ id, icon, text, onclick | href, danger, title }]) -> { node, punkt(id) }
+  // Immer nur ein Menü offen; schließt beim Klick daneben, mit Escape und nach Auswahl eines Punkts.
+  // `href` öffnet in neuem Tab. Zugriff auf einen Punkt (z. B. zum Ausblenden): m.punkt('id').hidden = true
+  let offenesMenue = null
+  const menueZu = () => { if (offenesMenue) { offenesMenue.hidden = true; offenesMenue = null } }
+  document.addEventListener('click', menueZu)
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') menueZu() })
+  function menu(punkte, label = 'Weitere Aktionen') {
+    const knoten = {}
+    const liste = el('div', { class: 'uk-menu', hidden: 'true', role: 'menu' }, punkte.map((p) => {
+      const klasse = 'uk-menu-item' + (p.danger ? ' uk-menu-danger' : '')
+      const inhalt = [icon(p.icon), p.text]
+      const k = p.href
+        ? el('a', { class: klasse, href: p.href, target: '_blank', rel: 'noopener', role: 'menuitem' }, inhalt)
+        : el('button', { class: klasse, type: 'button', role: 'menuitem' }, inhalt)
+      if (p.title) k.title = p.title
+      if (p.onclick) k.onclick = p.onclick
+      if (p.id) knoten[p.id] = k
+      return k
+    }))
+    liste.onclick = menueZu
+    const knopf = iconButton('mehr', label, { rund: true })
+    knopf.setAttribute('aria-haspopup', 'menu')
+    knopf.onclick = (e) => {
+      e.stopPropagation()
+      const war = offenesMenue === liste
+      menueZu()
+      if (!war) { liste.hidden = false; offenesMenue = liste }
+    }
+    return { node: el('div', { class: 'uk-menu-wrap' }, [knopf, liste]), punkt: (id) => knoten[id] }
+  }
+
+  // Ablagefläche für Dateien: Klick zum Auswählen oder Hineinziehen (Drag & Drop).
+  // dropzone({ onFile(datei), text }) -> { node, zeigen(text) } – zeigen() ersetzt den Text (z. B. durch den Dateinamen),
+  // zeigen() ohne Text stellt die Vorgabe wieder her.
+  function dropzone({ onFile, text = 'Datei hierher ziehen oder auswählen', accept } = {}) {
+    const beschriftung = el('span', {}, text)
+    const feld = el('input', { type: 'file', hidden: 'true' })
+    if (accept) feld.setAttribute('accept', accept)
+    const flaeche = el('div', { class: 'uk-ablage', tabindex: '0', role: 'button', 'aria-label': text }, [beschriftung, feld])
+    const waehlen = (datei) => { if (datei && onFile) onFile(datei) }
+    flaeche.onclick = () => feld.click()
+    flaeche.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); feld.click() } }
+    feld.onchange = () => waehlen(feld.files[0])
+    for (const ev of ['dragenter', 'dragover']) flaeche.addEventListener(ev, (e) => { e.preventDefault(); flaeche.classList.add('uk-drop') })
+    for (const ev of ['dragleave', 'drop']) flaeche.addEventListener(ev, (e) => { e.preventDefault(); flaeche.classList.remove('uk-drop') })
+    flaeche.addEventListener('drop', (e) => waehlen(e.dataTransfer.files[0]))
+    return { node: flaeche, zeigen: (t) => { beschriftung.textContent = t || text; if (!t) feld.value = '' } }
+  }
+
   function subjectId() {
     return new URLSearchParams(location.search).get('subject') || ''
   }
 
-  return { call, el, renderList, subjectId, icon, setIcon }
+  return { call, el, renderList, subjectId, icon, setIcon, iconButton, menu, dropzone }
 })()
