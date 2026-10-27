@@ -35,8 +35,12 @@ block="  $name:
     restart: unless-stopped"
 # Direkt nach "services:" einfügen, nicht ans Dateiende anhängen – sonst landet der neue Dienst unter einem
 # späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML).
-awk -v block="$block" '{print} /^services:/ && !done {print block; done=1}' \
-  docker-compose.override.yml > docker-compose.override.yml.tmp
+# Über eine Block-Datei + "sed r" statt awk -v: BSD-awk (macOS) bricht bei einem mehrzeiligen -v-Wert mit
+# "newline in string" ab, sed kennt dieses Problem auf keiner der beiden Plattformen.
+blockfile=$(mktemp)
+printf '%s\n' "$block" > "$blockfile"
+sed -e "/^services:/r $blockfile" docker-compose.override.yml > docker-compose.override.yml.tmp
+rm -f "$blockfile"
 mv docker-compose.override.yml.tmp docker-compose.override.yml
 
 echo "Dienst \"$label\" liegt in ./$name und ist in docker-compose.override.yml eingetragen."
