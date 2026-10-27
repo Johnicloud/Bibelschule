@@ -27,6 +27,7 @@ class Card:
     options: list[str] = field(default_factory=list)
     correct_index: int | None = None
     id: str = field(default_factory=new_id)
+    set_name: str = ""          # optional: Name eines Sets (z. B. aus einer Datei übernommen), leer = keins
     box: int = 0
     due: datetime = field(default_factory=utcnow)
 

@@ -4,6 +4,7 @@ import threading
 from datetime import date
 
 from app.application.ports import DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
+from app.domain.druckbogen import karten_aus_druckbogen
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.fragen import fragen_erkennen
 from app.domain.models import Skript
@@ -63,6 +64,17 @@ class SkriptService:
         if self.leser is None:
             raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
         return fragen_erkennen(self.leser.zeilen(skript.dateiname, inhalt))
+
+    def karten(self, skript_id: str) -> dict:
+        """Vorschläge für Karteikarten aus einer Datei. Ist sie ein Druckbogen der App („Als PDF drucken“), kommen die
+        Antworten von der Rückseite mit; sonst wird sie als Fragenliste gelesen (Antworten leer)."""
+        skript, inhalt = self.datei(skript_id)
+        if self.leser is None:
+            raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
+        paare = karten_aus_druckbogen(self.leser.textstuecke(skript.dateiname, inhalt))
+        if paare:
+            return {"quelle": "druckbogen", "karten": [{"frage": f, "antwort": a} for f, a in paare]}
+        return {"quelle": "fragenliste", "karten": [{"frage": f, "antwort": ""} for f in self.fragen(skript_id)]}
 
     def vorschau_pdf(self, skript_id: str) -> bytes | None:
         skript, inhalt = self.datei(skript_id)

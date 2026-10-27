@@ -1,5 +1,5 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import CardForm from '../components/cards/CardForm.vue'
 import CardItem from '../components/cards/CardItem.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
@@ -14,6 +14,12 @@ const anlegen = ref(false)
 const druckFehler = ref('')
 const druckt = ref(false)
 const druckFormat = ref('a7')
+const setFilter = ref('')   // '' = alle Karten
+
+// Nummer = Platz im Fach, genau wie auf dem Druckbogen (der zählt in derselben Reihenfolge)
+const nummerierte = computed(() => (deck.value?.cards || []).map((c, i) => ({ c, nummer: i + 1 })))
+const sets = computed(() => [...new Set((deck.value?.cards || []).map((c) => c.set_name).filter(Boolean))])
+const sichtbar = computed(() => (setFilter.value ? nummerierte.value.filter((x) => x.c.set_name === setFilter.value) : nummerierte.value))
 
 async function load() {
   try { deck.value = await service.openDeck(props.subjectId); error.value = '' }
@@ -66,8 +72,12 @@ onMounted(load)
       <button type="button" class="btn btn-ghost mt-2" @click="anlegen = false">Abbrechen</button>
     </div>
 
+    <select v-if="sets.length" v-model="setFilter" class="input mb-3 !w-auto !py-1.5" aria-label="Set wählen">
+      <option value="">Alle Karten</option>
+      <option v-for="s in sets" :key="s" :value="s">Set: {{ s }}</option>
+    </select>
     <ul v-if="deck.cards.length" class="grid gap-3 md:grid-cols-2">
-      <CardItem v-for="c in deck.cards" :key="c.id" :card="c" @delete="remove(c)" />
+      <CardItem v-for="x in sichtbar" :key="x.c.id" :card="x.c" :nummer="x.nummer" @delete="remove(x.c)" />
     </ul>
     <EmptyState v-else-if="!anlegen" title="Noch keine Karten" text="Lege die erste Karte an.">
       <button class="btn btn-primary" @click="anlegen = true">Erste Karte anlegen</button>

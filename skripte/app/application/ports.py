@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from app.domain.druckbogen import Textstueck
 from app.domain.models import Skript
 
 
@@ -45,6 +46,10 @@ class DateiLeser(ABC):
     @abstractmethod
     def zeilen(self, dateiname: str, inhalt: bytes) -> list[str]:
         """Der Text als Zeilen (PDF) bzw. Absätze (Word). Wirft InvalidInput, wenn das Format nicht lesbar ist."""
+
+    @abstractmethod
+    def textstuecke(self, dateiname: str, inhalt: bytes) -> list[Textstueck]:
+        """Die Textstücke eines PDFs mit Lage und Schriftgröße (für Druckbögen); leer, wenn es nichts Passendes gibt."""
 
     @abstractmethod
     def pdf_vorschau(self, dateiname: str, inhalt: bytes) -> bytes | None:

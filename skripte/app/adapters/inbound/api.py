@@ -78,6 +78,10 @@ def create_app(service: SkriptService) -> FastAPI:
     def fragen(skript_id: str):
         return {"fragen": service.fragen(skript_id)}
 
+    @api.get("/skripte/{skript_id}/karten")
+    def karten(skript_id: str):
+        return service.karten(skript_id)
+
     @api.delete("/skripte/{skript_id}", status_code=204)
     def delete(skript_id: str):
         service.delete(skript_id)

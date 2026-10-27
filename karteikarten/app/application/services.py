@@ -96,9 +96,10 @@ class FlashcardService:
 
     # Karteikarten
     def add_card(self, deck_id: str, kind: str, front: str, back: str = "",
-                 options: list[str] | None = None, correct_index: int | None = None) -> Pair:
+                 options: list[str] | None = None, correct_index: int | None = None, set_name: str = "") -> Pair:
         deck = self._deck(deck_id)
         card = build_card(kind, front, back, options or [], correct_index)
+        card.set_name = (set_name or "").strip()
         deck.cards.append(card)
         self.decks.save(deck)
         self._emit("card.created", {"deck_id": deck.id, "card_id": card.id, "kind": card.kind})

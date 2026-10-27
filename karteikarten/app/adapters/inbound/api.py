@@ -21,6 +21,7 @@ class CardIn(BaseModel):
     back: str = ""
     options: list[str] = Field(default_factory=list)
     correct_index: int | None = None
+    set_name: str = ""
 
 
 class SubjectIn(BaseModel):
@@ -35,7 +36,7 @@ def card_out(pair: Pair) -> dict:
     deck, c = pair
     return {"id": c.id, "deck_id": deck.id, "deck_name": deck.name, "kind": c.kind,
             "front": c.front, "back": c.back, "options": c.options,
-            "correct_index": c.correct_index, "box": c.box,
+            "correct_index": c.correct_index, "set_name": c.set_name, "box": c.box,
             "due": c.due.isoformat(), "is_due": c.is_due()}
 
 
@@ -91,7 +92,7 @@ def create_app(service: FlashcardService) -> FastAPI:
     @api.post("/decks/{deck_id}/cards", status_code=201)
     def add_card(deck_id: str, body: CardIn):
         return card_out(service.add_card(deck_id, body.kind, body.front, body.back,
-                                         body.options, body.correct_index))
+                                         body.options, body.correct_index, body.set_name))
 
     @api.delete("/decks/{deck_id}/cards/{card_id}", status_code=204)
     def delete_card(deck_id: str, card_id: str):

@@ -41,7 +41,7 @@
   const istDocx = (s) => /\.docx$/i.test(s.dateiname)
   const istDoc = (s) => /\.doc$/i.test(s.dateiname)
   const istPages = (s) => /\.pages$/i.test(s.dateiname)
-  const kannFragen = (s) => /\.(pdf|docx|pages)$/i.test(s.dateiname)
+  const kannFragen = (s) => /\.(pdf|docx|pages|png|jpe?g)$/i.test(s.dateiname)
   function skriptLaden(src) {
     return new Promise((ok, fehler) => {
       const t = document.createElement('script')
@@ -77,12 +77,12 @@
       } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
     const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
-    const fragenBtn = el('button', { class: 'uk-btn-ghost', title: 'Fragen aus dieser Datei als Karteikarten anlegen' }, 'Fragen → Karteikarten')
+    const fragenBtn = el('button', { class: 'uk-btn-ghost', title: 'Karteikarten aus dieser Datei übernehmen (Fragenliste oder Druckbogen mit Antworten)' }, 'Karten übernehmen')
     fragenBtn.onclick = async () => {
       if (!fragenBox.hidden) { fragenBox.hidden = true; return }
       fragenBox.hidden = false
       fragenBox.textContent = 'Liest die Datei …'
-      try { fragenZeigen(fragenBox, s, (await call('GET', `skripte/${s.id}/fragen`)).fragen) }
+      try { kartenZeigen(fragenBox, s, await call('GET', `skripte/${s.id}/karten`)) }
       catch (err) { fragenBox.textContent = err.message }
     }
     // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
@@ -126,20 +126,26 @@
     ])
   }
 
-  // Die erkannten Fragen sind nur ein Vorschlag: abwählen und die Antwort eintragen geht vor dem Anlegen.
+  // Die erkannten Karten sind nur ein Vorschlag: abwählen, Antwort eintragen oder ganz verwerfen geht vor dem Anlegen.
   // Karteikarten brauchen eine Rückseite – ohne eingetragene Antwort steht dort ein Platzhalter.
+  // Alle übernommenen Karten bilden ein Set (Name frei wählbar, Vorgabe = Dateiname), das die Kartenliste filtern kann.
   const KARTEN = `/api/karteikarten/decks/${encodeURIComponent(subject)}/cards`
   const OHNE_ANTWORT = '(Antwort noch nicht eingetragen)'
-  function fragenZeigen(box, s, fragen) {
-    if (!fragen.length) { box.textContent = 'Keine Fragen gefunden.'; return }
-    const zeilen = fragen.map((f) => {
-      const haken = el('input', { type: 'checkbox', checked: 'true', 'aria-label': 'Frage übernehmen' })
-      const antwort = el('input', { class: 'uk-input', type: 'text', placeholder: 'Antwort (optional, kann leer bleiben)' })
-      return { f, haken, antwort, node: el('label', { class: 'uk-frage' }, [haken, el('span', {}, f), antwort]) }
+  function kartenZeigen(box, s, erg) {
+    const karten = erg.karten
+    if (!karten.length) { box.textContent = 'Keine Fragen gefunden.'; return }
+    const zeilen = karten.map((k) => {
+      const haken = el('input', { type: 'checkbox', checked: 'true', 'aria-label': 'Karte übernehmen' })
+      const antwort = el('input', { class: 'uk-input', type: 'text', placeholder: 'Antwort (optional, kann leer bleiben)', value: k.antwort })
+      const frage = el('input', { class: 'uk-input', type: 'text', value: k.frage, 'aria-label': 'Frage' })   // Texterkennung kann sich irren: Frage lässt sich korrigieren
+      return { frage, haken, antwort, node: el('div', { class: 'uk-frage' }, [haken, frage, antwort]) }
     })
+    const setName = el('input', { class: 'uk-input', type: 'text', value: s.dateiname.replace(/\.[^.]+$/, ''), 'aria-label': 'Name des Sets' })
     const meldung = el('p', { class: 'uk-sub', role: 'status' })
-    const anlegen = el('button', { class: 'uk-btn' }, 'Karteikarten anlegen')
-    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.textContent = `${n} Karteikarte${n === 1 ? '' : 'n'} anlegen`; anlegen.disabled = n === 0 }
+    const anlegen = el('button', { class: 'uk-btn' }, 'Als Set speichern')
+    const verwerfen = el('button', { class: 'uk-btn-ghost', title: 'Erkannte Karten verwerfen, nichts wird angelegt' }, 'Verwerfen')
+    verwerfen.onclick = () => { box.hidden = true; box.replaceChildren() }
+    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.textContent = `${n} Karte${n === 1 ? '' : 'n'} als Set speichern`; anlegen.disabled = n === 0 }
     zeilen.forEach((z) => z.haken.addEventListener('change', zaehlen))
     zaehlen()
     anlegen.onclick = async () => {
@@ -149,16 +155,20 @@
         const vorhanden = new Set(((await call('GET', `/api/karteikarten/decks/${encodeURIComponent(subject)}`)).cards || []).map((c) => c.front))
         let neu = 0, doppelt = 0
         for (const z of zeilen.filter((z) => z.haken.checked)) {
-          if (vorhanden.has(z.f)) { doppelt++; continue }
-          await call('POST', KARTEN, { kind: 'classic', front: z.f, back: z.antwort.value.trim() || OHNE_ANTWORT, options: [], correct_index: null })
+          const f = z.frage.value.trim()
+          if (!f) continue
+          if (vorhanden.has(f)) { doppelt++; continue }
+          await call('POST', KARTEN, { kind: 'classic', front: f, back: z.antwort.value.trim() || OHNE_ANTWORT, options: [], correct_index: null, set_name: setName.value.trim() })
           neu++
         }
-        meldung.textContent = `${neu} Karteikarte${neu === 1 ? '' : 'n'} angelegt` + (doppelt ? `, ${doppelt} gab es schon.` : '.')
+        meldung.textContent = `${neu} Karte${neu === 1 ? '' : 'n'} gespeichert` + (doppelt ? `, ${doppelt} gab es schon.` : '.')
       } catch (err) { meldung.textContent = err.message }
       zaehlen()
     }
-    box.replaceChildren(el('p', { class: 'uk-sub' }, `${fragen.length} Fragen erkannt – abwählen oder Antwort ergänzen, dann anlegen. Sie landen im Reiter „Karteikarten“ dieses Fachs.`),
-      ...zeilen.map((z) => z.node), anlegen, meldung)
+    const hinweis = erg.quelle === 'druckbogen' ? 'Druckbogen erkannt – Fragen und Antworten sind übernommen.' : 'Fragenliste erkannt – ohne Antworten.'
+    box.replaceChildren(el('p', { class: 'uk-sub' }, `${karten.length} Karten: ${hinweis} Sie landen im Reiter „Karteikarten“ dieses Fachs.`),
+      el('label', { class: 'uk-sub' }, 'Name des Sets'), setName,
+      ...zeilen.map((z) => z.node), el('div', { style: 'display:flex;gap:.5rem' }, [anlegen, verwerfen]), meldung)
   }
 
   async function laden() {

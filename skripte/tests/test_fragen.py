@@ -109,3 +109,43 @@ def test_texterkennung_nur_fuer_pdf_und_fehler_werden_gemeldet():
     p = svc.upload("f", "Skript.pdf", None, b"x")
     svc.text_erkennen_starten(p.id, im_hintergrund=False)
     assert svc.text_status(p.id)["status"] == "fehler"
+
+
+def _druckbogen(fronten, rueckseiten_gespiegelt=True):
+    """Baut einen Druckbogen wie der Renderer der Karteikarten: 2 Spalten, Rückseite je Zeile spaltenverkehrt."""
+    from reportlab.pdfgen import canvas
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(595, 842))
+    zell_b, zell_h = 297.5, 210.5
+    for seite, nutz in ((0, "front"), (1, "back")):
+        for i, (f, a) in enumerate(fronten):
+            zeile, spalte = divmod(i, 2)
+            if nutz == "back":
+                spalte = 1 - spalte
+            x, y = spalte * zell_b, 842 - (zeile + 1) * zell_h
+            c.setFont("Helvetica", 8); c.drawString(x + 4, y + zell_h - 10, str(i + 1))
+            c.setFont("Helvetica", 13)
+            text = f if nutz == "front" else a
+            for n, zl in enumerate(text.split("|")):
+                c.drawCentredString(x + zell_b / 2, y + zell_h / 2 - n * 17, zl)
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def test_druckbogen_liefert_fragen_mit_antworten(svc):
+    karten = [("Wer war Petrus?", "Ein Apostel"), ("Wo lebte Paulus?", "In Tarsus|und Antiochia"), ("Was ist Gnade?", "Unverdient"),
+              ("Wer schrieb Apg?", "Lukas")]
+    s = svc.upload("f", "bogen.pdf", None, _druckbogen(karten))
+    erg = svc.karten(s.id)
+    assert erg["quelle"] == "druckbogen"
+    assert [(k["frage"], k["antwort"]) for k in erg["karten"]] == [
+        ("Wer war Petrus?", "Ein Apostel"), ("Wo lebte Paulus?", "In Tarsus und Antiochia"),
+        ("Was ist Gnade?", "Unverdient"), ("Wer schrieb Apg?", "Lukas")]
+
+
+def test_fragenliste_ist_kein_druckbogen_und_kommt_ohne_antworten(svc):
+    s = svc.upload("f", "Fragen.docx", None, _docx(["Wer war Petrus?", "Wo lebte Paulus?"]))
+    erg = svc.karten(s.id)
+    assert erg["quelle"] == "fragenliste"
+    assert [k["antwort"] for k in erg["karten"]] == ["", ""]

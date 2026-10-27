@@ -669,6 +669,20 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Ergebnis liegt als `<id>.text` neben dem Original; `GET .../datei` zeigt die Textfassung, `?original=1` (Herunterladen)
   immer die hochgeladene Datei. Auch „Fragen → Karteikarten“ liest die Textfassung, wenn es sie gibt.
 
+- [fertig] Skripte: Karten aus Druckbogen, Bild und Fragenliste übernehmen, als Set speichern. Der Knopf heißt jetzt „Karten
+  übernehmen“ (`GET /api/skripte/{id}/karten`). Erkennt drei Dinge: (1) einen **Druckbogen der App** („Als PDF drucken“,
+  A7/A8) – `domain/druckbogen.py` liest Textstücke mit Lage und Schriftgröße (pypdf-Visitor), die kleine Nummer oben links
+  (8 pt) gehört zur Karte, Text wird der Nummer links oberhalb zugeordnet; Vorder- und Rückseite werden über die NUMMER
+  gepaart (erstes Vorkommen = Frage, zweites = Antwort), nicht über die Lage, weil die Rückseiten je Zeile
+  spaltenverkehrt gedruckt sind. So kommen Fragen MIT Antworten zurück; (2) eine **Fragenliste** (PDF/Word/Pages, ohne
+  Antworten, siehe oben); (3) ein **Bild** (PNG/JPG, z. B. Bildschirmfoto einer nummerierten Liste): `tesseract` im
+  Container liest es (deutsch), danach läuft derselbe Fragen-Erkenner. Kopfzeile des Bildschirmfotos vor der ersten
+  Nummer fällt weg, ein abgeschnittener Rest am unteren Rand kann an der letzten Frage hängen – darum sind die Fragen in
+  der Vorschau bearbeitbar. Die Vorschau hat „Verwerfen“ (schließt, legt nichts an) und „Als Set speichern“.
+  **Set**: `Card.set_name` (optional, `.get(..., "")`, alte Karten ohne Set bleiben gültig), Vorgabe = Dateiname ohne
+  Endung. Die Kartenliste (`DeckPanel.vue`) zeigt je Karte ihre **Nummer** (Platz im Fach, dieselbe Zählung wie auf dem
+  Druckbogen), das Set als Marke und einen Set-Filter. Gedruckt wird weiterhin das ganze Fach.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

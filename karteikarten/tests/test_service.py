@@ -111,3 +111,14 @@ def test_subject_hooks(svc, events):
     svc.discard_deck("fach1")
     svc.discard_deck("fach1")  # zweites Mal tut nichts
     assert svc.list_decks() == []
+
+
+def test_karte_merkt_sich_ihr_set_auch_nach_dem_speichern(svc, tmp_path):
+    from app.adapters.outbound.json_repository import JsonDeckRepository
+    deck = svc.create_deck("Apg")
+    svc.add_card(deck.id, "classic", "Frage?", "Antwort", set_name="  Fragen Apostelgeschichte ")
+    svc.add_card(deck.id, "classic", "Ohne Set?", "Ja")
+    assert [c.set_name for c in svc.get_deck(deck.id).cards] == ["Fragen Apostelgeschichte", ""]
+    repo = JsonDeckRepository(tmp_path / "decks.json")
+    repo.save(svc.get_deck(deck.id))
+    assert [c.set_name for c in repo.get(deck.id).cards] == ["Fragen Apostelgeschichte", ""]
