@@ -631,6 +631,13 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (Tempomesser, neuer Name `tempo`; `stoppuhr` bleibt für die Zeitanzeige in `SchnelllesenView.vue`), Predigten
   (Megafon), Notizen (Notizzettel), Fragen und KI (Funken, Name `funken` statt `fragezeichen`) und Glossar
   (Omega). Unverändert: Karten, Noten, Bibliothek, Adressbuch. Alle bleiben zentral in `AppIcon.vue`.
+- [fertig] Bibel als Bücherregal (`BibelView.vue`, Abschnitt „Lesen“): die 66 Bücher stehen als Buchrücken auf zwei
+  Regalen (Altes/Neues Testament, je Reihe ein Brett), in drei Dicken nach Länge – bis 8 Kapitel dünn, bis 29
+  mittel, ab 30 dick (`dicke()`, Breite per `RUECKEN`; Vorbild war das Bibliothek-Symbol auf Wunsch des Nutzers).
+  Klick auf ein Buch wählt es nur aus (lädt noch kein Kapitel), darunter erscheint die Kapitelleiste 1…n, ein Klick
+  auf eine Nummer zeigt das ganze Kapitel mit den bestehenden Vor-/Zurück-Pfeilen. Ersetzt das Dropdown „Buch
+  durchlesen“; „Bibelstelle nachschlagen“ und die Konkordanz bleiben. Dafür liefert `GET /api/bibel/index` jetzt je
+  Buch `kapitel_gesamt` (`index_out`, Test in `bibel/tests/test_api.py`).
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

@@ -35,7 +35,7 @@ def verweis_out(v: Verweis) -> dict:
 def index_out(index: Bibelindex, hat_verse: bool = False) -> dict:
     return {"dateiname": index.dateiname, "hat_verse": hat_verse,
             "buecher": [{"index": b.buch_index, "short": BOOKS[b.buch_index].short, "name": BOOKS[b.buch_index].name,
-                         "seite": b.seite, "erkannt": b.erkannt}
+                         "kapitel_gesamt": BOOKS[b.buch_index].chapters, "seite": b.seite, "erkannt": b.erkannt}
                         for b in sorted(index.buchseiten, key=lambda x: x.buch_index)]}
 
 

@@ -1,5 +1,5 @@
 <script setup>
-import { inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 
@@ -75,8 +75,20 @@ function trefferSpringen(t) {
   kapitelLesen(t.buch, t.kapitel, t.vers)
 }
 
-function buchGewaehlt() {
-  if (gewaehltesBuch.value) kapitelLesen(gewaehltesBuch.value, 1)
+// Bücherregal: je Buch ein Rücken, dicker je mehr Kapitel das Buch hat (drei Stufen). Ein Klick wählt das Buch
+// (ohne schon ein Kapitel zu laden), dann das Kapitel aus der Nummernleiste, erst dann steht der Text da.
+const TESTAMENT_GRENZE = 39   // die ersten 39 Bücher (Index 0-38) sind das Alte Testament
+const regale = computed(() => !index.value ? [] : [
+  { titel: 'Altes Testament', buecher: index.value.buecher.filter((b) => b.index < TESTAMENT_GRENZE), farbe: 'bg-teal-800' },
+  { titel: 'Neues Testament', buecher: index.value.buecher.filter((b) => b.index >= TESTAMENT_GRENZE), farbe: 'bg-teal-600' },
+])
+const RUECKEN = { 1: 'w-8 h-32', 2: 'w-11 h-36', 3: 'w-14 h-40' }
+function dicke(b) { return b.kapitel_gesamt <= 8 ? 1 : b.kapitel_gesamt <= 29 ? 2 : 3 }
+const gewaehltesBuchInfo = computed(() => index.value?.buecher.find((b) => b.short === gewaehltesBuch.value) || null)
+function buchWaehlen(b) {
+  gewaehltesBuch.value = b.short
+  gelesenesKapitel.value = null
+  sucheFehler.value = ''
 }
 
 function vor() {
@@ -163,16 +175,33 @@ onMounted(load)
           <input v-model="sucheText" type="text" class="input" placeholder="z. B. Joh 3,16" />
         </div>
         <button class="btn btn-primary" :disabled="kapitelLaedt">Nachschlagen</button>
-        <div class="h-6 w-px self-center bg-slate-200 dark:bg-slate-700"></div>
-        <div>
-          <label class="mb-1 block text-sm text-slate-500 dark:text-slate-400">Buch durchlesen</label>
-          <select v-model="gewaehltesBuch" class="input" @change="buchGewaehlt">
-            <option value="" disabled>Buch wählen …</option>
-            <option v-for="b in index.buecher" :key="b.index" :value="b.short">{{ b.name }}</option>
-          </select>
-        </div>
       </form>
       <p v-if="sucheFehler" class="mt-3 text-sm text-rose-600 dark:text-rose-400">{{ sucheFehler }}</p>
+
+      <div v-for="r in regale" :key="r.titel" class="mt-6">
+        <p class="mb-2 text-sm font-medium text-slate-500 dark:text-slate-400">{{ r.titel }}</p>
+        <div class="flex flex-wrap items-end gap-y-3">
+          <div v-for="b in r.buecher" :key="b.index" class="border-b-8 border-amber-900/70 px-0.5 dark:border-amber-800/70">
+          <button type="button" :title="`${b.name} – ${b.kapitel_gesamt} Kapitel`"
+            :aria-label="`${b.name}, ${b.kapitel_gesamt} Kapitel`" :aria-pressed="gewaehltesBuch === b.short"
+            class="flex items-start justify-center rounded-t-md pt-2 text-xs font-medium tracking-wide text-white shadow-sm transition hover:-translate-y-1"
+            :class="[RUECKEN[dicke(b)], r.farbe, gewaehltesBuch === b.short ? '-translate-y-2 ring-2 ring-amber-400' : '']"
+            @click="buchWaehlen(b)">
+            <span class="whitespace-nowrap [writing-mode:vertical-rl]">{{ b.name }}</span>
+          </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="gewaehltesBuchInfo" class="mt-6">
+        <p class="mb-2 text-sm font-medium">{{ gewaehltesBuchInfo.name }} – Kapitel wählen</p>
+        <div class="flex flex-wrap gap-1.5">
+          <button v-for="n in gewaehltesBuchInfo.kapitel_gesamt" :key="n" type="button"
+            class="btn !h-9 !min-w-9 !px-2 !py-0 text-sm tabular-nums"
+            :class="gelesenesKapitel && gelesenesKapitel.buch === gewaehltesBuch && gelesenesKapitel.kapitel === n ? 'btn-primary' : 'btn-outline'"
+            :disabled="kapitelLaedt" @click="kapitelLesen(gewaehltesBuch, n)">{{ n }}</button>
+        </div>
+      </div>
 
       <div v-if="gelesenesKapitel" class="mt-6">
         <div class="mb-4 flex items-center justify-between gap-3">
