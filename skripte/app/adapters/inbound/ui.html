@@ -194,9 +194,8 @@
         await call('DELETE', `skripte/${s.id}`); laden()
       }, 'uk-menu-danger'),
     ])
-    const mehrBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn', type: 'button', 'aria-haspopup': 'menu' })
+    const mehrBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn uk-icon-rund', type: 'button', 'aria-haspopup': 'menu' })
     setIcon(mehrBtn, 'mehr', 'Weitere Aktionen')
-    mehrBtn.style.color = 'var(--text)'
     mehrBtn.onclick = (e) => {
       e.stopPropagation()
       const war = offenesMenue === menue

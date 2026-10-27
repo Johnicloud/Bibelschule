@@ -725,6 +725,10 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Umbenennen, gemeinsame Hilfe `_mit_endung`). Wieder die `hidden`-Falle: `.uk-upload[hidden]` braucht eigenes
   `display: none`, weil die Klasse `display: grid` setzt.
 
+- [fertig] UI-Kit: Menüsymbol modernisiert. Das Drei-Punkte-Symbol ist jetzt waagerecht („…“), rund und ohne Rahmen
+  (`.uk-icon-rund` in `ui-kit.css`), nur beim Darüberfahren erscheint ein runder Hintergrund. Dafür bekam `.uk-btn-ghost`
+  generell keinen Browser-Rahmen mehr (vorher sah jeder Ghost-Knopf wie ein eckiges Kästchen aus) und einen Hover-Hintergrund.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
