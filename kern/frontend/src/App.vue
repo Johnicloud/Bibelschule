@@ -16,12 +16,16 @@ import BibelView from './views/BibelView.vue'
 import BibliothekView from './views/BibliothekView.vue'
 import SchnelllesenView from './views/SchnelllesenView.vue'
 <<<<<<< HEAD
+<<<<<<< HEAD
 import PredigtenView from './views/PredigtenView.vue'
 
 import NotizenView from './views/NotizenView.vue'
 =======
 import FragenKiView from './views/FragenKiView.vue'
 >>>>>>> origin/claude/fragenki-724ef6
+=======
+import GlossarView from './views/GlossarView.vue'
+>>>>>>> origin/claude/glossar-470fb7
 import PasswortAendernPflichtView from './views/PasswortAendernPflichtView.vue'
 import { abmeldeHinweis, gemeinde, isAdmin, loggedIn, mussPasswortAendern, nachname, username, vorname } from './state/auth'
 
@@ -30,10 +34,14 @@ const IDLE_LOGOUT_MS = IDLE_LOGOUT_MINUTEN * 60 * 1000
 
 const auth = inject('auth')
 <<<<<<< HEAD
+<<<<<<< HEAD
 const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen' | 'predigten' | 'notizen'
 =======
 const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen' | 'fragenki'
 >>>>>>> origin/claude/fragenki-724ef6
+=======
+const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen' | 'glossar'
+>>>>>>> origin/claude/glossar-470fb7
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
 const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'aufgaben'/'uebersicht')
 
@@ -105,12 +113,16 @@ onMounted(async () => {
       <BibliothekView v-else-if="view === 'bibliothek'" />
       <SchnelllesenView v-else-if="view === 'schnelllesen'" />
 <<<<<<< HEAD
+<<<<<<< HEAD
       <PredigtenView v-else-if="view === 'predigten'" />
 
       <NotizenView v-else-if="view === 'notizen'" />
 =======
       <FragenKiView v-else-if="view === 'fragenki'" />
 >>>>>>> origin/claude/fragenki-724ef6
+=======
+      <GlossarView v-else-if="view === 'glossar'" />
+>>>>>>> origin/claude/glossar-470fb7
       <StudyView v-else :deck-id="subjectId" @back="subjectId ? go('subject', subjectId) : go('home')" />
     </main>
     <StudyFab @study="go('study')" />

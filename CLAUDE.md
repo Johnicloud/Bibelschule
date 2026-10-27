@@ -483,6 +483,7 @@ Sprache der Oberfläche und der Texte: Deutsch.
   fügt jetzt direkt nach `services:` ein.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 - [fertig] PDFs direkt im Browser drucken UND herunterladen (statt nur erzwungenem Download): gemeinsame
   Funktion `kern/frontend/src/application/pdf.js` (`fensterOeffnen`/`pdfZeigen`) – öffnet die PDF-Datei in
   einem neuen Reiter, wo der Browser seine eigene PDF-Ansicht mit Drucken- und Herunterladen-Knopf mitbringt,
@@ -605,6 +606,32 @@ Sprache der Oberfläche und der Texte: Deutsch.
   kommt jetzt über eine Temp-Datei (`getline … < bf`) statt über `-v block="$block"` ins Skript, das läuft auf
   beiden awk-Varianten.
 >>>>>>> origin/claude/fragenki-724ef6
+=======
+- [fertig] Arbeitspaket F umgesetzt: neuer Dienst `glossar` für griechische Wörter (Transliteration, Erklärung,
+  beliebig viele Bibelstellen). Fachübergreifend wie `bibel`/`bibliothek`/`schnelllesen` (kein `panel`, die drei
+  Pflicht-Endpunkte als No-ops). Jede Bibelstelle eines Eintrags legt beim Anlegen/Ändern einen Verweis
+  (`art="glossar"`, `referenz=<eintrag-id>`) beim Bibel-Dienst an (`HttpBibelVerweise`, `BIBEL_URL`, direkter
+  Dienst-zu-Dienst-Aufruf wie `HttpBibelQuelle` bei `schnelllesen`) – best effort: ist der Bibel-Dienst kurz
+  nicht erreichbar, bleibt die Stelle am Eintrag trotzdem erhalten (`GlossarService._verweis_anlegen_sicher`,
+  nur geloggt, nicht geworfen), der Verweis-Eintrag beim Bibel-Dienst selbst ist nur eine Randnotiz für „was
+  verweist hierher?“. Beim Ändern/Löschen eines Eintrags werden nicht mehr genannte Stellen dort wieder entfernt
+  (Abgleich über die gespeicherte `verweis_id` je Stelle). Eigene Kopie von `domain/bible.py` wie bei `bibel`
+  (Entscheidungen „Bibel als Grundlage“) – Eingabe als freier Text („Joh 3,16“), intern als kanonische Adresse
+  gespeichert (`Stelle.format()`, „Joh.3.16“); ein Verweis braucht immer einen Vers, ein reines Kapitel wird
+  abgelehnt. 26 Backend-Tests grün (Anwendungsfälle inkl. Best-effort-Verhalten, JSON-Repository, Bibel-Parser).
+  Oberfläche: neuer globaler Reiter „Glossar“ (`GlossarView.vue`, Symbol in `AppIcon.vue`/`AppNav.vue`):
+  alphabetische Liste mit Suchfeld (filtert Wort/Transliteration/Erklärung), Anlegen/Bearbeiten hinter einem
+  Knopf (wie bei Fächern/Pensen/Dozenten), Bibelstellen als anklickbare Chips – Klick wandelt die kanonische
+  Adresse in die von `/api/bibel/stelle` erwartete Schreibweise um (`Joh.3.16` → `Joh 3,16`) und öffnet wie im
+  Register-Reiter die passende PDF-Seite in einem neuen Tab. Komplette CRUD- und Verweis-Lebenszyklus-Prüfung
+  (Anlegen/Ändern/Löschen, Verweis-Anlage und -Aufräumen beim Bibel-Dienst, Chip-Auflösung) über die laufenden
+  Container per `curl` bestätigt; die interaktive Oberfläche selbst zeigte beim Klick-Testen in diesem
+  Docker-Stack wiederholt kurzzeitige 401-Aussetzer, die sich per `curl` und per direktem `fetch()` aus der
+  Seite heraus nicht reproduzieren ließen (Sitzungs-Cookie bei schnell aufeinanderfolgenden Aufrufen stabil,
+  erst bei mit Pausen simulierten Klicks betroffen) – naheliegend eine Eigenheit der automatisierten
+  Browser-Vorschau unter der Systemlast der parallel laufenden Docker-Builds mehrerer Geschwister-Sitzungen,
+  keine Serverseite (`MemorySessionStore`) betroffen.
+>>>>>>> origin/claude/glossar-470fb7
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

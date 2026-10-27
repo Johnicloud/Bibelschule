@@ -1,5 +1,6 @@
 services:
 <<<<<<< HEAD
+<<<<<<< HEAD
   predigten:
     build: ./predigten
     environment:
@@ -19,6 +20,16 @@ services:
       BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
     networks: [default, ki]
 >>>>>>> origin/claude/fragenki-724ef6
+=======
+  glossar:
+    build: ./glossar
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://glossar:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise ("art=glossar") beim Bibel-Dienst an
+    volumes:
+      - ./data/glossar:/app/data
+>>>>>>> origin/claude/glossar-470fb7
     restart: unless-stopped
   adressbuch:
     build: ./adressbuch

@@ -25,8 +25,12 @@ find "$name" -type f \( -name '*.py' -o -name '*.html' -o -name '*.txt' -o -name
 find "$name" -name '*.bak' -type f -delete
 
 [ -f docker-compose.override.yml ] || printf 'services:\n' > docker-compose.override.yml
+<<<<<<< HEAD
 block_file=$(mktemp)
 trap 'rm -f "$block_file"' EXIT
+=======
+block_file="$(mktemp)"
+>>>>>>> origin/claude/glossar-470fb7
 cat > "$block_file" <<EOF
   $name:
     build: ./$name
@@ -40,6 +44,7 @@ EOF
 # Direkt nach "services:" einfügen, nicht ans Dateiende anhängen – sonst landet der neue Dienst unter einem
 <<<<<<< HEAD
 # späteren Top-Level-Schlüssel wie "networks:" (falsch eingerückt, kaputtes YAML).
+<<<<<<< HEAD
 # Über eine Block-Datei + "sed r" statt awk -v: BSD-awk (macOS) bricht bei einem mehrzeiligen -v-Wert mit
 # "newline in string" ab, sed kennt dieses Problem auf keiner der beiden Plattformen.
 blockfile=$(mktemp)
@@ -54,6 +59,12 @@ awk -v bf="$block_file" '{print} /^services:/ && !done {while ((getline line < b
   docker-compose.override.yml > docker-compose.override.yml.tmp
 >>>>>>> origin/claude/fragenki-724ef6
 mv docker-compose.override.yml.tmp docker-compose.override.yml
+=======
+# Über eine Datei statt `awk -v block="…"` (mehrzeiliger -v-Wert scheitert am BSD-awk von macOS mit
+# "newline in string"), `sed … r` liest sie portabel nach der passenden Zeile ein.
+sed -i.bak "/^services:/r $block_file" docker-compose.override.yml
+rm -f docker-compose.override.yml.bak "$block_file"
+>>>>>>> origin/claude/glossar-470fb7
 
 echo "Dienst \"$label\" liegt in ./$name und ist in docker-compose.override.yml eingetragen."
 echo "Starten: docker compose up --build -d"
