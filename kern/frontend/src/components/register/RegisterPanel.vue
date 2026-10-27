@@ -2,6 +2,7 @@
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import RegisterTabs from './RegisterTabs.vue'
 import EmptyState from '../ui/EmptyState.vue'
+import { formatKoordinaten, kartenKachelUrl, kartenLink } from '../../application/registerService'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
@@ -17,7 +18,10 @@ const loaded = ref(false)
 const loadError = ref('')
 const createError = ref('')
 const error = ref('')
-const form = ref({ name: '', refs: '' })
+const form = ref({ name: '', refs: '', koordinaten: '' })
+const editingLocationId = ref('')
+const editLocationValue = ref('')
+const locationError = ref('')
 const nameInput = ref(null)
 const renaming = ref(false)
 const renameValue = ref('')
@@ -95,7 +99,7 @@ async function add() {
   error.value = ''
   try {
     await register.add(selectedId.value, form.value)
-    form.value = { name: '', refs: '' }
+    form.value = { name: '', refs: '', koordinaten: '' }
     await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()]) // auch die Zahlen auf den Reitern
     emit('changed')
     focusName() // gleich der nächste Eintrag
@@ -115,6 +119,20 @@ async function saveEditEntry() {
     await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
     emit('changed')
   } catch (e) { editError.value = e.message }
+}
+
+function startLocation(entry) {
+  editingLocationId.value = entry.id
+  editLocationValue.value = formatKoordinaten(entry)
+  locationError.value = ''
+}
+async function saveLocation(entry) {
+  locationError.value = ''
+  try {
+    const updated = await register.setLocation(entry.id, editLocationValue.value)
+    Object.assign(entry, updated)
+    editingLocationId.value = ''
+  } catch (e) { locationError.value = e.message }
 }
 async function removeEntry(entry) {
   if (!confirm(`„${entry.name}“ aus dem Register löschen?`)) return
@@ -178,9 +196,12 @@ onMounted(() => loadRegisters())
         </div>
         <input v-model="form.refs" class="input" placeholder="Bibelstellen, z. B. 1Mo 12,1-3; Hebr 11,8" aria-label="Bibelstellen" />
         <button class="btn btn-primary">Eintragen</button>
+        <input v-model="form.koordinaten" class="input sm:col-span-2" placeholder="Koordinaten (optional), z. B. 52.52, 13.405"
+          aria-label="Koordinaten" />
         <p class="text-xs text-slate-500 dark:text-slate-400 sm:col-span-3">
           Mehrere Stellen mit Semikolon trennen, kurz oder ausgeschrieben (Apg 8,26-40 oder Apostelgeschichte 8,26-40).
-          Gibt es den Namen in diesem Register schon, kommen die Stellen dazu.
+          Gibt es den Namen in diesem Register schon, kommen die Stellen dazu. Koordinaten (Breite, Länge) sind
+          nur bei Orten sinnvoll, von Hand eingetragen – es gibt keine automatische Ortssuche.
         </p>
         <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-3">{{ error }}</p>
       </form>
@@ -221,6 +242,32 @@ onMounted(() => loadRegisters())
                 {{ r.text }}
               </button>
             </div>
+
+            <form v-if="editingLocationId === e.id" class="mt-3 flex items-center gap-2" @submit.prevent="saveLocation(e)">
+              <input v-model="editLocationValue" class="input !py-1 text-sm" placeholder="Breite, Länge (leer = löschen)"
+                aria-label="Koordinaten" />
+              <button class="btn btn-primary !px-2.5 !py-1">Speichern</button>
+              <button type="button" class="btn btn-ghost !px-2.5 !py-1" @click="editingLocationId = ''">Abbrechen</button>
+            </form>
+            <template v-else-if="e.lat != null">
+              <a :href="kartenLink(e.lat, e.lon)" target="_blank" rel="noopener" class="mt-3 block"
+                title="In OpenStreetMap öffnen">
+                <img :src="kartenKachelUrl(e.lat, e.lon)" alt="" width="256" height="256" loading="lazy"
+                  class="h-32 w-32 rounded-lg object-cover" />
+              </a>
+              <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">© OpenStreetMap-Mitwirkende</p>
+              <button type="button" class="mt-1 text-xs text-slate-500 underline hover:text-primary dark:text-slate-400"
+                @click="startLocation(e)">
+                {{ e.lat }}, {{ e.lon }} – ändern
+              </button>
+            </template>
+            <button v-else type="button" class="mt-3 text-xs text-slate-500 underline hover:text-primary dark:text-slate-400"
+              @click="startLocation(e)">
+              Koordinaten eintragen
+            </button>
+            <p v-if="locationError && editingLocationId === e.id" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+              {{ locationError }}
+            </p>
           </template>
           <form v-else class="grid gap-2" @submit.prevent="saveEditEntry">
             <input v-model="editForm.name" class="input" placeholder="Name oder Begriff" :aria-label="`Name für ${e.name}`" />

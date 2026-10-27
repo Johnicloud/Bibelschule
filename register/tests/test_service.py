@@ -160,6 +160,37 @@ def test_delete_status_and_subject_hooks(svc, namen, orte):
     assert [e.name for e in svc.list_entries()] == ["Paulus"] and svc.list_registers("f") == []
 
 
+def test_entry_coordinates_are_optional_and_preserved_when_merging(svc, orte):
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 11,28"])
+    assert (e.lat, e.lon) == (None, None)
+
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 15,7"], lat=30.9608, lon=46.1025)   # Stellen dazu + Koordinaten gesetzt
+    assert (e.lat, e.lon) == (30.9608, 46.1025)
+
+    e = svc.add_entry(orte.id, "Ur", ["Neh 9,7"])   # ohne Angabe bleiben vorhandene Koordinaten unangetastet
+    assert (e.lat, e.lon) == (30.9608, 46.1025)
+
+
+def test_entry_coordinates_must_come_together_and_in_range(svc, orte):
+    with pytest.raises(InvalidInput):
+        svc.add_entry(orte.id, "Ur", ["1Mo 11,28"], lat=30.9608)
+    with pytest.raises(InvalidInput):
+        svc.add_entry(orte.id, "Ur", ["1Mo 11,28"], lat=300, lon=46.1025)
+
+
+def test_set_location_updates_or_clears_without_touching_refs(svc, orte):
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 11,28"])
+    svc.set_location(e.id, 30.9608, 46.1025)
+    assert texts(svc.repo.get(e.id)) == ["1Mo 11,28"]
+    assert (svc.repo.get(e.id).lat, svc.repo.get(e.id).lon) == (30.9608, 46.1025)
+
+    svc.set_location(e.id, None, None)
+    assert (svc.repo.get(e.id).lat, svc.repo.get(e.id).lon) == (None, None)
+
+    with pytest.raises(NotFound):
+        svc.set_location("gibt-es-nicht", 1, 1)
+
+
 def test_migrate_legacy_moves_old_names_and_places_into_registers(svc):
     from app.domain.models import RegisterEntry
     for kind, name in [("person", "Abraham"), ("place", "Ur"), ("person", "Sara"), ("", "Rätsel")]:

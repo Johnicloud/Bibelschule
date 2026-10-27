@@ -17,6 +17,13 @@ def _clean(text: str, what: str) -> str:
     return text
 
 
+def _check_coords(lat: float | None, lon: float | None) -> None:
+    if (lat is None) != (lon is None):
+        raise InvalidInput("Breite und Länge nur zusammen angeben.")
+    if lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise InvalidInput("Koordinaten sind außerhalb des gültigen Bereichs.")
+
+
 class RegisterService:
     def __init__(self, repo: RegisterRepository, events: EventPublisher | None = None):
         self.repo = repo
@@ -67,10 +74,13 @@ class RegisterService:
         return {r.id: r.name for r in self.repo.list_registers()}
 
     # Einträge
-    def add_entry(self, register_id: str, name: str, refs: list[str]) -> RegisterEntry:
-        """Legt einen Eintrag an. Gibt es ihn im Register schon, kommen die Stellen dazu."""
+    def add_entry(self, register_id: str, name: str, refs: list[str],
+                  lat: float | None = None, lon: float | None = None) -> RegisterEntry:
+        """Legt einen Eintrag an. Gibt es ihn im Register schon, kommen die Stellen dazu.
+        Koordinaten sind optional (von Hand eingetragen); ohne Angabe bleiben vorhandene unangetastet."""
         register = self._register(register_id)
         name = _clean(name, "Der Name")
+        _check_coords(lat, lon)
         parts = split_refs(refs)
         if not parts:
             raise InvalidInput("Gib mindestens eine Bibelstelle an.")
@@ -82,10 +92,22 @@ class RegisterService:
         created = entry is None
         entry = entry or probe
         entry.add_refs(parsed)
+        if lat is not None or lon is not None:
+            entry.lat, entry.lon = lat, lon
         self.repo.save(entry)
         self._emit("register.entry_added" if created else "register.entry_updated",
                    {"subject_id": register.subject_id, "register_id": register.id,
                     "entry_id": entry.id, "name": entry.name})
+        return entry
+
+    def set_location(self, entry_id: str, lat: float | None, lon: float | None) -> RegisterEntry:
+        """Setzt oder löscht die Koordinaten eines Eintrags, ohne Name/Stellen anzutasten."""
+        entry = self.repo.get(entry_id)
+        if entry is None:
+            raise NotFound("Eintrag nicht gefunden.")
+        _check_coords(lat, lon)
+        entry.lat, entry.lon = lat, lon
+        self.repo.save(entry)
         return entry
 
     def list_entries(self, subject_id: str | None = None, register_id: str | None = None,
