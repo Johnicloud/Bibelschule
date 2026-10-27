@@ -738,6 +738,15 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Neue Symbole in `ICONS`, neue Bausteine ebenfalls dort (nicht in einzelne Seiten). Regel: ein Baustein, den ein
   zweiter Dienst brauchen könnte, gehört ins UI-Kit.
 
+- [fertig] Karteikarten bearbeiten: bisher ging nur Anlegen und Löschen. Neuer Anwendungsfall `FlashcardService.update_card`
+  (Test zuerst) ändert Typ, Frage, Antwort/Optionen und Set einer Karte; Lernstufe und Fälligkeit bleiben (Bearbeiten ist
+  kein Lernerfolg, wie bei Bibelversen). Geprüft wie beim Anlegen (`build_card`), eine abgelehnte Änderung lässt die Karte
+  unverändert. `set_name=None` (Feld nicht mitgeschickt) lässt das Set, leerer Text nimmt die Karte aus dem Set
+  (`PUT /api/karteikarten/decks/{deck}/cards/{id}`, `body.model_fields_set` unterscheidet „nicht angegeben“ von „leer“).
+  Oberfläche: Stift-Knopf an jeder Karte im Karteikarten-Reiter (`DeckPanel.vue`), die Karte wird an Ort und Stelle zum
+  Formular (dieselbe `CardForm.vue` wie beim Anlegen, mit `card`-Prop vorbefüllt, „Speichern“/„Abbrechen“), dazu ein
+  Feld „Set (optional)“ auch beim Anlegen. Noch nicht in der Ansicht „Alle Karten“ (dort nur Löschen).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

@@ -2,15 +2,18 @@
 import { inject, ref } from 'vue'
 import { KINDS } from '../../domain/kinds'
 
-const props = defineProps({ deckId: String })
-const emit = defineEmits(['added'])
+// Ohne `card`: neue Karte anlegen. Mit `card`: diese Karte bearbeiten (Lernstufe und Fälligkeit bleiben erhalten).
+const props = defineProps({ deckId: String, card: Object })
+const emit = defineEmits(['added', 'saved', 'cancel'])
 const service = inject('service')
 
-const kind = ref('classic')
-const front = ref('')
-const back = ref('')
-const options = ref(['', '', '', ''])
-const correct = ref(0) // Multiple Choice: Index 0-3, Richtig/Falsch: 0 = Richtig, 1 = Falsch
+const bearbeiten = !!props.card
+const kind = ref(props.card?.kind || 'classic')
+const front = ref(props.card?.front || '')
+const back = ref(props.card?.kind === 'classic' ? props.card.back : '')
+const options = ref(props.card?.kind === 'choice' ? [...props.card.options] : ['', '', '', ''])
+const correct = ref(props.card?.correct_index ?? 0) // Multiple Choice: Index 0-3, Richtig/Falsch: 0 = Richtig, 1 = Falsch
+const setName = ref(props.card?.set_name || '')
 const error = ref('')
 const busy = ref(false)
 
@@ -24,13 +27,19 @@ async function submit() {
   error.value = ''
   busy.value = true
   try {
-    await service.addCard(props.deckId, {
+    const inhalt = {
       kind: kind.value,
       front: front.value,
       back: back.value,
       options: kind.value === 'choice' ? options.value : [],
       correct_index: kind.value === 'classic' ? null : correct.value,
-    })
+    }
+    if (bearbeiten) {
+      await service.updateCard(props.deckId, props.card.id, { ...inhalt, set_name: setName.value.trim() })
+      emit('saved')
+      return
+    }
+    await service.addCard(props.deckId, { ...inhalt, set_name: setName.value.trim() })
     front.value = ''
     back.value = ''
     options.value = ['', '', '', '']
@@ -84,7 +93,12 @@ async function submit() {
       </label>
     </fieldset>
 
+    <input v-model="setName" class="input" placeholder="Set (optional)" aria-label="Set" />
+
     <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
-    <button class="btn btn-primary" :disabled="busy">Karte hinzufügen</button>
+    <div class="flex gap-2">
+      <button class="btn btn-primary" :disabled="busy">{{ bearbeiten ? 'Speichern' : 'Karte hinzufügen' }}</button>
+      <button v-if="bearbeiten" type="button" class="btn btn-ghost" @click="$emit('cancel')">Abbrechen</button>
+    </div>
   </form>
 </template>

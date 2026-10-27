@@ -2,9 +2,10 @@
 import KindBadge from '../ui/KindBadge.vue'
 import DueBadge from '../ui/DueBadge.vue'
 import BoxDots from '../ui/BoxDots.vue'
+import AppIcon from '../ui/AppIcon.vue'
 
-defineProps({ card: Object, showDeck: Boolean, nummer: Number })
-defineEmits(['delete'])
+defineProps({ card: Object, showDeck: Boolean, nummer: Number, bearbeitbar: Boolean })
+defineEmits(['delete', 'edit'])
 </script>
 
 <template>
@@ -23,6 +24,11 @@ defineEmits(['delete'])
       <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Antwort: {{ card.back }}</p>
       <div class="mt-3"><BoxDots :box="card.box" /></div>
     </div>
-    <button class="btn btn-danger !px-3 !py-1.5" @click="$emit('delete')">Löschen</button>
+    <div class="flex shrink-0 gap-2">
+      <button v-if="bearbeitbar" class="btn btn-outline !px-3 !py-1.5" title="Karte bearbeiten" aria-label="Karte bearbeiten" @click="$emit('edit')">
+        <AppIcon name="stift" class="h-4 w-4" />
+      </button>
+      <button class="btn btn-danger !px-3 !py-1.5" @click="$emit('delete')">Löschen</button>
+    </div>
   </li>
 </template>

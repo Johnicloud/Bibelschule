@@ -94,6 +94,13 @@ def create_app(service: FlashcardService) -> FastAPI:
         return card_out(service.add_card(deck_id, body.kind, body.front, body.back,
                                          body.options, body.correct_index, body.set_name))
 
+    @api.put("/decks/{deck_id}/cards/{card_id}")
+    def update_card(deck_id: str, card_id: str, body: CardIn):
+        # set_name nur ändern, wenn es mitgeschickt wurde (leer = aus dem Set nehmen)
+        set_name = body.set_name if "set_name" in body.model_fields_set else None
+        return card_out(service.update_card(deck_id, card_id, body.kind, body.front, body.back,
+                                            body.options, body.correct_index, set_name))
+
     @api.delete("/decks/{deck_id}/cards/{card_id}", status_code=204)
     def delete_card(deck_id: str, card_id: str):
         service.delete_card(deck_id, card_id)

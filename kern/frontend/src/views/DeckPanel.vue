@@ -14,6 +14,7 @@ const anlegen = ref(false)
 const druckFehler = ref('')
 const druckt = ref(false)
 const druckFormat = ref('a7')
+const bearbeitetId = ref(null)   // Karte, die gerade im Bearbeiten-Formular steht
 const setFilter = ref('')   // '' = alle Karten
 
 // Nummer = Platz im Fach, genau wie auf dem Druckbogen (der zählt in derselben Reihenfolge)
@@ -27,6 +28,7 @@ async function load() {
 }
 async function refresh() { await load(); emit('changed') }
 async function hinzugefuegt() { anlegen.value = false; await refresh() }
+async function gespeichert() { bearbeitetId.value = null; await refresh() }
 async function remove(card) {
   await service.deleteCard(props.subjectId, card.id)
   await refresh()
@@ -77,7 +79,12 @@ onMounted(load)
       <option v-for="s in sets" :key="s" :value="s">Set: {{ s }}</option>
     </select>
     <ul v-if="deck.cards.length" class="grid gap-3 md:grid-cols-2">
-      <CardItem v-for="x in sichtbar" :key="x.c.id" :card="x.c" :nummer="x.nummer" @delete="remove(x.c)" />
+      <template v-for="x in sichtbar" :key="x.c.id">
+        <li v-if="bearbeitetId === x.c.id" class="md:col-span-2">
+          <CardForm :deck-id="subjectId" :card="x.c" @saved="gespeichert" @cancel="bearbeitetId = null" />
+        </li>
+        <CardItem v-else :card="x.c" :nummer="x.nummer" bearbeitbar @edit="bearbeitetId = x.c.id" @delete="remove(x.c)" />
+      </template>
     </ul>
     <EmptyState v-else-if="!anlegen" title="Noch keine Karten" text="Lege die erste Karte an.">
       <button class="btn btn-primary" @click="anlegen = true">Erste Karte anlegen</button>

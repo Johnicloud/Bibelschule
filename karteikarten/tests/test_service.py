@@ -122,3 +122,38 @@ def test_karte_merkt_sich_ihr_set_auch_nach_dem_speichern(svc, tmp_path):
     repo = JsonDeckRepository(tmp_path / "decks.json")
     repo.save(svc.get_deck(deck.id))
     assert [c.set_name for c in repo.get(deck.id).cards] == ["Fragen Apostelgeschichte", ""]
+
+
+def test_karte_bearbeiten_aendert_den_inhalt_aber_nicht_den_lernstand(svc, events):
+    deck = svc.create_deck("Apg")
+    _, card = svc.add_card(deck.id, "classic", "Alt?", "Alt", set_name="Set A")
+    svc.review_card(deck.id, card.id, True)
+    stufe, faellig = svc.get_deck(deck.id).cards[0].box, svc.get_deck(deck.id).cards[0].due
+    _, neu = svc.update_card(deck.id, card.id, "classic", " Neu? ", " Neu ")
+    gespeichert = svc.get_deck(deck.id).cards[0]
+    assert (gespeichert.front, gespeichert.back) == ("Neu?", "Neu")
+    assert (gespeichert.id, gespeichert.box, gespeichert.due) == (card.id, stufe, faellig)   # Bearbeiten ist kein Lernerfolg
+    assert gespeichert.set_name == "Set A"                      # ohne Angabe bleibt das Set
+    assert "card.updated" in events.sent
+
+
+def test_karte_bearbeiten_kann_typ_und_set_wechseln(svc):
+    deck = svc.create_deck("Apg")
+    _, card = svc.add_card(deck.id, "classic", "Frage?", "Antwort")
+    svc.update_card(deck.id, card.id, "choice", "Frage?", "", ["a", "b", "c", "d"], 2, set_name="Neues Set")
+    c = svc.get_deck(deck.id).cards[0]
+    assert (c.kind, c.back, c.correct_index, c.set_name) == ("choice", "c", 2, "Neues Set")
+    svc.update_card(deck.id, card.id, "classic", "Frage?", "Antwort", set_name="")
+    assert svc.get_deck(deck.id).cards[0].set_name == ""      # leerer Name nimmt die Karte aus dem Set
+
+
+def test_karte_bearbeiten_prueft_wie_beim_anlegen(svc):
+    deck = svc.create_deck("Apg")
+    _, card = svc.add_card(deck.id, "classic", "Frage?", "Antwort")
+    with pytest.raises(InvalidInput):
+        svc.update_card(deck.id, card.id, "classic", "  ", "x")
+    with pytest.raises(InvalidInput):
+        svc.update_card(deck.id, card.id, "classic", "Frage?", " ")
+    assert svc.get_deck(deck.id).cards[0].front == "Frage?"     # abgelehnte Änderung lässt die Karte unverändert
+    with pytest.raises(NotFound):
+        svc.update_card(deck.id, "gibts-nicht", "classic", "a", "b")

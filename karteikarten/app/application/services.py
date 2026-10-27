@@ -105,6 +105,24 @@ class FlashcardService:
         self._emit("card.created", {"deck_id": deck.id, "card_id": card.id, "kind": card.kind})
         return deck, card
 
+    def update_card(self, deck_id: str, card_id: str, kind: str, front: str, back: str = "",
+                    options: list[str] | None = None, correct_index: int | None = None,
+                    set_name: str | None = None) -> Pair:
+        """Inhalt einer Karte ändern. Lernstufe und Fälligkeit bleiben (Bearbeiten ist kein Lernerfolg).
+        `set_name=None` lässt das Set unverändert, ein leerer Text nimmt die Karte aus dem Set."""
+        deck = self._deck(deck_id)
+        card = deck.get_card(card_id)
+        if card is None:
+            raise NotFound("Karteikarte nicht gefunden.")
+        neu = build_card(kind, front, back, options or [], correct_index)     # prüft wie beim Anlegen
+        card.kind, card.front, card.back = neu.kind, neu.front, neu.back
+        card.options, card.correct_index = neu.options, neu.correct_index
+        if set_name is not None:
+            card.set_name = set_name.strip()
+        self.decks.save(deck)
+        self._emit("card.updated", {"deck_id": deck.id, "card_id": card.id, "kind": card.kind})
+        return deck, card
+
     def delete_card(self, deck_id: str, card_id: str) -> None:
         deck = self._deck(deck_id)
         card = deck.get_card(card_id)

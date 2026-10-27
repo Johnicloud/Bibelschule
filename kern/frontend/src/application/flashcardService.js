@@ -14,6 +14,12 @@ export function createFlashcardService(api) {
       back: (card.back || '').trim(),
       options: (card.options || []).map((o) => o.trim()),
     }),
+    updateCard: (id, cardId, card) => api.updateCard(id, cardId, {
+      ...card,
+      front: card.front.trim(),
+      back: (card.back || '').trim(),
+      options: (card.options || []).map((o) => o.trim()),
+    }),
     deleteCard: (id, cardId) => api.deleteCard(id, cardId),
     startSession: (deckId) => api.dueCards(deckId), // deckId leer = alle Fächer
     answer: (deckId, cardId, correct) => api.review(deckId, cardId, correct),

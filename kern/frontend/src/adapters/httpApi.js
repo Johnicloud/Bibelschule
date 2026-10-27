@@ -11,6 +11,7 @@ export function createHttpApi(base = '/api') {
     deleteDeck: (id) => call('DELETE', `/decks/${id}`),
     allCards: () => call('GET', '/cards'),
     addCard: (id, card) => call('POST', `/decks/${id}/cards`, card),
+    updateCard: (id, cardId, card) => call('PUT', `/decks/${id}/cards/${cardId}`, card),
     deleteCard: (id, cardId) => call('DELETE', `/decks/${id}/cards/${cardId}`),
     dueCards: (id) => call('GET', id ? `/decks/${id}/study` : '/study'),
     review: (id, cardId, correct) => call('POST', `/decks/${id}/cards/${cardId}/review`, { correct }),
