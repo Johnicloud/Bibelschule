@@ -626,6 +626,11 @@ Sprache der Oberfläche und der Texte: Deutsch.
   erst bei mit Pausen simulierten Klicks betroffen) – naheliegend eine Eigenheit der automatisierten
   Browser-Vorschau unter der Systemlast der parallel laufenden Docker-Builds mehrerer Geschwister-Sitzungen,
   keine Serverseite (`MemorySessionStore`) betroffen.
+- [fertig] Reiter-Symbole einzeln durchgegangen (Nutzer entschied je Symbol „lassen“ oder „ändern“, anhand
+  gerenderter Bilder, nicht geraten): geändert wurden Fächer (Stapel), Bibel (Buch mit Kreuz), Schnelllesen
+  (Tempomesser, neuer Name `tempo`; `stoppuhr` bleibt für die Zeitanzeige in `SchnelllesenView.vue`), Predigten
+  (Megafon), Notizen (Notizzettel), Fragen und KI (Funken, Name `funken` statt `fragezeichen`) und Glossar
+  (Omega). Unverändert: Karten, Noten, Bibliothek, Adressbuch. Alle bleiben zentral in `AppIcon.vue`.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
