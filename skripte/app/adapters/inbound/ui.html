@@ -20,7 +20,7 @@
 <!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF, Word .docx, Pages), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
 <form id="form" class="uk-form">
   <input id="datei" class="uk-input" type="file" aria-label="Datei auswählen" required>
-  <button class="uk-btn">Hochladen</button>
+  <button class="uk-btn uk-icon-btn" id="hochladen" title="Hochladen" aria-label="Hochladen"></button>
 </form>
 <p id="fehler" class="uk-error" role="alert"></p>
 <ul id="liste" class="uk-list"></ul>
@@ -28,7 +28,7 @@
 
 <script src="/ui-kit.js"></script>
 <script>
-  const { call, el, subjectId } = UIKit
+  const { call, el, subjectId, icon, setIcon } = UIKit
   const subject = subjectId()
 
   function groesse(bytes) {
@@ -55,16 +55,30 @@
     return docxBereit
   }
 
+  document.getElementById('hochladen').append(icon('upload'), 'Hochladen')
+
+  function downloadLink(href, name) {
+    const a = el('a', { class: 'uk-btn-ghost uk-icon-btn', href, download: name })
+    setIcon(a, 'download', 'Herunterladen')
+    return a
+  }
+  function loeschBtn(onclick) {
+    const b = el('button', { class: 'uk-btn-danger uk-icon-btn', onclick })
+    setIcon(b, 'trash', 'Löschen')
+    return b
+  }
+
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
     const docx = istDocx(s)
     const vorschau = el(docx ? 'div' : 'iframe', { class: docx ? 'uk-docx' : 'uk-vorschau', hidden: 'true' })
-    const oeffnenBtn = el('button', { class: 'uk-btn' }, 'Öffnen')
+    const oeffnenBtn = el('button', { class: 'uk-btn uk-icon-btn' })
+    setIcon(oeffnenBtn, 'eye', 'Öffnen')
     let geladen = false
     oeffnenBtn.onclick = async () => {
       const zu = vorschau.hidden
       vorschau.hidden = !zu
-      oeffnenBtn.textContent = zu ? 'Schließen' : 'Öffnen'
+      setIcon(oeffnenBtn, zu ? 'eyeoff' : 'eye', zu ? 'Schließen' : 'Öffnen')
       if (!zu || geladen) return
       if (!docx) { if (!vorschau.src) vorschau.src = istPages(s) ? `skripte/${s.id}/vorschau` : url; return }
       try {
@@ -77,7 +91,8 @@
       } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
     const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
-    const fragenBtn = el('button', { class: 'uk-btn-ghost', title: 'Karteikarten aus dieser Datei übernehmen (Fragenliste oder Druckbogen mit Antworten)' }, 'Karten übernehmen')
+    const fragenBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn' })
+    setIcon(fragenBtn, 'karten', 'Karteikarten aus dieser Datei übernehmen (Fragenliste oder Druckbogen mit Antworten)')
     fragenBtn.onclick = async () => {
       if (!fragenBox.hidden) { fragenBox.hidden = true; return }
       fragenBox.hidden = false
@@ -87,13 +102,13 @@
     }
     // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
     // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
-    const textBtn = el('button', { class: 'uk-btn-ghost' })
+    const textBtn = el('button', { class: 'uk-btn-ghost uk-icon-btn' })
     const textInfo = el('span', { class: 'uk-sub', role: 'status' })
     const textZeigen = (t) => {
       textBtn.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
       textBtn.disabled = t.text_status === 'laeuft'
-      textBtn.textContent = t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen'
-      textBtn.title = 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt'
+      if (t.text_status === 'laeuft') setIcon(textBtn, 'uhr', 'Text wird erkannt …')
+      else setIcon(textBtn, 'scan', 'Text erkennen: gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt')
       textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : ''
       if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
     }
@@ -114,11 +129,11 @@
           oeffnenBtn,
           textBtn,
           ...(kannFragen(s) ? [fragenBtn] : []),
-          el('a', { class: 'uk-btn-ghost', href: url + '?original=1', download: s.dateiname }, 'Herunterladen'),
-          el('button', { class: 'uk-btn-danger', onclick: async () => {
+          downloadLink(url + '?original=1', s.dateiname),
+          loeschBtn(async () => {
             if (!confirm(`„${s.dateiname}“ löschen?`)) return
             await call('DELETE', `skripte/${s.id}`); laden()
-          } }, 'Löschen'),
+          }),
         ]),
       ]),
       fragenBox,
@@ -142,10 +157,11 @@
     })
     const setName = el('input', { class: 'uk-input', type: 'text', value: s.dateiname.replace(/\.[^.]+$/, ''), 'aria-label': 'Name des Sets' })
     const meldung = el('p', { class: 'uk-sub', role: 'status' })
-    const anlegen = el('button', { class: 'uk-btn' }, 'Als Set speichern')
-    const verwerfen = el('button', { class: 'uk-btn-ghost', title: 'Erkannte Karten verwerfen, nichts wird angelegt' }, 'Verwerfen')
+    const anlegen = el('button', { class: 'uk-btn uk-icon-btn', title: 'Als Set speichern' })
+    const verwerfen = el('button', { class: 'uk-btn-ghost uk-icon-btn', title: 'Erkannte Karten verwerfen, nichts wird angelegt' })
+    verwerfen.append(icon('x'), 'Verwerfen')
     verwerfen.onclick = () => { box.hidden = true; box.replaceChildren() }
-    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.textContent = `${n} Karte${n === 1 ? '' : 'n'} als Set speichern`; anlegen.disabled = n === 0 }
+    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.replaceChildren(icon('haken'), `${n} Karte${n === 1 ? '' : 'n'} als Set speichern`); anlegen.disabled = n === 0 }
     zeilen.forEach((z) => z.haken.addEventListener('change', zaehlen))
     zaehlen()
     anlegen.onclick = async () => {

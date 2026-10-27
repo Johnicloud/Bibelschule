@@ -24,6 +24,8 @@ body.ui-kit { margin: 1rem; font-family: system-ui, sans-serif; background: var(
 .uk-btn { padding: .6rem 1rem; font: inherit; font-weight: 500; border-radius: .7rem; border: 0;
   background: var(--accent); color: var(--accent-text); cursor: pointer; }
 .uk-btn:disabled { opacity: .5; cursor: not-allowed; }
+.uk-icon { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.uk-icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .55rem; }
 .uk-btn-ghost { background: transparent; color: var(--muted); }
 .uk-btn-danger { background: var(--danger-bg); color: var(--danger); padding: .3rem .7rem; }
 

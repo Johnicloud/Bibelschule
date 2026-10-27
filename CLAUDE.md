@@ -691,6 +691,13 @@ Sprache der Oberfläche und der Texte: Deutsch.
   (`DateiLeser.hat_text`). Die verdorbene Textfassung der Fragenliste wurde gelöscht. Lehre: echter Text im Original schlägt
   jede Texterkennung.
 
+- [fertig] Skripte: Aktionen als Symbole statt Text (Öffnen = Auge/durchgestrichenes Auge, Text erkennen = Scan, Karten übernehmen
+  = Karten, Herunterladen, Löschen = Papierkorb, Hochladen). Dafür hat das UI-Kit der Plugin-Dienste jetzt `UIKit.icon(name)`
+  und `UIKit.setIcon(knopf, name, beschriftung)` (`ui-kit.js`, Pfade wie in `AppIcon.vue`, Klasse `.uk-icon-btn` in
+  `ui-kit.css`) – der Name steht im Tooltip und als `aria-label`. Die Entscheidungsknöpfe der Kartenvorschau („Als Set
+  speichern“, „Verwerfen“) behalten Text neben dem Symbol. Neue Symbole kommen in `ICONS` in `ui-kit.js`, nicht in einzelne
+  Seiten. Andere Dienst-Oberflächen (Adressbuch, Bibelverse) nutzen sie noch nicht.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
