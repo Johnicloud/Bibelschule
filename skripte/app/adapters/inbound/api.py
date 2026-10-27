@@ -71,6 +71,12 @@ def create_app(service: SkriptService) -> FastAPI:
         service.text_erkennen_starten(skript_id)
         return service.text_status(skript_id)
 
+    @api.get("/skripte/{skript_id}/ansicht", response_class=HTMLResponse)
+    def ansicht(skript_id: str):
+        """Eigene Seite für die Ansicht in einem neuen Tab, wo der Browser die Datei nicht selbst zeigen kann (Word .docx)."""
+        service.datei(skript_id)   # 404, wenn es das Skript nicht gibt
+        return (Path(__file__).parent / "ansicht.html").read_text("utf-8")
+
     @api.get("/skripte/{skript_id}/vorschau")
     def vorschau(skript_id: str):
         pdf = service.vorschau_pdf(skript_id)

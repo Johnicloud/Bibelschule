@@ -62,6 +62,13 @@
     setIcon(a, 'download', 'Herunterladen')
     return a
   }
+  // Vorschau in einem eigenen Browser-Tab: PDF/Bild direkt, Pages über die eingebettete Vorschau, Word über die Ansichtsseite
+  function neuerTab(s) {
+    const art = istPages(s) ? 'vorschau' : istDocx(s) ? 'ansicht' : 'datei'
+    const a = el('a', { class: 'uk-btn-ghost uk-icon-btn', href: `skripte/${s.id}/${art}`, target: '_blank', rel: 'noopener' })
+    setIcon(a, 'extern', 'In neuem Tab öffnen')
+    return a
+  }
   function loeschBtn(onclick) {
     const b = el('button', { class: 'uk-btn-danger uk-icon-btn', onclick })
     setIcon(b, 'trash', 'Löschen')
@@ -127,6 +134,7 @@
         el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
         el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
           oeffnenBtn,
+          ...(istDoc(s) ? [] : [neuerTab(s)]),
           textBtn,
           ...(kannFragen(s) ? [fragenBtn] : []),
           downloadLink(url + '?original=1', s.dateiname),

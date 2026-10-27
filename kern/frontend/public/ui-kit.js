@@ -44,6 +44,7 @@ window.UIKit = (() => {
     haken: 'M20 6 9 17l-5-5',
     x: 'M6 6l12 12M18 6 6 18',
     upload: 'M12 15V3M7 8l5-5 5 5M5 21h14',
+    extern: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
     uhr: 'M12 6v6l4 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   }
   function icon(name) {

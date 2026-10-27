@@ -704,6 +704,11 @@ Sprache der Oberfläche und der Texte: Deutsch.
   mit ASCII-Ersatzname, und beim Hochladen werden unsichtbare Formatzeichen (Unicode-Kategorie Cf) aus dem Namen entfernt.
   Lehre: jeder Dienst, der Dateinamen in Kopfzeilen schreibt, darf sie nie roh einsetzen.
 
+- [fertig] Skripte: Vorschau in einem neuen Browser-Tab (Symbol „öffnen in neuem Tab“ neben dem Auge, `neuerTab()` in `ui.html`,
+  `target=_blank`). PDF/Bild öffnen direkt `…/datei`, Pages die eingebettete `…/vorschau`, Word (.docx) eine eigene Seite
+  `GET /api/skripte/{id}/ansicht` (`ansicht.html`, gleiche lokale `docx-preview`-Bibliothek wie die Inline-Vorschau, holt die
+  Datei relativ über `datei`). Für das alte .doc gibt es den Knopf nicht.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

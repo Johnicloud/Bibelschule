@@ -11,3 +11,11 @@ def test_datei_mit_sonderzeichen_im_namen_liefert_keinen_serverfehler():
     antwort = TestClient(create_app(service)).get(f"/api/skripte/{s.id}/datei")
     assert antwort.status_code == 200
     assert "filename*=UTF-8''" in antwort.headers["content-disposition"]
+
+
+def test_ansicht_fuer_neuen_tab_gibt_es_nur_fuer_vorhandene_skripte():
+    service = SkriptService(InMemoryRepo(), InMemoryDateien())
+    s = service.upload("f", "Fragen.docx", None, b"x")
+    client = TestClient(create_app(service))
+    assert client.get(f"/api/skripte/{s.id}/ansicht").status_code == 200
+    assert client.get("/api/skripte/unbekannt/ansicht").status_code == 404
