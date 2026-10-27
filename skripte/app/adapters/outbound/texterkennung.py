@@ -17,8 +17,9 @@ class OcrmypdfTexterkennung(Texterkennung):
             ein, aus = Path(ordner) / "ein.pdf", Path(ordner) / "aus.pdf"
             ein.write_bytes(pdf)
             try:
-                # --skip-text: Seiten, die schon Text haben, bleiben unberührt; --optimize 0: Bilder nicht neu komprimieren
-                lauf = subprocess.run(["ocrmypdf", "--skip-text", "--optimize", "0", "-l", SPRACHE, str(ein), str(aus)],
+                # --skip-text: Seiten, die schon Text haben, bleiben unberührt; --optimize 0: Bilder nicht neu komprimieren;
+                # --output-type pdf: kein PDF/A über Ghostscript (das hat bei Text-PDFs Umlaute aus dem Text gelöscht)
+                lauf = subprocess.run(["ocrmypdf", "--skip-text", "--optimize", "0", "--output-type", "pdf", "-l", SPRACHE, str(ein), str(aus)],
                                       capture_output=True, text=True, timeout=ZEITLIMIT_SEKUNDEN)
             except FileNotFoundError as e:
                 raise InvalidInput("Die Texterkennung (ocrmypdf) ist auf diesem Rechner nicht installiert.") from e

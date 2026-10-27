@@ -98,6 +98,15 @@ class DateiLeserAdapter(DateiLeser):
             return _pdf_zeilen(pdf)
         raise InvalidInput("Nur PDF, Word (.docx), Pages und Bilder (PNG, JPG) lassen sich nach Fragen durchsuchen.")
 
+    def hat_text(self, dateiname: str, inhalt: bytes) -> bool:
+        if _endung(dateiname) != "pdf":
+            return False
+        try:
+            seiten = PdfReader(io.BytesIO(inhalt)).pages
+            return any(len((seiten[i].extract_text() or "").strip()) > 40 for i in range(min(5, len(seiten))))
+        except Exception:
+            return False
+
     def textstuecke(self, dateiname: str, inhalt: bytes) -> list[Textstueck]:
         endung = _endung(dateiname)
         if endung == "pdf":

@@ -58,19 +58,26 @@ class SkriptService:
             raise NotFound("Die Datei fehlt leider (nur die Angaben sind noch da).")
         return skript, inhalt
 
-    def fragen(self, skript_id: str) -> list[str]:
-        """Die Fragen einer Fragenliste (PDF, Word, Pages) – nur ein Vorschlag, die Karteikarten legt der Nutzer an."""
-        skript, inhalt = self.datei(skript_id)
+    def _lesefassung(self, skript_id: str) -> tuple[Skript, bytes]:
+        """Was zum Auslesen dient: das Original. Nur wenn es keinen Text hat (gescannt), die Fassung mit erkanntem Text –
+        ein Original mit echtem Text ist immer genauer als jede Texterkennung."""
         if self.leser is None:
             raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
+        skript, original = self.datei(skript_id, original=True)
+        if skript.dateiname.lower().endswith(".pdf") and not self.leser.hat_text(skript.dateiname, original) \
+                and self.dateien.vorhanden(_text_key(skript_id)):
+            return skript, self.dateien.lies(_text_key(skript_id))
+        return skript, original
+
+    def fragen(self, skript_id: str) -> list[str]:
+        """Die Fragen einer Fragenliste (PDF, Word, Pages) – nur ein Vorschlag, die Karteikarten legt der Nutzer an."""
+        skript, inhalt = self._lesefassung(skript_id)
         return fragen_erkennen(self.leser.zeilen(skript.dateiname, inhalt))
 
     def karten(self, skript_id: str) -> dict:
         """Vorschläge für Karteikarten aus einer Datei. Ist sie ein Druckbogen der App („Als PDF drucken“), kommen die
         Antworten von der Rückseite mit; sonst wird sie als Fragenliste gelesen (Antworten leer)."""
-        skript, inhalt = self.datei(skript_id)
-        if self.leser is None:
-            raise InvalidInput("Dateien lesen ist hier nicht eingerichtet.")
+        skript, inhalt = self._lesefassung(skript_id)
         paare = karten_aus_druckbogen(self.leser.textstuecke(skript.dateiname, inhalt))
         if paare:
             return {"quelle": "druckbogen", "karten": [{"frage": f, "antwort": a} for f, a in paare]}
@@ -99,6 +106,9 @@ class SkriptService:
             raise InvalidInput("Texterkennung gibt es nur für PDF-Dateien.")
         if skript_id in self._laufend:
             return
+        original = self.dateien.lies(skript_id)
+        if original is not None and self.leser is not None and self.leser.hat_text(skript.dateiname, original):
+            raise InvalidInput("Dieses PDF hat schon Text, die Erkennung ist nicht nötig.")
         self._fehler.pop(skript_id, None)
         self._laufend.add(skript_id)
         if im_hintergrund:

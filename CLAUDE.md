@@ -683,6 +683,14 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Endung. Die Kartenliste (`DeckPanel.vue`) zeigt je Karte ihre **Nummer** (Platz im Fach, dieselbe Zählung wie auf dem
   Druckbogen), das Set als Marke und einen Set-Filter. Gedruckt wird weiterhin das ganze Fach.
 
+- [fertig] Skripte: Umlaute gingen beim Karten-Erkennen verloren („begrnde“, „Jnger“). Ursache: „Text erkennen“ lief auch auf
+  einem PDF, das schon echten Text hat; `ocrmypdf` schreibt standardmäßig über Ghostscript nach PDF/A um, und das hat dort die
+  Umlaute aus dem Text gelöscht – die Karten wurden dann aus dieser verdorbenen Textfassung gelesen. Behoben dreifach:
+  (1) `--output-type pdf` (kein PDF/A mehr), (2) Fragen/Karten werden immer aus dem Original gelesen, die Textfassung nur,
+  wenn das Original keinen Text hat (gescannt), (3) „Text erkennen“ lehnt PDFs ab, die schon Text haben
+  (`DateiLeser.hat_text`). Die verdorbene Textfassung der Fragenliste wurde gelöscht. Lehre: echter Text im Original schlägt
+  jede Texterkennung.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

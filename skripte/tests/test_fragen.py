@@ -149,3 +149,12 @@ def test_fragenliste_ist_kein_druckbogen_und_kommt_ohne_antworten(svc):
     erg = svc.karten(s.id)
     assert erg["quelle"] == "fragenliste"
     assert [k["antwort"] for k in erg["karten"]] == ["", ""]
+
+
+def test_pdf_mit_text_braucht_keine_erkennung_und_wird_im_original_gelesen(svc):
+    svc = SkriptService(svc.repo, svc.dateien, DateiLeserAdapter(), FakeOcr())
+    s = svc.upload("f", "Fragen.pdf", None, _pdf(["1. Nenne und begründe die Jünger.", "2. Schlüsselvers?"]))
+    with pytest.raises(InvalidInput):
+        svc.text_erkennen_starten(s.id, im_hintergrund=False)
+    svc.dateien.speichere(s.id + ".text", b"%PDF-ohne-umlaute")      # selbst eine alte Textfassung stört nicht
+    assert svc.fragen(s.id) == ["Nenne und begründe die Jünger.", "Schlüsselvers?"]

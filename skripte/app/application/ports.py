@@ -48,6 +48,10 @@ class DateiLeser(ABC):
         """Der Text als Zeilen (PDF) bzw. Absätze (Word). Wirft InvalidInput, wenn das Format nicht lesbar ist."""
 
     @abstractmethod
+    def hat_text(self, dateiname: str, inhalt: bytes) -> bool:
+        """Hat das PDF schon eine Textebene (nicht gescannt)? Geprüft an den ersten Seiten."""
+
+    @abstractmethod
     def textstuecke(self, dateiname: str, inhalt: bytes) -> list[Textstueck]:
         """Die Textstücke eines PDFs mit Lage und Schriftgröße (für Druckbögen); leer, wenn es nichts Passendes gibt."""
 
