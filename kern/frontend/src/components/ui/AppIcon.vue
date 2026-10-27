@@ -28,6 +28,8 @@ const PATHS = {
   x: 'M6 6l12 12M18 6 6 18',
   stoppuhr: 'M10 2h4M12 14 15 11M12 6a8 8 0 1 0 0 16 8 8 0 0 0 0-16z',
   predigten: 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8',
+
+  notizen: 'M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z',
 }
 
 const path = () => PATHS[props.name] || PATHS.baustein

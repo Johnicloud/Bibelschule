@@ -9,6 +9,7 @@ import { createBibelApi } from './adapters/bibelApi'
 import { createBibliothekApi } from './adapters/bibliothekApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
+import { createNotizenApi } from './adapters/notizenApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
 import { createPredigtenApi } from './adapters/predigtenApi'
 import { createReadingApi } from './adapters/readingApi'
@@ -20,6 +21,7 @@ import { createAuthService } from './application/authService'
 import { createBibelService } from './application/bibelService'
 import { createBibliothekService } from './application/bibliothekService'
 import { createFlashcardService } from './application/flashcardService'
+import { createNotizenService } from './application/notizenService'
 import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createPredigtenService } from './application/predigtenService'
 import { createSubjectService } from './application/subjectService'
@@ -40,4 +42,6 @@ createApp(App)
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
   .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
   .provide('predigten', createPredigtenService(createPredigtenApi('/api/predigten')))
+
+  .provide('notizen', createNotizenService(createNotizenApi('/api/notizen')))
   .mount('#app')

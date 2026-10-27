@@ -11,6 +11,8 @@ const tabs = [
   { id: 'bibliothek', label: 'Bibliothek', icon: 'bibliothek' },
   { id: 'schnelllesen', label: 'Schnelllesen', icon: 'stoppuhr' },
   { id: 'predigten', label: 'Predigten', icon: 'predigten' },
+
+  { id: 'notizen', label: 'Notizen', icon: 'notizen' },
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>
