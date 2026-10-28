@@ -8,7 +8,7 @@ from app.application.ports import Texterkennung
 from app.domain.errors import InvalidInput
 
 SPRACHE = "deu"
-ZEITLIMIT_SEKUNDEN = 60 * 60
+ZEITLIMIT_SEKUNDEN = 4 * 60 * 60     # ein ganzes Skript mit 300-dpi-Hochrechnung braucht über eine Stunde
 PARALLEL = 3      # Seiten gleichzeitig: bei 300 dpi und allen Kernen reichten 7,6 GB Arbeitsspeicher nicht (Container wurde beendet)
 
 
