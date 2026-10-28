@@ -5,7 +5,7 @@ function aufgabeFelder(f) {
   return {
     titel: (f.titel || '').trim(), art: f.art || 'allgemein', frist: f.frist || null, gewichtung: zahlOderNull(f.gewichtung),
     zaehlt: f.zaehlt !== false, notiz: (f.notiz || '').trim(), soll: zahlOderNull(f.soll), ist: zahlOderNull(f.ist),
-    einheit: (f.einheit || '').trim(), set_name: (f.set_name || '').trim(),
+    einheit: (f.einheit || '').trim(), set_name: (f.set_name || '').trim(), formular: f.formular || '', pensum_id: f.pensum_id || null,
   }
 }
 

@@ -123,20 +123,24 @@ class SubjectService:
                 raise InvalidInput(f"{name} darf nicht negativ sein.")
         a.notiz = (a.notiz or "").strip()
         a.set_name = (a.set_name or "").strip()
+        a.formular = (a.formular or "").strip()
+        if a.formular not in ("", "standard", "angefragt") and not a.formular.startswith("skript:"):
+            raise InvalidInput("Dieses Formular ist unbekannt.")
         a.einheit = (a.einheit or "").strip()
 
     def add_aufgabe(self, subject_id: str, titel: str, frist: str | None = None,
                      gewichtung: float | None = None, art: str = "allgemein", zaehlt: bool = True, notiz: str = "",
-                     soll: float | None = None, ist: float | None = None, einheit: str = "", set_name: str = "") -> Subject:
+                     soll: float | None = None, ist: float | None = None, einheit: str = "", set_name: str = "",
+                     formular: str = "", pensum_id: str | None = None) -> Subject:
         subject = self._subject(subject_id)
         aufgabe = Aufgabe(titel=titel, frist=frist, gewichtung=gewichtung, art=art, zaehlt=zaehlt, notiz=notiz,
-                          soll=soll, ist=ist, einheit=einheit, set_name=set_name)
+                          soll=soll, ist=ist, einheit=einheit, set_name=set_name, formular=formular, pensum_id=pensum_id or None)
         self._pruefe_aufgabe(aufgabe)
         subject.aufgaben.append(aufgabe)
         self.subjects.save(subject)
         return subject
 
-    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit", "set_name")
+    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit", "set_name", "formular")
 
     def update_aufgabe(self, subject_id: str, aufgabe_id: str, **felder) -> Subject:
         """Aufgabe bearbeiten: nur die genannten Felder ändern sich (leer/None entfernt Frist, Gewichtung, Umfang …).
@@ -295,12 +299,17 @@ class SubjectService:
 
     @staticmethod
     def _set_staende(sub: Subject, status: dict) -> dict[str, int]:
-        """Fortschritt (0–100) der Aufgaben, die an ein Karteikarten-Set geknüpft sind: Anteil sicher gelernter Karten im Set.
-        Kommt aus dem Status des Karteikarten-Dienstes, den der Kern ohnehin abfragt – kein eigener Aufruf nötig."""
-        sets = {s["name"]: s for s in ((status or {}).get("karteikarten") or {}).get("sets", [])}
+        """Fortschritt (0–100) der Aufgaben, deren Stand ein anderer Dienst kennt – aus dem Status, den der Kern ohnehin
+        abfragt (kein eigener Aufruf): Orientierungsfragen = Anteil sicher gelernter Karten ihres Karteikarten-Sets,
+        Lese-Aufgaben = Stand des verknüpften Lesenachweis-Pensums."""
+        status = status or {}
+        sets = {s["name"]: s for s in (status.get("karteikarten") or {}).get("sets", [])}
+        pensen = {p["id"]: p["percent"] for p in (status.get("lesenachweis") or {}).get("pensen", [])}
         ergebnis = {}
         for a in sub.aufgaben:
-            if a.art == "fragen" and a.set_name:
+            if a.pensum_id:
+                ergebnis[a.id] = pensen.get(a.pensum_id, 0)
+            elif a.art == "fragen" and a.set_name:
                 s = sets.get(a.set_name)
                 ergebnis[a.id] = int(100 * s["mastered"] / s["card_count"] + 0.5) if s and s["card_count"] else 0
         return ergebnis

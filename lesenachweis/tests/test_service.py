@@ -180,7 +180,7 @@ def test_subject_status_and_hooks(svc):
     assert s["status"] == "not_started" and s["next_deadline"] == "2026-10-20"
     assert s["done_count"] == 0 and s["progress"] == 25 and s["urgent_title"] == "B"
     assert svc.subject_status("leer") == {"task_count": 0, "done_count": 0, "percent": 0.0, "progress": None,
-                                          "status": None, "urgent_title": None, "next_deadline": None}
+                                          "status": None, "urgent_title": None, "next_deadline": None, "pensen": []}
     svc.discard_subject("f")
     assert [t.title for t in svc.list_tasks()] == ["C"]
 
@@ -193,3 +193,12 @@ def test_subject_progress_counts_every_task_equally(svc):
     s = svc.subject_status("g")
     assert s["percent"] == 62.5 and s["progress"] == 63 and s["done_count"] == 1
     assert s["urgent_title"] == "Apostelgeschichte"
+
+
+def test_status_nennt_den_stand_jedes_pensums_fuer_verknuepfte_aufgaben(svc):
+    a = svc.add_task("f", "Pflichtlektüre", "Seiten", 200)
+    b = svc.add_task("f", "Apostelgeschichte", "Kapitel", 28, passes=2)
+    svc.log_reading(a.id, 50)
+    svc.log_reading(b.id, 28)
+    pensen = {p["id"]: p["percent"] for p in svc.subject_status("f")["pensen"]}
+    assert pensen == {a.id: 25, b.id: 50}                       # ganze Prozent, 28 von 56 Kapiteln

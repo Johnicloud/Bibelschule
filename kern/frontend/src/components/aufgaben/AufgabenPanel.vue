@@ -3,6 +3,8 @@ import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import AufgabeForm from './AufgabeForm.vue'
+import { fensterOeffnen } from '../../application/pdf'
+import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 import { artInfo, formatDate, tageBisText } from '../../domain/status'
 
 const props = defineProps({ subjectId: String })
@@ -10,6 +12,8 @@ const emit = defineEmits(['changed'])
 const subjects = inject('subjects')
 const aufgabenleser = inject('aufgabenleser')
 const reading = inject('reading')
+const skripte = inject('skripte')
+const pdfcreator = inject('pdfcreator')
 const flash = inject('service')   // Karteikarten: Stand der Sets für Orientierungsfragen
 
 // Erkennt Vorschläge, die eigentlich ein Lesepensum sind (z. B. „Pflicht-Lektüre 600 Seiten“), an der
@@ -23,6 +27,8 @@ function leseErkennung(titel) {
 }
 
 const aufgaben = ref([])
+const dateien = ref([])   // Dateien im Reiter „Skripte“ (für ein erhaltenes Formular)
+const fachName = ref('')
 const setStaende = ref({})   // Set-Name -> { card_count, mastered_count }
 const pensen = ref([])   // Lesenachweis-Pensen dieses Fachs, zum Verknüpfen mit einer Aufgabe
 const loadError = ref('')
@@ -41,10 +47,13 @@ const legtAn = ref(false)
 
 async function load() {
   try {
-    aufgaben.value = (await subjects.get(props.subjectId)).aufgaben
+    const fach = await subjects.get(props.subjectId)
+    aufgaben.value = fach.aufgaben
+    fachName.value = fach.name
     loadError.value = ''
   } catch (e) { loadError.value = e.message }
   try { pensen.value = await reading.list(props.subjectId) } catch { pensen.value = [] }
+  try { dateien.value = await skripte.dateien(props.subjectId) } catch { dateien.value = [] }
   try { setStaende.value = Object.fromEntries((await flash.openDeck(props.subjectId)).sets.map((x) => [x.name, x])) } catch { setStaende.value = {} }
 }
 async function refresh() { await load(); emit('changed') }
@@ -53,6 +62,23 @@ async function pensumSetzen(a, pensumId) {
   await refresh()
 }
 
+const pensumVon = (a) => pensen.value.find((p) => p.id === a.pensum_id) || null
+async function formularSetzen(a, wert) { await subjects.updateAufgabe(props.subjectId, a.id, { formular: wert }); await refresh() }
+const formularDatei = (a) => (a.formular || '').startsWith('skript:') ? (a.formular || '').slice(7) : ''
+const formularName = (a) => dateien.value.find((d) => d.id === formularDatei(a))?.dateiname || 'Formular'
+const formularLink = (a) => `/api/skripte/skripte/${formularDatei(a)}/datei`
+const exportFehler = ref('')
+async function formularExportieren(a) {
+  exportFehler.value = ''
+  const p = pensumVon(a)
+  if (!p) { exportFehler.value = 'Zu dieser Aufgabe gibt es kein Lesepensum.'; return }
+  const fenster = fensterOeffnen()   // sofort im Klick öffnen (siehe pdf.js)
+  try {
+    // Tatsächlich gelesene Seiten (b.done), wie beim Export im Reiter Lesenachweis
+    const buecher = p.buecher.length ? p.buecher.map((b) => ({ titel: b.title, seiten: b.done })) : [{ titel: p.title, seiten: p.forecast.done }]
+    await pdfcreator.lesenachweisExportieren(fachName.value, [profilVorname.value, profilNachname.value].filter(Boolean).join(' '), profilGemeinde.value, buecher, fenster)
+  } catch (e) { exportFehler.value = e.message; fenster?.close() }
+}
 function setProzent(a) {
   const st = setStaende.value[a.set_name]
   return st && st.card_count ? Math.round((100 * st.mastered_count) / st.card_count) : 0
@@ -209,6 +235,31 @@ onMounted(load)
             </p>
             <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: setProzent(a) + '%' }"></div></div>
           </div>
+          <div v-if="a.pensum_id && pensumVon(a)" class="mt-1.5 max-w-xs">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Gelesen: {{ pensumVon(a).forecast.done }} von {{ pensumVon(a).forecast.target }} {{ pensumVon(a).unit }} · {{ Math.round(pensumVon(a).forecast.percent) }} %
+            </p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: Math.round(pensumVon(a).forecast.percent) + '%' }"></div></div>
+          </div>
+          <div v-if="a.art === 'lesen_pflicht'" class="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+            <template v-if="a.formular === 'standard'">
+              <button type="button" class="btn btn-outline !py-1 text-xs" @click="formularExportieren(a)">Formular als PDF</button>
+            </template>
+            <template v-else-if="a.formular === 'angefragt'">
+              <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Formular angefragt</span>
+              <select v-if="dateien.length" class="input !w-auto !py-1 text-xs" aria-label="Erhaltenes Formular verknüpfen" @change="$event.target.value && formularSetzen(a, 'skript:' + $event.target.value)">
+                <option value="">Erhaltenes Formular verknüpfen …</option>
+                <option v-for="d in dateien" :key="d.id" :value="d.id">{{ d.dateiname }}</option>
+              </select>
+              <button type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'standard')">Doch Standard-Formular</button>
+            </template>
+            <template v-else-if="a.formular.startsWith('skript:')">
+              <a :href="formularLink(a)" target="_blank" rel="noopener" class="underline">{{ formularName(a) }}</a>
+              <button type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'angefragt')">Lösen</button>
+            </template>
+            <button v-else type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'standard')">Standard-Formular nutzen</button>
+          </div>
+          <p v-if="exportFehler" class="mt-1 text-xs text-rose-600 dark:text-rose-400">{{ exportFehler }}</p>
           <p v-if="a.notiz" class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ a.notiz }}</p>
           <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
             :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">

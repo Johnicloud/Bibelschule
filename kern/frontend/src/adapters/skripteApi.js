@@ -6,6 +6,7 @@ export function createSkripteApi(base = '/api/skripte') {
   const call = createCall(base)
   return {
     list: (subjectId) => call('GET', `/skripte?subject_id=${encodeURIComponent(subjectId)}`),
+    qualitaet: (skriptId) => call('GET', `/skripte/${skriptId}/qualitaet`),
     karten: (skriptId) => call('GET', `/skripte/${skriptId}/karten`),
   }
 }

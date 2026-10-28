@@ -831,6 +831,24 @@ Sprache der Oberfläche und der Texte: Deutsch.
   zählen damit zusätzlich zur eigenen Karteikarten-Kachel in den Gesamtfortschritt – das Doppelzählen ist die offene Frage zur
   Gesamtfortschritt-Regel (siehe Aufgaben-Standard).
 
+- [fertig] Lese-Aufgaben (Arten `lesen_pflicht`, `lesen_skript`, `lesen_bibel`, Schritt 3 der Aufgaben-Verfeinerung): die Aufgabe
+  legt beim Anlegen gleich das passende Pensum im Lesenachweis an und merkt sich dessen Id (`pensum_id`, jetzt auch beim
+  Anlegen mitgebbar). Reine Frontend-Orchestrierung in `AufgabeForm.vue`: **Pflichtlektüre** = Bücher mit Titel und Seitenzahl
+  (Summe als Umfang), Start/Frist, Durchgänge; **Skript** = Datei aus dem Reiter „Skripte“ wählen (die Seitenzahl kommt aus
+  `GET …/qualitaet.seiten_gesamt`, lässt sich überschreiben, auch ohne Datei von Hand) – nur Lesefortschritt mit Seitenzahl;
+  **Bibel** = Bücher der Bibel als Auswahl-Chips (Altes/Neues Testament mit einem Klick, Kapitelzahl aus dem Bibel-Dienst
+  `kapitel_gesamt`), Einheit Kapitel, Durchgänge. **Fortschritt**: der Lesenachweis meldet je Pensum `percent` im Status
+  (`subject_status.pensen`), der Kern gibt das über `SubjectService._set_staende` an `Aufgabe.fortschritt(extern)` – jede mit
+  einem Pensum verknüpfte Aufgabe (auch alte, von Hand verknüpfte) zählt jetzt mit ihrem echten Lesestand in den
+  Gesamtfortschritt statt nur mit einem Haken. Gewichtung wie überall: mit Gewichtung zählt die Aufgabe entsprechend, ohne nur
+  gleich viel, solange keine andere Aufgabe eine hat (Test: Pflichtlektüre zu 50 % gelesen, mit 30 % Gewichtung hob den
+  Aufgaben-Fortschritt von 39 auf 41). **Formular** der Pflichtlektüre (`Aufgabe.formular`): `standard` (Vorlage „Lesenachweis
+  Pflichtlektüre“ – Knopf „Formular als PDF“ in der Aufgabe füllt sie mit den tatsächlich gelesenen Seiten und Name/Gemeinde aus
+  dem Profil), `angefragt` (Marke „Formular angefragt“; das erhaltene Formular lässt sich aus den Dateien im Reiter „Skripte“
+  verknüpfen → `skript:<Datei-Id>`, Link öffnet es) oder leer. Bei einem fremden Formular füllt die App nichts aus (die
+  Feldpositionen müssten von Hand eingemessen werden, siehe `pdfcreator`). Bücher/Seiten/Durchgänge eines angelegten Pensums
+  ändert man weiter im Reiter „Lesenachweis“.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

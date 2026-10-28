@@ -146,4 +146,6 @@ class ReadingService:
                 "progress": int(percent + 0.5) if forecasts else None,   # Gesamtfortschritt des Kerns (0 bis 100)
                 "status": worst_status([f.status for _, f in forecasts]),
                 "urgent_title": urgent[0].title if urgent else None,     # dringendstes offenes Pensum
-                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None}
+                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None,
+                # Stand je Pensum (ganze Prozent): damit der Kern eine mit dem Pensum verknüpfte Aufgabe fortschreiben kann
+                "pensen": [{"id": t.id, "percent": int(f.percent + 0.5)} for t, f in forecasts]}

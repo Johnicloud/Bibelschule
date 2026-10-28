@@ -25,6 +25,7 @@ class Aufgabe:
     soll: float | None = None           # Umfang der Ausarbeitung (Seiten, Wörter, Einträge …)
     ist: float | None = None
     einheit: str = ""
+    formular: str = ""                  # Pflichtlektüre: "standard" (Lesenachweis-Vorlage), "angefragt" oder "skript:<Datei-Id>"
     set_name: str = ""                  # Orientierungsfragen: das Karteikarten-Set dieses Fachs, dessen Stand den Fortschritt liefert
 
     def fortschritt(self, extern: int | None = None) -> int:

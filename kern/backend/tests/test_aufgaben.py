@@ -115,3 +115,33 @@ def test_fach_fortschritt_nimmt_den_set_stand_aus_dem_karteikarten_status(svc):
     zeile = svc._row(s, status, [])
     teil = next(p for p in zeile["parts"] if p["service"] == "aufgaben")
     assert teil["progress"] == 75
+
+
+def test_aufgabe_mit_verknuepftem_pensum_nimmt_den_lesestand_fuer_den_fortschritt(svc):
+    s = fach(svc)
+    s = svc.add_aufgabe(s.id, "Lesen der Pflichtlektüre", art="lesen_pflicht", gewichtung=50)
+    a = s.aufgaben[0]
+    svc.set_aufgabe_pensum(s.id, a.id, "pensum-1")
+    status = {"lesenachweis": {"pensen": [{"id": "pensum-1", "percent": 40}, {"id": "anderes", "percent": 90}]}}
+    teil = next(p for p in svc._row(s, status, [])["parts"] if p["service"] == "aufgaben")
+    assert teil["progress"] == 40
+    assert svc._row(s, {}, [])["parts"][0]["progress"] == 0         # Lesedienst nicht erreichbar: noch nichts gelesen
+
+
+def test_formular_der_pflichtlektuere_wird_gespeichert_und_geprueft(svc):
+    s = fach(svc)
+    a = svc.add_aufgabe(s.id, "Pflichtlektüre", art="lesen_pflicht", formular="standard").aufgaben[0]
+    assert a.formular == "standard"
+    s = svc.update_aufgabe(s.id, a.id, formular="angefragt")
+    assert s.aufgaben[0].formular == "angefragt"
+    s = svc.update_aufgabe(s.id, a.id, formular="skript:abc123")
+    assert s.aufgaben[0].formular == "skript:abc123"
+    s = svc.update_aufgabe(s.id, a.id, formular="")
+    assert s.aufgaben[0].formular == ""
+    with pytest.raises(InvalidInput):
+        svc.update_aufgabe(s.id, a.id, formular="irgendwas")
+
+
+def test_lese_aufgabe_kann_beim_anlegen_ein_pensum_verknuepfen(svc):
+    s = svc.add_aufgabe(fach(svc).id, "Skript lesen", art="lesen_skript", pensum_id="pensum-9")
+    assert s.aufgaben[0].pensum_id == "pensum-9"

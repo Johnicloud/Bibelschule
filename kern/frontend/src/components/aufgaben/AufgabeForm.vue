@@ -10,6 +10,8 @@ const emit = defineEmits(['saved', 'cancel'])
 const subjects = inject('subjects')
 const flash = inject('service')       // Karteikarten (Deck-ID = Fach-ID)
 const skripte = inject('skripte')
+const reading = inject('reading')    // Lesenachweis: Lese-Aufgaben legen ihr Pensum gleich mit an
+const bibel = inject('bibel')
 
 const a = props.aufgabe
 const art = ref(a?.art || 'allgemein')
@@ -40,6 +42,58 @@ watch(art, async (neu) => {
   try { vorhandeneSets.value = (await flash.openDeck(props.subjectId)).sets.map((x) => x.name) } catch { vorhandeneSets.value = [] }
 }, { immediate: true })
 
+// Lese-Aufgaben (Pflichtlektüre, Skript, Bibel): die Aufgabe legt gleich das passende Pensum im Lesenachweis an und merkt sich
+// dessen Id; der Fortschritt kommt vom Lesen. Pflichtlektüre: Bücher mit Seitenzahl + Formular; Skript: Datei + Seitenzahl;
+// Bibel: Bücher der Bibel + Durchgänge.
+const start = ref('')
+const durchgaenge = ref(1)
+const buecher = ref([{ title: '', total: '' }])                      // Pflichtlektüre
+const formular = ref(a?.formular || '')
+const skriptDatei = ref('')
+const skriptSeiten = ref('')
+const skriptLaedt = ref(false)
+const alleDateien = ref([])
+const bibelBuecher = ref([])
+const bibelWahl = ref([])                                            // Indizes der gewählten Bibelbücher
+const AT_ENDE = 39
+watch(art, async (neu) => {
+  if (neu === 'lesen_pflicht' && !a && !formular.value) formular.value = 'standard'
+  if (neu === 'lesen_skript') { try { alleDateien.value = await skripte.dateien(props.subjectId) } catch { alleDateien.value = [] } }
+  if (neu === 'lesen_bibel' && !bibelBuecher.value.length) { try { bibelBuecher.value = (await bibel.index()).buecher } catch { bibelBuecher.value = [] } }
+}, { immediate: true })
+watch(skriptDatei, async (id) => {
+  const d = alleDateien.value.find((x) => x.id === id)
+  if (!d) return
+  if (!titel.value.trim()) titel.value = d.dateiname.replace(/\.[^.]+$/, '')
+  skriptLaedt.value = true
+  try { skriptSeiten.value = (await skripte.seitenGesamt(id)) || '' } catch { /* Seitenzahl von Hand eintragen */ } finally { skriptLaedt.value = false }
+})
+const bibelKapitel = computed(() => bibelWahl.value.reduce((n, i) => n + (bibelBuecher.value.find((b) => b.index === i)?.kapitel_gesamt || 0), 0))
+function bibelUmschalten(i) { bibelWahl.value = bibelWahl.value.includes(i) ? bibelWahl.value.filter((x) => x !== i) : [...bibelWahl.value, i] }
+function bibelTestament(ab, bis) {
+  const idx = bibelBuecher.value.filter((b) => b.index >= ab && b.index < bis).map((b) => b.index)
+  const alle = idx.every((i) => bibelWahl.value.includes(i))
+  bibelWahl.value = alle ? bibelWahl.value.filter((i) => !idx.includes(i)) : [...new Set([...bibelWahl.value, ...idx])]
+}
+async function pensumAnlegen() {
+  const kopf = { title: titel.value, passes: durchgaenge.value, start: start.value, deadline: frist.value }
+  let aufgabe
+  if (art.value === 'lesen_pflicht') {
+    const liste = buecher.value.filter((b) => b.title.trim() && Number(b.total) > 0)
+    if (!liste.length) throw new Error('Bitte mindestens ein Buch mit Seitenzahl eintragen.')
+    aufgabe = await reading.add(props.subjectId, { ...kopf, unit: 'Seiten' }, liste)
+  } else if (art.value === 'lesen_skript') {
+    if (!(Number(skriptSeiten.value) > 0)) throw new Error('Bitte die Seitenzahl des Skripts eintragen.')
+    aufgabe = await reading.add(props.subjectId, { ...kopf, unit: 'Seiten', total: skriptSeiten.value })
+  } else {
+    const liste = bibelWahl.value.sort((x, y) => x - y).map((i) => bibelBuecher.value.find((b) => b.index === i)).filter(Boolean)
+      .map((b) => ({ title: b.name, total: b.kapitel_gesamt }))
+    if (!liste.length) throw new Error('Bitte mindestens ein Bibelbuch wählen.')
+    aufgabe = await reading.add(props.subjectId, { ...kopf, unit: 'Kapitel' }, liste)
+  }
+  return aufgabe.id
+}
+
 const NUMMER = /^\s*(?:\d{1,3}\s*[.)]|[-*•])\s*/
 const fragenAusText = (text) => text.split('\n').map((z) => z.replace(NUMMER, '').trim()).filter(Boolean).map((frage) => ({ frage, antwort: '' }))
 
@@ -69,6 +123,11 @@ async function submit() {
   const felder = { art: art.value, titel: titel.value, frist: frist.value, gewichtung: gewichtung.value, zaehlt: zaehlt.value,
     notiz: notiz.value, soll: info.value.umfang ? soll.value : '', ist: info.value.umfang ? ist.value : '', einheit: info.value.umfang ? einheit.value : '' }
   try {
+    if (info.value.lesen && !a) {
+      if (!titel.value.trim()) throw new Error('Bitte einen Titel eingeben.')
+      felder.pensum_id = await pensumAnlegen()
+    }
+    if (info.value.lesen === 'pflicht') felder.formular = formular.value
     if (info.value.fragen && !a) felder.set_name = await fragenAlsSetAnlegen()
     else if (info.value.fragen) felder.set_name = setName.value
     if (a) await subjects.updateAufgabe(props.subjectId, a.id, felder)
@@ -103,6 +162,55 @@ async function submit() {
       <datalist id="aufgabe-einheiten"><option>Seiten</option><option>Wörter</option><option>Einträge</option></datalist>
     </div>
 
+    <div v-if="info.lesen && !a" class="space-y-3 rounded-xl p-3 ring-1 ring-slate-300 dark:ring-slate-700">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <input v-model="start" type="date" class="input" aria-label="Start (optional)" title="Start" />
+        <input v-if="info.lesen !== 'skript'" v-model.number="durchgaenge" type="number" min="1" class="input" placeholder="Durchgänge" aria-label="Durchgänge" />
+      </div>
+
+      <template v-if="info.lesen === 'pflicht'">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Bücher mit Seitenzahl</p>
+        <div v-for="(b, i) in buecher" :key="i" class="grid grid-cols-[1fr_7rem_auto] gap-2">
+          <input v-model="b.title" class="input" placeholder="Buchtitel" :aria-label="`Titel von Buch ${i + 1}`" />
+          <input v-model="b.total" type="number" min="1" class="input" placeholder="Seiten" :aria-label="`Seiten von Buch ${i + 1}`" />
+          <button type="button" class="btn btn-ghost !px-2.5" :aria-label="`Buch ${i + 1} entfernen`" :disabled="buecher.length === 1" @click="buecher.splice(i, 1)">
+            <AppIcon name="x" class="h-4 w-4" />
+          </button>
+        </div>
+        <button type="button" class="btn btn-outline !py-1.5" @click="buecher.push({ title: '', total: '' })">+ Buch</button>
+      </template>
+
+      <template v-else-if="info.lesen === 'skript'">
+        <select v-model="skriptDatei" class="input" aria-label="Skript-Datei">
+          <option value="">{{ alleDateien.length ? 'Skript aus dem Reiter „Skripte“ wählen (optional) …' : 'Keine Datei im Reiter „Skripte“ – Seitenzahl von Hand' }}</option>
+          <option v-for="d in alleDateien" :key="d.id" :value="d.id">{{ d.dateiname }}</option>
+        </select>
+        <input v-model="skriptSeiten" type="number" min="1" class="input" :placeholder="skriptLaedt ? 'Liest die Seitenzahl …' : 'Seiten gesamt'" aria-label="Seiten gesamt" />
+      </template>
+
+      <template v-else>
+        <div class="flex flex-wrap gap-2 text-sm">
+          <button type="button" class="btn btn-outline !py-1" @click="bibelTestament(0, AT_ENDE)">Altes Testament</button>
+          <button type="button" class="btn btn-outline !py-1" @click="bibelTestament(AT_ENDE, 66)">Neues Testament</button>
+          <span class="self-center text-slate-500 dark:text-slate-400">{{ bibelWahl.length }} Bücher · {{ bibelKapitel }} Kapitel</span>
+        </div>
+        <div class="flex max-h-40 flex-wrap gap-1.5 overflow-auto" role="group" aria-label="Bibelbücher">
+          <button v-for="b in bibelBuecher" :key="b.index" type="button" :aria-pressed="bibelWahl.includes(b.index)" :title="`${b.name} (${b.kapitel_gesamt} Kapitel)`"
+            class="rounded-full px-2.5 py-1 text-xs ring-1 ring-slate-300 dark:ring-slate-700"
+            :class="bibelWahl.includes(b.index) ? 'bg-primary text-white ring-0' : 'hover:bg-slate-100 dark:hover:bg-slate-800'" @click="bibelUmschalten(b.index)">{{ b.short }}</button>
+          <span v-if="!bibelBuecher.length" class="text-sm text-slate-500 dark:text-slate-400">Die Bibel-Liste ist noch nicht geladen (Reiter „Bibel“).</span>
+        </div>
+      </template>
+    </div>
+    <p v-else-if="info.lesen && a" class="text-sm text-slate-500 dark:text-slate-400">Bücher, Seiten und Durchgänge dieses Lesepensums änderst du im Reiter „Lesenachweis“.</p>
+
+    <div v-if="info.lesen === 'pflicht'" class="space-y-1 rounded-xl p-3 ring-1 ring-slate-300 dark:ring-slate-700" role="radiogroup" aria-label="Formular">
+      <p class="text-sm font-medium">Formular für den Lesenachweis</p>
+      <label class="flex items-center gap-2 text-sm"><input v-model="formular" type="radio" value="standard" class="accent-teal-600" /> Standard-Formular nehmen (Lesenachweis Pflichtlektüre)</label>
+      <label class="flex items-center gap-2 text-sm"><input v-model="formular" type="radio" value="angefragt" class="accent-teal-600" /> Formular anfragen – später das erhaltene hochladen und verknüpfen</label>
+      <label class="flex items-center gap-2 text-sm"><input v-model="formular" type="radio" value="" class="accent-teal-600" /> Kein Formular</label>
+    </div>
+
     <div v-if="info.fragen && !a" class="space-y-2 rounded-xl p-3 ring-1 ring-slate-300 dark:ring-slate-700">
       <div class="flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Woher kommen die Fragen?">
         <label class="flex items-center gap-1.5"><input v-model="quelle" type="radio" value="text" class="accent-teal-600" /> Fragen eintippen oder einfügen</label>
@@ -129,7 +237,7 @@ async function submit() {
     <label class="flex items-start gap-2 text-sm">
       <input v-model="zaehlt" type="checkbox" class="mt-0.5 h-4 w-4 accent-teal-600" />
       <span>Zählt zum Gesamtfortschritt
-        <span class="block text-xs text-slate-500 dark:text-slate-400">Aus: nur zum Lernen, die Aufgabe bleibt sichtbar, hebt den Fortschritt aber nicht. Ohne Gewichtung zählt jede Aufgabe gleich viel.</span>
+        <span class="block text-xs text-slate-500 dark:text-slate-400">Aus: nur zum Lernen, die Aufgabe bleibt sichtbar, hebt den Fortschritt aber nicht. Mit Gewichtung zählt die Aufgabe entsprechend mehr. Ohne Gewichtung zählt sie nur gleich viel wie die anderen, solange keine andere Aufgabe eine Gewichtung hat.</span>
       </span>
     </label>
 
