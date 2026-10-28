@@ -206,7 +206,7 @@
       p.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'),
         t.text_status === 'laeuft' ? 'Text wird erkannt …' : t.text_status === 'fertig' ? 'Text neu erkennen' : 'Text erkennen')
       const gr = t.text_groesse ? ` · ${groesse(t.text_groesse)}` : ''
-      textInfo.textContent = t.text_status === 'fertig' ? `Text markierbar${gr}` : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.')
+      textInfo.textContent = t.text_status === 'fertig' ? `Text markierbar${gr}${t.text_fehler ? ` · letzte Neuerkennung fehlgeschlagen: ${t.text_fehler}` : ''}` : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.')
         : t.text_status === 'laeuft' ? 'Text wird erkannt …' + (t.text_groesse ? ` (bisherige Fassung${gr} bleibt bis dahin)` : '') : ''
       if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
     }

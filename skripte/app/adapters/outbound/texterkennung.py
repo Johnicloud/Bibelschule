@@ -9,6 +9,7 @@ from app.domain.errors import InvalidInput
 
 SPRACHE = "deu"
 ZEITLIMIT_SEKUNDEN = 60 * 60
+PARALLEL = 3      # Seiten gleichzeitig: bei 300 dpi und allen Kernen reichten 7,6 GB Arbeitsspeicher nicht (Container wurde beendet)
 
 
 class OcrmypdfTexterkennung(Texterkennung):
@@ -23,7 +24,7 @@ class OcrmypdfTexterkennung(Texterkennung):
                 # --output-type pdf: kein PDF/A über Ghostscript (das hat bei Text-PDFs Umlaute aus dem Text gelöscht)
                 # --oversample 300: Scans mit niedriger Auflösung vor dem Erkennen auf 300 dpi hochrechnen – am Skript fehlten
                 # sonst Tabellenzeilen (z. B. „Pfingstpredigt“), mit 300 dpi wurden sie gefunden (356 -> 375 Wörter auf einer Seite)
-                lauf = subprocess.run(["ocrmypdf", "--skip-text", "--deskew", "--rotate-pages", "--oversample", "300", "--optimize", "2",
+                lauf = subprocess.run(["ocrmypdf", "--skip-text", "--deskew", "--rotate-pages", "--oversample", "300", "--jobs", str(PARALLEL), "--optimize", "2",
                                        "--output-type", "pdf", "-l", SPRACHE, str(ein), str(aus)],
                                       capture_output=True, text=True, timeout=ZEITLIMIT_SEKUNDEN)
             except FileNotFoundError as e:
@@ -31,5 +32,8 @@ class OcrmypdfTexterkennung(Texterkennung):
             except subprocess.TimeoutExpired as e:
                 raise InvalidInput("Die Texterkennung hat zu lange gedauert.") from e
             if lauf.returncode != 0 or not aus.exists():
-                raise InvalidInput("Die Texterkennung ist fehlgeschlagen: " + (lauf.stderr.strip().splitlines() or ["unbekannter Fehler"])[-1])
+                if lauf.returncode in (-9, 137):
+                    raise InvalidInput("Die Texterkennung wurde beendet, weil der Arbeitsspeicher nicht reichte (Docker-Speicher erhöhen oder die Datei teilen).")
+                letzte = [z.strip() for z in lauf.stderr.strip().splitlines() if z.strip()][-3:]
+                raise InvalidInput(f"Die Texterkennung ist fehlgeschlagen (Code {lauf.returncode}): " + " | ".join(letzte or ["unbekannter Fehler"]))
             return aus.read_bytes()

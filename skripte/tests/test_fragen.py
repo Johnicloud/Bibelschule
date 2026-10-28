@@ -192,3 +192,19 @@ def test_neu_erkennen_ersetzt_die_textfassung_erst_am_ende():
     assert svc.text_status(s.id) == {"status": "fertig", "fehler": None, "groesse": 6}
     svc.text_erkennen_starten(s.id, im_hintergrund=False, neu=True)
     assert ocr.n == 2 and svc.datei(s.id)[1] == b"%PDF-2"
+
+
+def test_fehlgeschlagene_neuerkennung_laesst_die_alte_fassung_gelten_und_meldet_den_fehler():
+    class Ocr:
+        def __init__(self): self.fehler = False
+        def erkennen(self, pdf):
+            if self.fehler: raise InvalidInput("zu wenig Speicher")
+            return b"%PDF-ALT"
+    ocr = Ocr()
+    svc = SkriptService(InMemoryRepo(), InMemoryDateien(), DateiLeserAdapter(), ocr)
+    s = svc.upload("f", "Skript.pdf", None, b"%PDF-SCAN")
+    svc.text_erkennen_starten(s.id, im_hintergrund=False)
+    ocr.fehler = True
+    svc.text_erkennen_starten(s.id, im_hintergrund=False, neu=True)
+    assert svc.datei(s.id)[1] == b"%PDF-ALT"
+    assert svc.text_status(s.id) == {"status": "fertig", "fehler": "zu wenig Speicher", "groesse": 8}

@@ -217,8 +217,8 @@ class SkriptService:
         groesse = self.dateien.groesse(_text_key(skript_id))
         if skript_id in self._laufend:
             return {"status": "laeuft", "fehler": None, "groesse": groesse}
-        if groesse is not None:
-            return {"status": "fertig", "fehler": None, "groesse": groesse}
+        if groesse is not None:      # eine fehlgeschlagene Neuerkennung lässt die bisherige Fassung gelten, meldet den Fehler aber mit
+            return {"status": "fertig", "fehler": self._fehler.get(skript_id), "groesse": groesse}
         if skript_id in self._fehler:
             return {"status": "fehler", "fehler": self._fehler[skript_id], "groesse": None}
         return {"status": "keine", "fehler": None, "groesse": None}
