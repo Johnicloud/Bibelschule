@@ -1,4 +1,14 @@
 // Anwendungsschicht: Fächer und Übersicht. Kennt nur den "api"-Port, nicht HTTP.
+const zahlOderNull = (v) => (v === '' || v == null ? null : Number(v))
+
+function aufgabeFelder(f) {
+  return {
+    titel: (f.titel || '').trim(), art: f.art || 'allgemein', frist: f.frist || null, gewichtung: zahlOderNull(f.gewichtung),
+    zaehlt: f.zaehlt !== false, notiz: (f.notiz || '').trim(), soll: zahlOderNull(f.soll), ist: zahlOderNull(f.ist),
+    einheit: (f.einheit || '').trim(),
+  }
+}
+
 export function createSubjectService(api) {
   return {
     list: () => api.listSubjects(),
@@ -11,6 +21,9 @@ export function createSubjectService(api) {
     noten: () => api.noten(),
     remove: (id) => api.deleteSubject(id),
     addAufgabe: (id, titel, frist, gewichtung) => api.addAufgabe(id, titel.trim(), frist, gewichtung),
+    // Standard für alle Arten: dieselbe Aufbereitung beim Anlegen und Bearbeiten (leer = entfernen)
+    createAufgabe: (id, felder) => api.createAufgabe(id, aufgabeFelder(felder)),
+    updateAufgabe: (id, aufgabeId, felder) => api.updateAufgabe(id, aufgabeId, aufgabeFelder(felder)),
     setAufgabeErledigt: (id, aufgabeId, erledigt) => api.setAufgabeErledigt(id, aufgabeId, erledigt),
     removeAufgabe: (id, aufgabeId) => api.deleteAufgabe(id, aufgabeId),
     setAufgabePensum: (id, aufgabeId, pensumId) => api.setAufgabePensum(id, aufgabeId, pensumId),

@@ -2,7 +2,8 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import EmptyState from '../ui/EmptyState.vue'
-import { formatDate } from '../../domain/status'
+import AufgabeForm from './AufgabeForm.vue'
+import { artInfo, formatDate, tageBisText } from '../../domain/status'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
@@ -25,9 +26,7 @@ const pensen = ref([])   // Lesenachweis-Pensen dieses Fachs, zum Verknüpfen mi
 const loadError = ref('')
 const error = ref('')
 const anlegen = ref(false)
-const titel = ref('')
-const frist = ref('')
-const gewichtung = ref('')
+const bearbeitetId = ref(null)   // Aufgabe, die gerade im Formular steht
 
 // Aufgabenblatt (PDF) von Ollama lesen lassen: liefert nur Vorschläge, der Nutzer wählt aus, nichts wird
 // automatisch angelegt (siehe Projektnotizen, Entscheidungen: Ergebnisse der KI sind immer nur Vorschläge).
@@ -51,17 +50,7 @@ async function pensumSetzen(a, pensumId) {
   await refresh()
 }
 
-async function add() {
-  error.value = ''
-  try {
-    await subjects.addAufgabe(props.subjectId, titel.value, frist.value, gewichtung.value)
-    anlegen.value = false
-    titel.value = ''
-    frist.value = ''
-    gewichtung.value = ''
-    await refresh()
-  } catch (e) { error.value = e.message }
-}
+async function gespeichert() { anlegen.value = false; bearbeitetId.value = null; await refresh() }
 async function toggle(a) { await subjects.setAufgabeErledigt(props.subjectId, a.id, !a.erledigt); await refresh() }
 async function remove(a) {
   if (!confirm(`Aufgabe „${a.titel}“ löschen?`)) return
@@ -115,7 +104,7 @@ onMounted(load)
         {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
         <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
       </label>
-      <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neue Aufgabe</button>
+      <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true; bearbeitetId = null">+ Neue Aufgabe</button>
     </div>
   </div>
 
@@ -171,42 +160,53 @@ onMounted(load)
     </details>
   </div>
 
-  <form v-if="anlegen" class="panel mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_10rem_8rem_auto]" @submit.prevent="add">
-    <input v-model="titel" class="input" placeholder="Titel, z. B. Exegese Kapitel 3" aria-label="Titel der Aufgabe" />
-    <input v-model="frist" type="date" class="input" aria-label="Frist (optional)" />
-    <input v-model="gewichtung" type="number" min="0" max="100" class="input" placeholder="Gewichtung %" aria-label="Anteilige Bewertung in Prozent (optional)" />
-    <button class="btn btn-primary">Aufgabe anlegen</button>
-    <button type="button" class="btn btn-ghost" @click="anlegen = false">Abbrechen</button>
-    <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-4">{{ error }}</p>
-    <p class="text-xs text-slate-500 dark:text-slate-400 sm:col-span-4">
-      Gewichtung = anteilige Bewertung wie im Aufgabenblatt (z. B. Klausur 50 %). Ohne Gewichtung zählt jede Aufgabe gleich viel.
-    </p>
-  </form>
+  <div v-if="anlegen" class="mb-4">
+    <AufgabeForm :subject-id="subjectId" @saved="gespeichert" @cancel="anlegen = false" />
+  </div>
 
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
   <ul v-else-if="aufgaben.length" class="grid gap-3">
-    <li v-for="a in aufgaben" :key="a.id" class="panel flex items-center gap-3 p-4">
-      <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition"
-        :class="a.erledigt ? 'border-transparent bg-primary text-white' : 'border-highlight opacity-40 hover:opacity-70'"
-        :aria-pressed="a.erledigt" :aria-label="`${a.titel} ${a.erledigt ? 'als offen markieren' : 'als erledigt markieren'}`"
-        @click="toggle(a)">
-        <AppIcon name="haken" class="h-5 w-5" />
-      </button>
-      <div class="min-w-0 flex-1">
-        <p :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">{{ a.titel }}</p>
-        <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">
-          <template v-if="a.frist">Frist {{ formatDate(a.frist) }}</template>
-          <template v-if="a.frist && a.gewichtung != null"> · </template>
-          <template v-if="a.gewichtung != null">{{ a.gewichtung }} % der Bewertung</template>
-        </p>
-        <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
-          :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">
-          <option value="">Kein Lesepensum verknüpft</option>
-          <option v-for="p in pensen" :key="p.id" :value="p.id">{{ p.title }}</option>
-        </select>
-      </div>
-      <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${a.titel} löschen`" @click="remove(a)">Löschen</button>
-    </li>
+    <template v-for="a in aufgaben" :key="a.id">
+      <li v-if="bearbeitetId === a.id">
+        <AufgabeForm :subject-id="subjectId" :aufgabe="a" @saved="gespeichert" @cancel="bearbeitetId = null" />
+      </li>
+      <li v-else class="panel flex items-center gap-3 p-4">
+        <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition"
+          :class="a.erledigt ? 'border-transparent bg-primary text-white' : 'border-highlight opacity-40 hover:opacity-70'"
+          :aria-pressed="a.erledigt" :aria-label="`${a.titel} ${a.erledigt ? 'als offen markieren' : 'als erledigt markieren'}`"
+          @click="toggle(a)">
+          <AppIcon name="haken" class="h-5 w-5" />
+        </button>
+        <div class="min-w-0 flex-1">
+          <p class="flex flex-wrap items-center gap-2" :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">
+            {{ a.titel }}
+            <span v-if="a.art !== 'allgemein'" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium no-underline dark:bg-slate-800">
+              <AppIcon :name="artInfo(a.art).icon" class="h-3.5 w-3.5" /> {{ artInfo(a.art).label }}
+            </span>
+            <span v-if="!a.zaehlt" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800" title="Zählt nicht zum Gesamtfortschritt">nur zum Lernen</span>
+          </p>
+          <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">
+            <template v-if="a.frist">{{ artInfo(a.art).frist }} {{ formatDate(a.frist) }}<template v-if="!a.erledigt"> ({{ tageBisText(a.frist) }})</template></template>
+            <template v-if="a.frist && a.gewichtung != null"> · </template>
+            <template v-if="a.gewichtung != null">{{ a.gewichtung }} % der Bewertung</template>
+          </p>
+          <div v-if="artInfo(a.art).umfang && a.soll" class="mt-1.5 max-w-xs">
+            <p class="text-xs text-slate-500 dark:text-slate-400">{{ a.ist ?? 0 }} von {{ a.soll }} {{ a.einheit }} · {{ a.fortschritt }} %</p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: a.fortschritt + '%' }"></div></div>
+          </div>
+          <p v-if="a.notiz" class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ a.notiz }}</p>
+          <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
+            :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">
+            <option value="">Kein Lesepensum verknüpft</option>
+            <option v-for="p in pensen" :key="p.id" :value="p.id">{{ p.title }}</option>
+          </select>
+        </div>
+        <button class="btn btn-outline !px-2.5 !py-1" title="Aufgabe bearbeiten" :aria-label="`${a.titel} bearbeiten`" @click="bearbeitetId = a.id; anlegen = false">
+          <AppIcon name="stift" class="h-4 w-4" />
+        </button>
+        <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${a.titel} löschen`" @click="remove(a)">Löschen</button>
+      </li>
+    </template>
   </ul>
   <EmptyState v-else-if="!anlegen" title="Noch keine Aufgabe" text="Lege die erste Aufgabe an, um den Umfang des Fachs festzuhalten.">
     <button class="btn btn-primary" @click="anlegen = true">Erste Aufgabe anlegen</button>

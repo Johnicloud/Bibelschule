@@ -777,6 +777,42 @@ Sprache der Oberfläche und der Texte: Deutsch.
   „Kein Set“ und „+ Neues Set …“. „Alle Karten“ (oberer Reiter, `CardsView.vue`) kann jetzt ebenfalls Karten bearbeiten und nach
   Set filtern. Beide Ansichten nutzen dieselbe `CardForm.vue`/`CardItem.vue` (kein zweiter Bearbeiten-Code).
 
+- [fertig] Skripte: bessere Texterkennung, Textqualität, Volltextsuche. (1) `ocrmypdf` läuft jetzt mit `--deskew --rotate-pages
+  --optimize 2` (schiefe/gedrehte Scans werden vorher geradegezogen, Seitenbilder per `pngquant` verkleinert – am 149-MB-Skript
+  etwa 60 % kleiner) und mit den genauen Sprachdaten `tessdata_best` für Deutsch (Dockerfile lädt sie beim Bauen einmal von
+  GitHub, danach läuft alles ohne Internet). „Text neu erkennen“ im Menü (`POST …/text-erkennen?neu=true`): die alte
+  Textfassung bleibt gültig, bis die neue fertig ist. `text_groesse` zeigt die Größe der Textfassung. (2) **Textqualität**
+  (`GET …/qualitaet`, Menü „Textqualität prüfen“): `domain/qualitaet.py` schätzt je Seite ohne Wörterbuch, wie viele Zeichen in
+  glaubhaften Wörtern stehen (Vokalanteil, Konsonantenketten, Groß/Klein mitten im Wort, Sonderzeichen-Müll); Seiten unter 85
+  gelten als „unsicher“ und werden als Links zur Seite gezeigt. Eine Schätzung, kein Beweis: das gut erkannte Skript liegt
+  zwischen 89 und 100 (Median 98), die Rauschzeilen aus Logos/Randnotizen fallen auf Seitenebene kaum ins Gewicht.
+  (3) **Volltextsuche** (`GET /api/skripte/suche?subject_id=&q=`, Suchfeld über der Liste): alle Wörter müssen auf derselben
+  Seite stehen, Teilwörter zählen, Groß/Klein egal, Silbentrennung am Zeilenende wird zusammengezogen (`domain/suche.py`).
+  Treffer mit Datei, Seite und Ausschnitt; Klick öffnet die Datei an der Seite (`#page=N&search=…`). Durchsucht werden PDF
+  (mit Text oder erkannter Textfassung), Pages, Word, Text/Markdown, odt/odp/pptx (je Folie); gescannte PDFs ohne erkannten Text
+  werden als „nicht durchsucht“ gemeldet. Die Seitentexte merkt sich der Dienst als `<id>.seiten` (JSON, mit Quelle und Größe;
+  ändert sich die Quelle oder wird neu erkannt, wird neu gelesen), damit ein 150-MB-Skript nicht bei jeder Suche neu gelesen wird.
+  Alles läuft lokal im Container (ocrmypdf, Tesseract, pngquant, pypdf), nichts geht ins Internet.
+
+- [fertig] Aufgaben-Standard (erster Schritt der Verfeinerung der Aufgaben, bleibt im Kern): jede Aufgabe hat eine **Art**
+  (`ARTEN` in `domain/models.py`: allgemein, klausur, ausarbeitung; fragen, lesen_pflicht, lesen_skript, lesen_bibel sind schon
+  erlaubt und folgen mit eigenen Funktionen), **`zaehlt`** (aus = „nur zum Lernen“, zählt nicht zum Gesamtfortschritt), Notiz und
+  für die Ausarbeitung **Soll/Ist/Einheit** (Seiten, Wörter, Einträge). `Aufgabe.fortschritt()` gibt 0–100 (erledigt = 100,
+  sonst Ist gegen Soll); `_aufgaben_part` rechnet damit gewichtet (Gewichtung wie bisher: fehlt sie überall, zählt jede
+  Aufgabe gleich viel; sind alle „nur zum Lernen“, gibt es keinen Aufgaben-Fortschritt). Alles optional und mit
+  `.get(..., Standard)` gelesen: alte Aufgaben laufen unverändert als „allgemein“. **Bearbeiten**: `PATCH /api/subjects/{id}/
+  aufgaben/{aufgabe_id}` (`SubjectService.update_aufgabe`, nur mitgeschickte Felder ändern sich, `null`/leer entfernt Frist,
+  Gewichtung, Umfang; abgelehnte Änderung lässt die Aufgabe unverändert; dieselben Prüfregeln wie beim Anlegen in
+  `_pruefe_aufgabe`); das alte `PUT …/aufgaben/{id}` (erledigt umschalten) bleibt. Der Fach-Status „Nur Klausur fehlt“ hängt an
+  der Art `klausur` (der Titel „Klausur“ gilt für alte Aufgaben weiter). Oberfläche: ein Formular für alle Arten
+  (`AufgabeForm.vue`, Art als Auswahlkacheln, zeigt je Art die passenden Felder; Frist heißt je Art Frist/Termin/Abgabe,
+  `AUFGABEN_ARTEN` in `domain/status.js`), Stift-Knopf an jeder Aufgabe (Bearbeiten an Ort und Stelle), Anzeige mit Art-Marke,
+  „in 12 Tagen“ bis zum Termin, Balken Ist/Soll, „nur zum Lernen“-Marke; die Übersicht zeigt dasselbe. Noch offen (nächste
+  Schritte, siehe Verfeinerung): Orientierungsfragen mit automatischem Karteikarten-Set, Lesepensen Pflicht/Skript/Bibel mit
+  Fortschritt aus dem Lesenachweis, Pflichtlektüre-Formular ans Fach knüpfen, Gesamtfortschritt nur aus gewichteten Aufgaben.
+  Ungeklärt (Nutzer fragen): soll der Gesamtfortschritt künftig NUR aus den Aufgaben entstehen (Lesen und Karteikarten liefern
+  an die Aufgabe) oder bleibt es beim Mittel aus allem?
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.application.ports import ServiceGateway, SubjectRepository
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Aufgabe, Subject
+from app.domain.models import ARTEN, Aufgabe, Subject
 
 
 # Diese Namen gehören dem Kern selbst und dürfen kein Dienst sein.
@@ -109,10 +109,50 @@ class SubjectService:
                 return a
         raise NotFound("Aufgabe nicht gefunden.")
 
+    @staticmethod
+    def _pruefe_aufgabe(a: Aufgabe) -> None:
+        """Ein Standard für alle Arten: dieselben Regeln beim Anlegen und beim Bearbeiten."""
+        a.titel = _clean(a.titel)
+        if a.art not in ARTEN:
+            raise InvalidInput("Diese Art von Aufgabe gibt es nicht.")
+        a.frist = (a.frist or "").strip() or None
+        if a.gewichtung is not None and not 0 < a.gewichtung <= 100:
+            raise InvalidInput("Die Gewichtung muss zwischen 0 und 100 Prozent liegen.")
+        for wert, name in ((a.soll, "Der Umfang"), (a.ist, "Der erreichte Stand")):
+            if wert is not None and wert < 0:
+                raise InvalidInput(f"{name} darf nicht negativ sein.")
+        a.notiz = (a.notiz or "").strip()
+        a.einheit = (a.einheit or "").strip()
+
     def add_aufgabe(self, subject_id: str, titel: str, frist: str | None = None,
-                     gewichtung: float | None = None) -> Subject:
+                     gewichtung: float | None = None, art: str = "allgemein", zaehlt: bool = True, notiz: str = "",
+                     soll: float | None = None, ist: float | None = None, einheit: str = "") -> Subject:
         subject = self._subject(subject_id)
-        subject.aufgaben.append(Aufgabe(titel=_clean(titel), frist=frist or None, gewichtung=gewichtung))
+        aufgabe = Aufgabe(titel=titel, frist=frist, gewichtung=gewichtung, art=art, zaehlt=zaehlt, notiz=notiz,
+                          soll=soll, ist=ist, einheit=einheit)
+        self._pruefe_aufgabe(aufgabe)
+        subject.aufgaben.append(aufgabe)
+        self.subjects.save(subject)
+        return subject
+
+    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit")
+
+    def update_aufgabe(self, subject_id: str, aufgabe_id: str, **felder) -> Subject:
+        """Aufgabe bearbeiten: nur die genannten Felder ändern sich (leer/None entfernt Frist, Gewichtung, Umfang …).
+        Eine abgelehnte Änderung lässt die Aufgabe unverändert."""
+        unbekannt = set(felder) - set(self.BEARBEITBAR)
+        if unbekannt:
+            raise InvalidInput(f"Unbekannte Angabe: {', '.join(sorted(unbekannt))}.")
+        subject = self._subject(subject_id)
+        aufgabe = self._aufgabe(subject, aufgabe_id)
+        vorher = dict(vars(aufgabe))
+        for name, wert in felder.items():
+            setattr(aufgabe, name, wert)
+        try:
+            self._pruefe_aufgabe(aufgabe)
+        except InvalidInput:
+            vars(aufgabe).update(vorher)
+            raise
         self.subjects.save(subject)
         return subject
 
@@ -216,17 +256,18 @@ class SubjectService:
 
     @staticmethod
     def _aufgaben_part(subject: Subject) -> tuple[dict, dict]:
-        """Umfang des Fachs als eigener Teil des Fortschritts: Anteil erledigter Aufgaben.
+        """Umfang des Fachs als eigener Teil des Fortschritts: gewichteter Fortschritt der Aufgaben.
         Hat eine Aufgabe eine Gewichtung (wie die „Anteilige Bewertung“ im Aufgabenblatt), zählt sie entsprechend
-        mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel."""
+        mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel. Aufgaben „nur zum Lernen“ (`zaehlt` aus)
+        und die Teilstände einer Ausarbeitung (Ist gegen Soll) werden berücksichtigt."""
         total = len(subject.aufgaben)
         done = sum(1 for a in subject.aufgaben if a.erledigt)
-        weight = sum(a.gewichtung for a in subject.aufgaben if a.gewichtung)
+        zaehlende = [a for a in subject.aufgaben if a.zaehlt]
+        weight = sum(a.gewichtung for a in zaehlende if a.gewichtung)
         if weight:
-            done_weight = sum(a.gewichtung for a in subject.aufgaben if a.erledigt and a.gewichtung)
-            progress = max(0, min(100, int(done_weight / weight * 100 + 0.5)))
-        elif total:
-            progress = int(done / total * 100 + 0.5)
+            progress = max(0, min(100, int(sum(a.gewichtung * a.fortschritt() for a in zaehlende if a.gewichtung) / weight + 0.5)))
+        elif zaehlende:
+            progress = int(sum(a.fortschritt() for a in zaehlende) / len(zaehlende) + 0.5)
         else:
             progress = None
         return ({"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": progress},
@@ -238,7 +279,7 @@ class SubjectService:
         Ist nur noch eine Aufgabe offen, deren Titel „Klausur“ enthält, bekommt das Fach eine eigene Stufe
         dafür (wie im Aufgabenblatt: die Klausur steht meist am Ende, mit eigenem Termin)."""
         offene = [a for a in subject.aufgaben if not a.erledigt]
-        klausur_offen = [a for a in offene if "klausur" in a.titel.casefold()]
+        klausur_offen = [a for a in offene if a.art == "klausur" or "klausur" in a.titel.casefold()]
         sonst_offen = [a for a in offene if a not in klausur_offen]
         if klausur_offen and not sonst_offen and progress is not None and progress < 100:
             return "klausur_offen"

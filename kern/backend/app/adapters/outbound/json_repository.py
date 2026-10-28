@@ -10,12 +10,15 @@ from app.domain.models import Aufgabe, Subject
 
 def _aufgabe_in(d: dict) -> Aufgabe:
     return Aufgabe(id=d["id"], titel=d["titel"], frist=d.get("frist"),
-                   gewichtung=d.get("gewichtung"), erledigt=d.get("erledigt", False), pensum_id=d.get("pensum_id"))
+                   gewichtung=d.get("gewichtung"), erledigt=d.get("erledigt", False), pensum_id=d.get("pensum_id"),
+                   art=d.get("art", "allgemein"), zaehlt=d.get("zaehlt", True), notiz=d.get("notiz", ""),
+                   soll=d.get("soll"), ist=d.get("ist"), einheit=d.get("einheit", ""))
 
 
 def _aufgabe_out(a: Aufgabe) -> dict:
     return {"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung, "erledigt": a.erledigt,
-            "pensum_id": a.pensum_id}
+            "pensum_id": a.pensum_id, "art": a.art, "zaehlt": a.zaehlt, "notiz": a.notiz,
+            "soll": a.soll, "ist": a.ist, "einheit": a.einheit}
 
 
 class JsonSubjectRepository(SubjectRepository):

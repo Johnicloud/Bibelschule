@@ -36,6 +36,26 @@ class AufgabeIn(BaseModel):
     titel: str
     frist: str | None = None
     gewichtung: float | None = None   # anteilige Bewertung in Prozent, wie im Aufgabenblatt
+    art: str = "allgemein"
+    zaehlt: bool = True               # False = nur zum Lernen, zählt nicht zum Gesamtfortschritt
+    notiz: str = ""
+    soll: float | None = None
+    ist: float | None = None
+    einheit: str = ""
+
+
+class AufgabeTeilIn(BaseModel):
+    """Bearbeiten: nur mitgeschickte Felder ändern sich (null/leer entfernt das Feld)."""
+    titel: str | None = None
+    art: str | None = None
+    frist: str | None = None
+    gewichtung: float | None = None
+    erledigt: bool | None = None
+    zaehlt: bool | None = None
+    notiz: str | None = None
+    soll: float | None = None
+    ist: float | None = None
+    einheit: str | None = None
 
 
 class AufgabeStatusIn(BaseModel):
@@ -91,7 +111,9 @@ def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
            "note": s.note,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
-                         "erledigt": a.erledigt, "pensum_id": a.pensum_id} for a in s.aufgaben],
+                         "erledigt": a.erledigt, "pensum_id": a.pensum_id, "art": a.art, "zaehlt": a.zaehlt,
+                         "notiz": a.notiz, "soll": a.soll, "ist": a.ist, "einheit": a.einheit,
+                         "fortschritt": a.fortschritt()} for a in s.aufgaben],
            "aktive_dienste": s.aktive_dienste}
     if synced is not None:
         out["synced"] = synced   # welcher Dienst das Fach übernommen hat (false = nicht erreichbar, später /api/sync)
@@ -224,7 +246,14 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
 
     @api.post("/subjects/{subject_id}/aufgaben", status_code=201)
     def add_aufgabe(subject_id: str, body: AufgabeIn):
-        return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung))
+        return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung, body.art, body.zaehlt,
+                                               body.notiz, body.soll, body.ist, body.einheit))
+
+    @api.patch("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
+    def update_aufgabe(subject_id: str, aufgabe_id: str, body: AufgabeTeilIn):
+        # nur Felder ändern, die wirklich mitgeschickt wurden (null heißt „entfernen“, nicht „nicht angegeben“)
+        felder = {name: getattr(body, name) for name in body.model_fields_set}
+        return subject_out(service.update_aufgabe(subject_id, aufgabe_id, **felder))
 
     @api.put("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
     def set_aufgabe_erledigt(subject_id: str, aufgabe_id: str, body: AufgabeStatusIn):

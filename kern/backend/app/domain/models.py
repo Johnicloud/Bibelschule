@@ -14,11 +14,30 @@ class Aufgabe:
     pensum_id: optional, verknüpft die Aufgabe mit einem Pensum des Lesenachweis-Diensts (z. B. „Lesen der
     Pflicht-Lektüre + Lesenachweis“) – die Übersicht zeigt dann dessen echten Lesestatus statt eines Häkchens."""
     titel: str
-    frist: str | None = None
+    frist: str | None = None            # Termin bei der Klausur, Abgabe bei der Ausarbeitung
     gewichtung: float | None = None
     erledigt: bool = False
     pensum_id: str | None = None
     id: str = field(default_factory=new_id)
+    art: str = "allgemein"              # siehe ARTEN
+    zaehlt: bool = True                 # False = „nur zum Lernen“: zählt nicht zum Gesamtfortschritt
+    notiz: str = ""
+    soll: float | None = None           # Umfang der Ausarbeitung (Seiten, Wörter, Einträge …)
+    ist: float | None = None
+    einheit: str = ""
+
+    def fortschritt(self) -> int:
+        """0 bis 100. Erledigt ist immer 100; sonst bei einem Umfang Ist gegen Soll. (Fortschritt aus Lesenachweis und
+        Karteikarten kommt später dazu – die Verknüpfungen stehen schon an der Aufgabe.)"""
+        if self.erledigt:
+            return 100
+        if self.soll and self.ist is not None:
+            return max(0, min(100, int(self.ist / self.soll * 100 + 0.5)))
+        return 0
+
+
+# Arten einer Aufgabe: bestimmen, welche Felder gezeigt werden und woher der Fortschritt kommt
+ARTEN = ("allgemein", "klausur", "ausarbeitung", "fragen", "lesen_pflicht", "lesen_skript", "lesen_bibel")
 
 
 @dataclass
