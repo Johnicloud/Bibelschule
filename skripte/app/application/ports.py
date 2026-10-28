@@ -63,6 +63,10 @@ class DateiLeser(ABC):
         """Die Textstücke eines PDFs mit Lage und Schriftgröße (für Druckbögen); leer, wenn es nichts Passendes gibt."""
 
     @abstractmethod
+    def seiten(self, dateiname: str, inhalt: bytes) -> list[str]:
+        """Der Text je Seite (PDF, Pages), je Folie (PowerPoint) oder als eine „Seite“ (Word, Text); leer für alles ohne Text."""
+
+    @abstractmethod
     def ansichtstext(self, dateiname: str, inhalt: bytes) -> str:
         """Der Text einer Datei als reiner Text zum Anzeigen (PowerPoint mit „Folie n“, OpenDocument)."""
 

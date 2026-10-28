@@ -786,7 +786,10 @@ Sprache der Oberfläche und der Texte: Deutsch.
   glaubhaften Wörtern stehen (Vokalanteil, Konsonantenketten, Groß/Klein mitten im Wort, Sonderzeichen-Müll); Seiten unter 85
   gelten als „unsicher“ und werden als Links zur Seite gezeigt. Eine Schätzung, kein Beweis: das gut erkannte Skript liegt
   zwischen 89 und 100 (Median 98), die Rauschzeilen aus Logos/Randnotizen fallen auf Seitenebene kaum ins Gewicht.
-  (3) **Volltextsuche** (`GET /api/skripte/suche?subject_id=&q=`, Suchfeld über der Liste): alle Wörter müssen auf derselben
+  Nachgemessen an einer Seite mit Tabelle: ohne `--oversample 300` fehlten Tabellenzeilen (z. B. „Pfingstpredigt“), mit 300 dpi
+  Hochrechnung der Scans wurden sie erkannt – darum steht `--oversample 300` dabei (Erkennung dauert länger, ein 135-Seiten-
+  Skript rund eine Stunde im Hintergrund). Die Schätzung der Textqualität (`qualitaet`) merkt solche fehlenden Zeilen nicht,
+  sie bewertet nur den vorhandenen Text. (3) **Volltextsuche** (`GET /api/skripte/suche?subject_id=&q=`, Suchfeld über der Liste): alle Wörter müssen auf derselben
   Seite stehen, Teilwörter zählen, Groß/Klein egal, Silbentrennung am Zeilenende wird zusammengezogen (`domain/suche.py`).
   Treffer mit Datei, Seite und Ausschnitt; Klick öffnet die Datei an der Seite (`#page=N&search=…`). Durchsucht werden PDF
   (mit Text oder erkannter Textfassung), Pages, Word, Text/Markdown, odt/odp/pptx (je Folie); gescannte PDFs ohne erkannten Text

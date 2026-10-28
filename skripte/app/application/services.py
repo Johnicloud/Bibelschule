@@ -1,14 +1,17 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
+import json
 import logging
 import threading
 import unicodedata
 from datetime import date
 
 from app.application.ports import BildWandler, DateiLeser, DateiSpeicher, SkriptRepository, Texterkennung
-from app.domain.dateitypen import UMZUWANDELN, endung
+from app.domain.dateitypen import UMZUWANDELN, art, endung
 from app.domain.druckbogen import karten_aus_druckbogen
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.fragen import fragen_erkennen
+from app.domain.qualitaet import UNSICHER_UNTER, seitenqualitaet
+from app.domain.suche import finde, suchwoerter
 from app.domain.models import Skript
 
 BEREICH_MAX = 8 * 1024 * 1024   # größtes Stück pro Antwort beim Spulen
@@ -30,6 +33,10 @@ def _mit_endung(neu: str, alt: str) -> str:
 
 def _text_key(skript_id: str) -> str:
     return f"{skript_id}.text"
+
+
+def _seiten_key(skript_id: str) -> str:
+    return f"{skript_id}.seiten"
 
 
 class SkriptService:
@@ -128,6 +135,63 @@ class SkriptService:
         ende = min(ende, start + BEREICH_MAX - 1)
         return skript, self.dateien.lies_bereich(schluessel, start, ende), start, ende, gesamt
 
+    # Seitentexte (für Textqualität und Suche): einmal ausgelesen und neben der Datei gemerkt (`<id>.seiten`), solange sich
+    # die Quelle (Textfassung oder Original) nicht ändert – ein 150-MB-Skript soll nicht bei jeder Suche neu gelesen werden
+    def _seiten(self, skript_id: str) -> list[str]:
+        skript = self._skript(skript_id)
+        if self.leser is None:
+            return []
+        schluessel = _text_key(skript_id) if self.dateien.vorhanden(_text_key(skript_id)) else skript_id
+        groesse = self.dateien.groesse(schluessel)
+        if groesse is None:
+            return []
+        if self.dateien.vorhanden(_seiten_key(skript_id)):
+            try:
+                gemerkt = json.loads(self.dateien.lies(_seiten_key(skript_id)))
+                if gemerkt.get("schluessel") == schluessel and gemerkt.get("groesse") == groesse:
+                    return gemerkt["seiten"]
+            except (ValueError, KeyError, TypeError):
+                pass
+        inhalt = self.dateien.lies(schluessel)
+        if schluessel == skript_id and skript.dateiname.lower().endswith(".pdf") and not self.leser.hat_text(skript.dateiname, inhalt):
+            seiten: list[str] = []                    # gescannt und noch nicht erkannt: es gibt nichts zu durchsuchen
+        else:
+            seiten = self.leser.seiten(skript.dateiname, inhalt)
+        self.dateien.speichere(_seiten_key(skript_id), json.dumps(
+            {"schluessel": schluessel, "groesse": groesse, "seiten": seiten}, ensure_ascii=False).encode("utf-8"))
+        return seiten
+
+    def qualitaet(self, skript_id: str) -> dict:
+        """Geschätzte Zuverlässigkeit des erkannten Textes je Seite (0 bis 100) und die unsicheren Seiten."""
+        seiten = self._seiten(skript_id)
+        werte = [seitenqualitaet(t) for t in seiten]
+        bekannt = [w for w in werte if w is not None]
+        return {"seiten_gesamt": len(seiten),
+                "durchschnitt": round(sum(bekannt) / len(bekannt)) if bekannt else None,
+                "unsicher": [i + 1 for i, w in enumerate(werte) if w is not None and w < UNSICHER_UNTER],
+                "schwelle": UNSICHER_UNTER}
+
+    def suche(self, subject_id: str, anfrage: str, limit: int = 100) -> dict:
+        """Volltextsuche in allen Skripten eines Fachs: alle Wörter müssen auf derselben Seite stehen."""
+        woerter = suchwoerter(anfrage)
+        if not woerter:
+            raise InvalidInput("Bitte ein Suchwort eingeben.")
+        treffer, ohne_text = [], []
+        for skript in self.list_skripte(subject_id):
+            seiten = self._seiten(skript.id)
+            if not seiten and art(skript.dateiname) in ("pdf", "pages"):
+                ohne_text.append(skript.dateiname)       # gescannt, Text noch nicht erkannt
+            einzeln = len(seiten) == 1 and art(skript.dateiname) not in ("pdf", "pages")
+            for nummer, text in enumerate(seiten, 1):
+                fund = finde(text, woerter)
+                if fund is not None:
+                    treffer.append({"skript_id": skript.id, "dateiname": skript.dateiname, "art": art(skript.dateiname),
+                                    "seite": None if einzeln else nummer, "ausschnitt": fund.ausschnitt,
+                                    "von": fund.von, "bis": fund.bis})
+                    if len(treffer) >= limit:
+                        return {"treffer": treffer, "begrenzt": True, "ohne_text": ohne_text}
+        return {"treffer": treffer, "begrenzt": False, "ohne_text": ohne_text}
+
     def fragen(self, skript_id: str) -> list[str]:
         """Die Fragen einer Fragenliste (PDF, Word, Pages) – nur ein Vorschlag, die Karteikarten legt der Nutzer an."""
         skript, inhalt = self._lesefassung(skript_id)
@@ -148,16 +212,20 @@ class SkriptService:
 
     # Texterkennung für gescannte PDFs (ohne Text lässt sich nichts markieren oder kopieren)
     def text_status(self, skript_id: str) -> dict:
+        """keine / laeuft / fertig / fehler; bei „fertig“ die Größe der Textfassung (kleiner als das Original dank Optimierung).
+        Läuft eine Neuerkennung, bleibt die alte Fassung bis zum Ende erhalten und gilt weiter."""
+        groesse = self.dateien.groesse(_text_key(skript_id))
         if skript_id in self._laufend:
-            return {"status": "laeuft", "fehler": None}
-        if self.dateien.vorhanden(_text_key(skript_id)):
-            return {"status": "fertig", "fehler": None}
+            return {"status": "laeuft", "fehler": None, "groesse": groesse}
+        if groesse is not None:
+            return {"status": "fertig", "fehler": None, "groesse": groesse}
         if skript_id in self._fehler:
-            return {"status": "fehler", "fehler": self._fehler[skript_id]}
-        return {"status": "keine", "fehler": None}
+            return {"status": "fehler", "fehler": self._fehler[skript_id], "groesse": None}
+        return {"status": "keine", "fehler": None, "groesse": None}
 
-    def text_erkennen_starten(self, skript_id: str, im_hintergrund: bool = True) -> None:
-        """Startet die Erkennung (dauert bei einem ganzen Skript Minuten, darum eigener Thread, nicht abgewartet)."""
+    def text_erkennen_starten(self, skript_id: str, im_hintergrund: bool = True, neu: bool = False) -> None:
+        """Startet die Erkennung (dauert bei einem ganzen Skript Minuten, darum eigener Thread, nicht abgewartet).
+        `neu=True` erkennt noch einmal (z. B. nach besseren Einstellungen); die alte Textfassung bleibt, bis die neue fertig ist."""
         skript = self._skript(skript_id)
         if self.erkennung is None:
             raise InvalidInput("Texterkennung ist hier nicht eingerichtet.")
@@ -165,6 +233,8 @@ class SkriptService:
             raise InvalidInput("Texterkennung gibt es nur für PDF-Dateien.")
         if skript_id in self._laufend:
             return
+        if not neu and self.dateien.vorhanden(_text_key(skript_id)):
+            return                                  # schon erkannt
         original = self.dateien.lies(skript_id)
         if original is not None and self.leser is not None and self.leser.hat_text(skript.dateiname, original):
             raise InvalidInput("Dieses PDF hat schon Text, die Erkennung ist nicht nötig.")
@@ -181,6 +251,7 @@ class SkriptService:
             if original is None:
                 raise InvalidInput("Die Datei fehlt leider.")
             self.dateien.speichere(_text_key(skript_id), self.erkennung.erkennen(original))
+            self.dateien.loesche(_seiten_key(skript_id))       # die gemerkten Seitentexte gehören zur alten Fassung
         except Exception as e:
             logging.getLogger(__name__).exception("Texterkennung fehlgeschlagen")
             self._fehler[skript_id] = str(e) if isinstance(e, InvalidInput) else "Die Texterkennung ist fehlgeschlagen."
@@ -192,12 +263,14 @@ class SkriptService:
         self.repo.delete(skript_id)
         self.dateien.loesche(skript_id)
         self.dateien.loesche(_text_key(skript_id))
+        self.dateien.loesche(_seiten_key(skript_id))
 
     # Fach-Hooks
     def discard_subject(self, subject_id: str) -> None:
         for skript in self.repo.delete_subject(subject_id):
             self.dateien.loesche(skript.id)
             self.dateien.loesche(_text_key(skript.id))
+            self.dateien.loesche(_seiten_key(skript.id))
 
     def subject_status(self, subject_id: str) -> dict:
         return {"count": len(self.repo.list(subject_id))}

@@ -9,6 +9,14 @@
   .uk-list-item { flex-direction: column; align-items: stretch; }
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
   .uk-kopf { display: flex; justify-content: flex-end; margin-bottom: .75rem; }
+  .uk-suche { display: flex; gap: .5rem; margin-bottom: .75rem; }
+  .uk-suche-erg { display: grid; gap: .5rem; margin-bottom: 1rem; }
+  .uk-suche-erg[hidden] { display: none; }
+  .uk-treffer { display: block; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: .7rem; background: var(--panel);
+    color: var(--text); text-decoration: none; }
+  .uk-treffer:hover { border-color: var(--accent); }
+  .uk-treffer mark { background: var(--accent); color: var(--accent-text); border-radius: .25rem; padding: 0 .15rem; }
+  .uk-qual a { color: var(--muted); }
   .uk-upload { display: grid; gap: .75rem; margin-bottom: 1rem; }
   .uk-upload[hidden] { display: none; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
@@ -26,6 +34,11 @@
 <div class="uk-kopf">
   <button class="uk-btn uk-icon-btn" id="neu" type="button" title="Neue Datei" aria-label="Neue Datei" aria-expanded="false"></button>
 </div>
+<form id="suche" class="uk-suche" role="search">
+  <input id="suche-q" class="uk-input" type="search" placeholder="In allen Skripten dieses Fachs suchen …" aria-label="Suchen">
+  <button class="uk-btn uk-icon-btn" id="suche-los" type="submit" title="Suchen" aria-label="Suchen"></button>
+</form>
+<div id="suche-erg" class="uk-suche-erg" hidden></div>
 <form id="form" class="uk-panel uk-upload" hidden>
   <div id="ablage-platz"></div>
   <input id="name" class="uk-input" type="text" placeholder="Name der Datei" aria-label="Name der Datei" disabled>
@@ -82,6 +95,7 @@
   // Neue Datei: „+“ klappt das Formular auf – Datei per Klick wählen oder hineinziehen, Name vorab änderbar
   const $ = (id) => document.getElementById(id)
   setIcon($('neu'), 'plus', 'Neue Datei')
+  setIcon($('suche-los'), 'suche', 'Suchen')
   $('hochladen').append(icon('upload'), 'Hochladen')
   $('abbrechen').append(icon('x'), 'Abbrechen')
   let gewaehlt = null
@@ -102,6 +116,34 @@
     $('form').hidden = false; $('neu').setAttribute('aria-expanded', 'true')
   }
   $('abbrechen').onclick = formularZu
+
+  // Volltextsuche über alle Skripte des Fachs: Treffer mit Seite und Ausschnitt, Klick öffnet die Datei an dieser Stelle
+  function treffer(t, q) {
+    const seitenLink = t.art === 'pdf' && t.seite ? `#page=${t.seite}&search=${encodeURIComponent(q.split(/\s+/)[0])}` : ''
+    const ziel = t.art === 'pages' ? 'vorschau' : t.art === 'docx' ? 'ansicht' : t.art === 'ansichtstext' ? 'text' : 'datei'
+    const a = el('a', { class: 'uk-treffer', href: `skripte/${t.skript_id}/${ziel}${seitenLink}`, target: '_blank', rel: 'noopener' }, [
+      el('div', { class: 'uk-sub' }, `${t.dateiname}${t.seite ? ` · Seite ${t.seite}` : ''}`),
+      el('div', {}, [t.ausschnitt.slice(0, t.von), el('mark', {}, t.ausschnitt.slice(t.von, t.bis)), t.ausschnitt.slice(t.bis)]),
+    ])
+    return a
+  }
+  $('suche').onsubmit = async (e) => {
+    e.preventDefault()
+    const q = $('suche-q').value.trim()
+    const box = $('suche-erg')
+    if (!q) { box.hidden = true; return }
+    box.hidden = false
+    box.textContent = 'Sucht …'
+    try {
+      const erg = await call('GET', `skripte/suche?subject_id=${encodeURIComponent(subject)}&q=${encodeURIComponent(q)}`)
+      const teile = []
+      teile.push(el('div', { class: 'uk-sub' }, erg.treffer.length
+        ? `${erg.treffer.length}${erg.begrenzt ? '+' : ''} Fundstellen für „${q}“` : `Nichts gefunden für „${q}“.`))
+      teile.push(...erg.treffer.map((t) => treffer(t, q)))
+      if (erg.ohne_text.length) teile.push(el('div', { class: 'uk-sub' }, `Nicht durchsucht, weil noch kein Text erkannt ist: ${erg.ohne_text.join(', ')} – im Menü „Text erkennen“.`))
+      box.replaceChildren(...teile)
+    } catch (err) { box.textContent = err.message }
+  }
 
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
@@ -139,17 +181,33 @@
     // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
     // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
     const textInfo = el('span', { class: 'uk-sub', role: 'status' })
+    const qualBox = el('div', { class: 'uk-sub uk-qual', role: 'status' })
+    async function qualitaetPruefen() {
+      qualBox.textContent = 'Prüft den Text …'
+      try {
+        const q = await call('GET', `skripte/${s.id}/qualitaet`)
+        if (q.durchschnitt === null) { qualBox.textContent = 'Kein erkannter Text zum Prüfen.'; return }
+        const seitenLinks = q.unsicher.slice(0, 20).flatMap((n, i) => [i ? ', ' : '', el('a', { href: `skripte/${s.id}/datei#page=${n}`, target: '_blank', rel: 'noopener' }, String(n))])
+        qualBox.replaceChildren(`Textqualität etwa ${q.durchschnitt} % (Schätzung)` + (q.unsicher.length
+          ? ` · ${q.unsicher.length} Seite${q.unsicher.length === 1 ? '' : 'n'} unsicher: ` : ' · keine unsichere Seite'), ...seitenLinks)
+      } catch (err) { qualBox.textContent = err.message }
+    }
+    let textStatus = s.text_status
     const textAktion = async () => {
       m.punkt('text').disabled = true
-      try { const t = await call('POST', `skripte/${s.id}/text-erkennen`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler }) }
+      try { const t = await call('POST', `skripte/${s.id}/text-erkennen${textStatus === 'fertig' ? '?neu=true' : ''}`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler, text_groesse: t.groesse }) }
       catch (err) { textInfo.textContent = err.message; m.punkt('text').disabled = false }
     }
     const textZeigen = (t) => {
+      textStatus = t.text_status
       const p = m.punkt('text')
-      p.hidden = t.text_status === 'fertig' || !/\.pdf$/i.test(s.dateiname)
+      p.hidden = s.art !== 'pdf'
       p.disabled = t.text_status === 'laeuft'
-      p.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'), t.text_status === 'laeuft' ? 'Text wird erkannt …' : 'Text erkennen')
-      textInfo.textContent = t.text_status === 'fertig' ? 'Text markierbar' : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.') : t.text_status === 'laeuft' ? 'Text wird erkannt …' : ''
+      p.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'),
+        t.text_status === 'laeuft' ? 'Text wird erkannt …' : t.text_status === 'fertig' ? 'Text neu erkennen' : 'Text erkennen')
+      const gr = t.text_groesse ? ` · ${groesse(t.text_groesse)}` : ''
+      textInfo.textContent = t.text_status === 'fertig' ? `Text markierbar${gr}` : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.')
+        : t.text_status === 'laeuft' ? 'Text wird erkannt …' + (t.text_groesse ? ` (bisherige Fassung${gr} bleibt bis dahin)` : '') : ''
       if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
     }
     const textAbfragen = async () => {
@@ -176,6 +234,7 @@
       ...(kannAnzeigen(s) ? [{ icon: 'extern', text: 'In neuem Tab öffnen', href: docx ? `skripte/${s.id}/ansicht` : vorschauUrl(s) }] : []),
       { id: 'text', icon: 'scan', text: 'Text erkennen', title: 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt', onclick: textAktion },
       ...(kannFragen(s) ? [{ icon: 'karten', text: 'Karten übernehmen', onclick: kartenOeffnen }] : []),
+      ...(s.art === 'pdf' ? [{ icon: 'haken', text: 'Textqualität prüfen', title: 'Schätzt, wie zuverlässig der erkannte Text ist, und nennt unsichere Seiten', onclick: qualitaetPruefen }] : []),
       { icon: 'stift', text: 'Umbenennen', onclick: umbenennenStarten },
       { icon: 'download', text: 'Herunterladen', onclick: () => el('a', { href: url + '?original=1', download: s.dateiname }).click() },
       { icon: 'trash', text: 'Löschen', danger: true, onclick: async () => {
@@ -187,7 +246,7 @@
 
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
-        el('div', {}, [kopf, el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo]),
+        el('div', {}, [kopf, el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo, qualBox]),
         m.node,
       ]),
       fragenBox,

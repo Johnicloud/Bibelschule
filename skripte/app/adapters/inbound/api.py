@@ -27,7 +27,7 @@ def skript_out(s: Skript, text: dict | None = None) -> dict:
     return {"id": s.id, "subject_id": s.subject_id, "dateiname": s.dateiname, "content_type": s.content_type,
             "groesse": s.groesse, "hochgeladen_am": s.hochgeladen_am,
             "art": art(s.dateiname), "kann_fragen": kann_fragen(s.dateiname),
-            "text_status": (text or {}).get("status"), "text_fehler": (text or {}).get("fehler")}
+            "text_status": (text or {}).get("status"), "text_groesse": (text or {}).get("groesse"), "text_fehler": (text or {}).get("fehler")}
 
 
 def create_app(service: SkriptService) -> FastAPI:
@@ -64,6 +64,14 @@ def create_app(service: SkriptService) -> FastAPI:
         inhalt = await datei.read()
         return skript_out(service.upload(subject_id, datei.filename or "", datei.content_type, inhalt, dateiname))
 
+    @api.get("/skripte/suche")
+    def suche(subject_id: str, q: str):
+        return service.suche(subject_id, q)
+
+    @api.get("/skripte/{skript_id}/qualitaet")
+    def qualitaet(skript_id: str):
+        return service.qualitaet(skript_id)
+
     @api.get("/skripte/{skript_id}/datei")
     def datei(skript_id: str, request: Request, original: bool = False):
         # HTTP-Kopfzeilen sind Latin-1: Namen mit Sonderzeichen (z. B. unsichtbare Richtungszeichen) gehen nur als
@@ -97,8 +105,8 @@ def create_app(service: SkriptService) -> FastAPI:
         return skript_out(service.umbenennen(skript_id, body.dateiname), service.text_status(skript_id))
 
     @api.post("/skripte/{skript_id}/text-erkennen", status_code=202)
-    def text_erkennen(skript_id: str):
-        service.text_erkennen_starten(skript_id)
+    def text_erkennen(skript_id: str, neu: bool = False):
+        service.text_erkennen_starten(skript_id, neu=neu)
         return service.text_status(skript_id)
 
     @api.get("/skripte/{skript_id}/ansicht", response_class=HTMLResponse)

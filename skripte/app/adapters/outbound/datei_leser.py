@@ -28,6 +28,13 @@ def _pdf_zeilen(inhalt: bytes) -> list[str]:
         raise InvalidInput("Die PDF-Datei ließ sich nicht lesen.") from e
 
 
+def _pdf_seiten(inhalt: bytes) -> list[str]:
+    try:
+        return [(seite.extract_text() or "") for seite in PdfReader(io.BytesIO(inhalt)).pages]
+    except Exception as e:
+        raise InvalidInput("Die PDF-Datei ließ sich nicht lesen.") from e
+
+
 def _pdf_stuecke(inhalt: bytes) -> list[Textstueck]:
     stuecke: list[Textstueck] = []
     try:
@@ -168,6 +175,19 @@ class DateiLeserAdapter(DateiLeser):
         if endung == "pages":
             pdf = _pages_pdf(inhalt)
             return _pdf_stuecke(pdf) if pdf else []
+        return []
+
+    def seiten(self, dateiname: str, inhalt: bytes) -> list[str]:
+        endung = _endung(dateiname)
+        if endung == "pdf":
+            return _pdf_seiten(inhalt)
+        if endung == "pages":
+            pdf = _pages_pdf(inhalt)
+            return _pdf_seiten(pdf) if pdf else []
+        if endung == "pptx":
+            return ["\n".join(folie) for folie in _pptx_folien(inhalt)]
+        if endung in ("docx", "odt", "odp", "txt", "md", "markdown"):
+            return ["\n".join(self.zeilen(dateiname, inhalt))]
         return []
 
     def ansichtstext(self, dateiname: str, inhalt: bytes) -> str:

@@ -177,3 +177,18 @@ def test_umbenennen_behaelt_die_endung_und_bereinigt(svc):
 def test_upload_mit_wunschname_behaelt_die_endung_der_datei(svc):
     assert svc.upload("f", "scan_0017.pdf", None, b"x", wunschname="Apostelgeschichte Skript").dateiname == "Apostelgeschichte Skript.pdf"
     assert svc.upload("f", "scan.pdf", None, b"x", wunschname="  ").dateiname == "scan.pdf"
+
+
+def test_neu_erkennen_ersetzt_die_textfassung_erst_am_ende():
+    class Ocr:
+        def __init__(self): self.n = 0
+        def erkennen(self, pdf): self.n += 1; return b"%PDF-" + str(self.n).encode()
+    ocr = Ocr()
+    svc = SkriptService(InMemoryRepo(), InMemoryDateien(), DateiLeserAdapter(), ocr)
+    s = svc.upload("f", "Skript.pdf", None, b"%PDF-SCAN")
+    svc.text_erkennen_starten(s.id, im_hintergrund=False)
+    svc.text_erkennen_starten(s.id, im_hintergrund=False)             # schon erkannt: nichts passiert
+    assert ocr.n == 1 and svc.datei(s.id)[1] == b"%PDF-1"
+    assert svc.text_status(s.id) == {"status": "fertig", "fehler": None, "groesse": 6}
+    svc.text_erkennen_starten(s.id, im_hintergrund=False, neu=True)
+    assert ocr.n == 2 and svc.datei(s.id)[1] == b"%PDF-2"
