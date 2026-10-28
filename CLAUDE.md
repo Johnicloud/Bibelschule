@@ -813,8 +813,9 @@ Sprache der Oberfläche und der Texte: Deutsch.
   „in 12 Tagen“ bis zum Termin, Balken Ist/Soll, „nur zum Lernen“-Marke; die Übersicht zeigt dasselbe. Noch offen (nächste
   Schritte, siehe Verfeinerung): Orientierungsfragen mit automatischem Karteikarten-Set, Lesepensen Pflicht/Skript/Bibel mit
   Fortschritt aus dem Lesenachweis, Pflichtlektüre-Formular ans Fach knüpfen, Gesamtfortschritt nur aus gewichteten Aufgaben.
-  Ungeklärt (Nutzer fragen): soll der Gesamtfortschritt künftig NUR aus den Aufgaben entstehen (Lesen und Karteikarten liefern
-  an die Aufgabe) oder bleibt es beim Mittel aus allem?
+  Entschieden (Nutzer: „Von allem“): der Gesamtfortschritt bleibt das Mittel aus ALLEM – dem Aufgaben-Teil und jedem Dienst, der
+  einen Fortschritt meldet (Lesen, Karteikarten, …). Er entsteht nicht nur aus den Aufgaben. Dass ein Lesepensum oder ein
+  Karteikarten-Set einmal als eigener Teil und einmal über die verknüpfte Aufgabe zählt, ist damit gewollt.
 
 - [fertig] Aufgabe „Orientierungsfragen“ (Art `fragen`, Schritt 2 der Aufgaben-Verfeinerung): die Fragen werden beim Anlegen
   automatisch zu einem **Karteikarten-Set** dieses Fachs, die Aufgabe merkt sich nur dessen Namen (`Aufgabe.set_name`, Kern
@@ -828,8 +829,8 @@ Sprache der Oberfläche und der Texte: Deutsch.
   aus dem Status, den er ohnehin abfragt (`SubjectService._set_staende`), und gibt es an `Aufgabe.fortschritt(extern)` – kein
   neuer Dienst-Aufruf. `deck_out.sets` hat zusätzlich `mastered_count` für die Anzeige im Reiter „Aufgaben“ („1 von 3 Karten
   sicher gelernt · 33 %“ mit Balken). Beim Bearbeiten lässt sich das Set aus den vorhandenen Sets wählen. Hinweis: Karteikarten
-  zählen damit zusätzlich zur eigenen Karteikarten-Kachel in den Gesamtfortschritt – das Doppelzählen ist die offene Frage zur
-  Gesamtfortschritt-Regel (siehe Aufgaben-Standard).
+  zählen damit zusätzlich zur eigenen Karteikarten-Kachel in den Gesamtfortschritt – gewollt (Entscheidung „Gesamtfortschritt =
+  Mittel aus allem“, siehe Aufgaben-Standard).
 
 - [fertig] Lese-Aufgaben (Arten `lesen_pflicht`, `lesen_skript`, `lesen_bibel`, Schritt 3 der Aufgaben-Verfeinerung): die Aufgabe
   legt beim Anlegen gleich das passende Pensum im Lesenachweis an und merkt sich dessen Id (`pensum_id`, jetzt auch beim
