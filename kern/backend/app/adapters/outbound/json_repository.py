@@ -12,13 +12,13 @@ def _aufgabe_in(d: dict) -> Aufgabe:
     return Aufgabe(id=d["id"], titel=d["titel"], frist=d.get("frist"),
                    gewichtung=d.get("gewichtung"), erledigt=d.get("erledigt", False), pensum_id=d.get("pensum_id"),
                    art=d.get("art", "allgemein"), zaehlt=d.get("zaehlt", True), notiz=d.get("notiz", ""),
-                   soll=d.get("soll"), ist=d.get("ist"), einheit=d.get("einheit", ""))
+                   soll=d.get("soll"), ist=d.get("ist"), einheit=d.get("einheit", ""), set_name=d.get("set_name", ""))
 
 
 def _aufgabe_out(a: Aufgabe) -> dict:
     return {"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung, "erledigt": a.erledigt,
             "pensum_id": a.pensum_id, "art": a.art, "zaehlt": a.zaehlt, "notiz": a.notiz,
-            "soll": a.soll, "ist": a.ist, "einheit": a.einheit}
+            "soll": a.soll, "ist": a.ist, "einheit": a.einheit, "set_name": a.set_name}
 
 
 class JsonSubjectRepository(SubjectRepository):

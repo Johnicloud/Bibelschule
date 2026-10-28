@@ -17,6 +17,7 @@ import { createPredigtenApi } from './adapters/predigtenApi'
 import { createReadingApi } from './adapters/readingApi'
 import { createRegisterApi } from './adapters/registerApi'
 import { createSchnelllesenApi } from './adapters/schnelllesenApi'
+import { createSkripteApi } from './adapters/skripteApi'
 import { createAdressbuchService } from './application/adressbuchService'
 import { createAufgabenLeseService } from './application/aufgabenLeseService'
 import { createAuthService } from './application/authService'
@@ -32,6 +33,7 @@ import { createSubjectService } from './application/subjectService'
 import { createReadingService } from './application/readingService'
 import { createRegisterService } from './application/registerService'
 import { createSchnelllesenService } from './application/schnelllesenService'
+import { createSkripteService } from './application/skripteService'
 
 createApp(App)
   .provide('auth', createAuthService(createAuthApi('/api')))
@@ -45,6 +47,7 @@ createApp(App)
   .provide('bibel', createBibelService(createBibelApi('/api/bibel')))
   .provide('bibliothek', createBibliothekService(createBibliothekApi('/api/bibliothek')))
   .provide('schnelllesen', createSchnelllesenService(createSchnelllesenApi('/api/schnelllesen')))
+  .provide('skripte', createSkripteService(createSkripteApi('/api/skripte')))
   .provide('predigten', createPredigtenService(createPredigtenApi('/api/predigten')))
 
   .provide('notizen', createNotizenService(createNotizenApi('/api/notizen')))

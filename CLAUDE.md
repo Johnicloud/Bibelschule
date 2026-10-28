@@ -816,6 +816,21 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Ungeklärt (Nutzer fragen): soll der Gesamtfortschritt künftig NUR aus den Aufgaben entstehen (Lesen und Karteikarten liefern
   an die Aufgabe) oder bleibt es beim Mittel aus allem?
 
+- [fertig] Aufgabe „Orientierungsfragen“ (Art `fragen`, Schritt 2 der Aufgaben-Verfeinerung): die Fragen werden beim Anlegen
+  automatisch zu einem **Karteikarten-Set** dieses Fachs, die Aufgabe merkt sich nur dessen Namen (`Aufgabe.set_name`, Kern
+  kennt keine Karten). Quelle im Formular (`AufgabeForm.vue`): Fragen eintippen/einfügen (eine je Zeile, Nummern/Aufzählungs-
+  zeichen vorne fallen weg) oder eine Datei im Fach (Reiter „Skripte“: Fragenliste, Druckbogen mit Antworten, über
+  `GET /api/skripte/{id}/karten`, die Antworten kommen mit, wenn die Datei sie hat). Reine Frontend-Orchestrierung: Set anlegen
+  (gibt es den Namen schon, wird das Set weiterverwendet), Karten anlegen (schon vorhandene Fragen im Fach werden übersprungen,
+  fehlende Antwort = „(Antwort noch nicht eingetragen)“), den Reiter „Karteikarten“ im Fach einblenden, dann die Aufgabe speichern.
+  Set-Name folgt dem Titel, solange man ihn nicht selbst ändert. **Fortschritt** der Aufgabe = Anteil sicher gelernter Karten
+  (Stufe 4+) im Set: der Karteikarten-Dienst liefert in `deck_status` jetzt `sets` (Name, Karten, `mastered`), der Kern liest das
+  aus dem Status, den er ohnehin abfragt (`SubjectService._set_staende`), und gibt es an `Aufgabe.fortschritt(extern)` – kein
+  neuer Dienst-Aufruf. `deck_out.sets` hat zusätzlich `mastered_count` für die Anzeige im Reiter „Aufgaben“ („1 von 3 Karten
+  sicher gelernt · 33 %“ mit Balken). Beim Bearbeiten lässt sich das Set aus den vorhandenen Sets wählen. Hinweis: Karteikarten
+  zählen damit zusätzlich zur eigenen Karteikarten-Kachel in den Gesamtfortschritt – das Doppelzählen ist die offene Frage zur
+  Gesamtfortschritt-Regel (siehe Aufgaben-Standard).
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

@@ -93,3 +93,25 @@ def test_alte_aufgaben_ohne_neue_felder_werden_gelesen_und_neue_gespeichert(tmp_
     svc.add_aufgabe("f1", "Neu", art="ausarbeitung", soll=5, ist=1, einheit="Seiten", zaehlt=False)
     n = JsonSubjectRepository(pfad).get("f1").aufgaben[1]
     assert (n.art, n.soll, n.ist, n.einheit, n.zaehlt) == ("ausarbeitung", 5, 1, "Seiten", False)
+
+
+def test_orientierungsfragen_haengen_an_einem_set_und_ihr_fortschritt_kommt_von_den_karten(svc):
+    s = fach(svc)
+    s = svc.add_aufgabe(s.id, "Orientierungsfragen Kap. 1", gewichtung=40, art="fragen", set_name=" Fragen Kap. 1 ")
+    a = s.aufgaben[0]
+    assert (a.art, a.set_name) == ("fragen", "Fragen Kap. 1")
+    s = svc.add_aufgabe(s.id, "Klausur", gewichtung=60, art="klausur")
+    teil, _ = svc._aufgaben_part(s, {a.id: 50})                  # 10 von 20 Karten sicher gelernt
+    assert teil["progress"] == 20                                  # 40 % Gewicht x 50 % Fortschritt
+    assert svc._aufgaben_part(s)[0]["progress"] == 0               # ohne Angaben vom Karteikarten-Dienst: noch nichts gelernt
+    svc.update_aufgabe(s.id, a.id, set_name="")
+    assert s.aufgaben[0].set_name == ""
+
+
+def test_fach_fortschritt_nimmt_den_set_stand_aus_dem_karteikarten_status(svc):
+    s = fach(svc)
+    a = svc.add_aufgabe(s.id, "Fragen", art="fragen", set_name="Fragen 1").aufgaben[0]
+    status = {"karteikarten": {"card_count": 4, "mastered": 3, "sets": [{"name": "Fragen 1", "card_count": 4, "mastered": 3}]}, "register": None}
+    zeile = svc._row(s, status, [])
+    teil = next(p for p in zeile["parts"] if p["service"] == "aufgaben")
+    assert teil["progress"] == 75

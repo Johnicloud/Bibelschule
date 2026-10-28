@@ -89,6 +89,10 @@ class FlashcardService:
         return {"card_count": len(cards),
                 "due_count": len(deck.due_cards()) if deck else 0,
                 "mastered": sum(1 for c in cards if c.box >= 4),
+                # je Set: Karten und sicher gelernte – der Kern braucht das für Aufgaben, die an ein Set geknüpft sind
+                "sets": [{"name": n, "card_count": sum(1 for c in cards if c.set_name == n),
+                          "mastered": sum(1 for c in cards if c.set_name == n and c.box >= 4)}
+                         for n in (deck.set_namen() if deck else [])],
                 # Fortschritt dieses Fachs in Prozent: Anteil der Karten auf Lernstufe 4 oder höher ("sicher gelernt")
                 "progress": int(100 * sum(1 for c in cards if c.box >= 4) / len(cards) + 0.5) if cards else None}
 

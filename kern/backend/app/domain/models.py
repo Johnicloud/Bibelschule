@@ -25,12 +25,15 @@ class Aufgabe:
     soll: float | None = None           # Umfang der Ausarbeitung (Seiten, Wörter, Einträge …)
     ist: float | None = None
     einheit: str = ""
+    set_name: str = ""                  # Orientierungsfragen: das Karteikarten-Set dieses Fachs, dessen Stand den Fortschritt liefert
 
-    def fortschritt(self) -> int:
+    def fortschritt(self, extern: int | None = None) -> int:
         """0 bis 100. Erledigt ist immer 100; sonst bei einem Umfang Ist gegen Soll. (Fortschritt aus Lesenachweis und
         Karteikarten kommt später dazu – die Verknüpfungen stehen schon an der Aufgabe.)"""
         if self.erledigt:
             return 100
+        if extern is not None:                       # Stand aus einem anderen Dienst (z. B. sicher gelernte Karten im Set)
+            return max(0, min(100, extern))
         if self.soll and self.ist is not None:
             return max(0, min(100, int(self.ist / self.soll * 100 + 0.5)))
         return 0

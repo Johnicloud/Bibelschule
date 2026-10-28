@@ -10,6 +10,7 @@ const emit = defineEmits(['changed'])
 const subjects = inject('subjects')
 const aufgabenleser = inject('aufgabenleser')
 const reading = inject('reading')
+const flash = inject('service')   // Karteikarten: Stand der Sets für Orientierungsfragen
 
 // Erkennt Vorschläge, die eigentlich ein Lesepensum sind (z. B. „Pflicht-Lektüre 600 Seiten“), an der
 // Mengenangabe im Titel – der aufgabenleser-Dienst kennt den Lesenachweis nicht, das bleibt reine
@@ -22,6 +23,7 @@ function leseErkennung(titel) {
 }
 
 const aufgaben = ref([])
+const setStaende = ref({})   // Set-Name -> { card_count, mastered_count }
 const pensen = ref([])   // Lesenachweis-Pensen dieses Fachs, zum Verknüpfen mit einer Aufgabe
 const loadError = ref('')
 const error = ref('')
@@ -43,6 +45,7 @@ async function load() {
     loadError.value = ''
   } catch (e) { loadError.value = e.message }
   try { pensen.value = await reading.list(props.subjectId) } catch { pensen.value = [] }
+  try { setStaende.value = Object.fromEntries((await flash.openDeck(props.subjectId)).sets.map((x) => [x.name, x])) } catch { setStaende.value = {} }
 }
 async function refresh() { await load(); emit('changed') }
 async function pensumSetzen(a, pensumId) {
@@ -50,6 +53,10 @@ async function pensumSetzen(a, pensumId) {
   await refresh()
 }
 
+function setProzent(a) {
+  const st = setStaende.value[a.set_name]
+  return st && st.card_count ? Math.round((100 * st.mastered_count) / st.card_count) : 0
+}
 async function gespeichert() { anlegen.value = false; bearbeitetId.value = null; await refresh() }
 async function toggle(a) { await subjects.setAufgabeErledigt(props.subjectId, a.id, !a.erledigt); await refresh() }
 async function remove(a) {
@@ -193,6 +200,14 @@ onMounted(load)
           <div v-if="artInfo(a.art).umfang && a.soll" class="mt-1.5 max-w-xs">
             <p class="text-xs text-slate-500 dark:text-slate-400">{{ a.ist ?? 0 }} von {{ a.soll }} {{ a.einheit }} · {{ a.fortschritt }} %</p>
             <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: a.fortschritt + '%' }"></div></div>
+          </div>
+          <div v-if="a.art === 'fragen' && a.set_name" class="mt-1.5 max-w-xs">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Set „{{ a.set_name }}“:
+              <template v-if="setStaende[a.set_name]">{{ setStaende[a.set_name].mastered_count }} von {{ setStaende[a.set_name].card_count }} Karten sicher gelernt · {{ setProzent(a) }} %</template>
+              <template v-else>noch keine Karten</template>
+            </p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: setProzent(a) + '%' }"></div></div>
           </div>
           <p v-if="a.notiz" class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ a.notiz }}</p>
           <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"

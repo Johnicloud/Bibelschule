@@ -106,8 +106,8 @@ def test_subject_hooks(svc, events):
     assert svc.ensure_deck("fach1", "Dogmatik II").name == "Dogmatik II"
     assert events.sent == ["deck.created"]  # Umbenennen ist kein neues Fach
     svc.add_card("fach1", "classic", "a", "b")
-    assert svc.deck_status("fach1") == {"card_count": 1, "due_count": 1, "mastered": 0, "progress": 0}
-    assert svc.deck_status("unbekannt") == {"card_count": 0, "due_count": 0, "mastered": 0, "progress": None}
+    assert svc.deck_status("fach1") == {"card_count": 1, "due_count": 1, "mastered": 0, "sets": [], "progress": 0}
+    assert svc.deck_status("unbekannt") == {"card_count": 0, "due_count": 0, "mastered": 0, "sets": [], "progress": None}
     svc.discard_deck("fach1")
     svc.discard_deck("fach1")  # zweites Mal tut nichts
     assert svc.list_decks() == []
@@ -217,3 +217,16 @@ def test_sets_ueberleben_das_speichern(svc, tmp_path):
     repo = JsonDeckRepository(tmp_path / "decks.json")
     repo.save(svc.get_deck(deck.id))
     assert repo.get(deck.id).sets == ["Leer"]
+
+
+def test_deck_status_nennt_je_set_karten_und_sicher_gelernte(svc):
+    """Der Kern braucht das für Aufgaben, die mit einem Set verknüpft sind (z. B. Orientierungsfragen)."""
+    deck = svc.create_deck("Apg")
+    svc.create_set(deck.id, "Leer")
+    _, a = svc.add_card(deck.id, "classic", "A?", "a", set_name="Fragen")
+    svc.add_card(deck.id, "classic", "B?", "b", set_name="Fragen")
+    svc.add_card(deck.id, "classic", "C?", "c")
+    for _ in range(4):
+        svc.review_card(deck.id, a.id, True)                  # Stufe 4 = sicher gelernt
+    assert svc.deck_status(deck.id)["sets"] == [
+        {"name": "Leer", "card_count": 0, "mastered": 0}, {"name": "Fragen", "card_count": 2, "mastered": 1}]

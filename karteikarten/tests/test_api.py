@@ -29,7 +29,7 @@ def test_sets_ueber_die_api():
     assert client.post(f"/api/decks/{deck.id}/sets", json={"name": "Fragen / 1"}).status_code == 201
     service.add_card(deck.id, "classic", "F?", "A", set_name="Fragen / 1")
     sets = client.get(f"/api/decks/{deck.id}").json()["sets"]
-    assert sets == [{"name": "Fragen / 1", "card_count": 1, "due_count": 1}]
+    assert sets == [{"name": "Fragen / 1", "card_count": 1, "due_count": 1, "mastered_count": 0}]
     assert client.post(f"/api/decks/{deck.id}/sets", json={"name": "fragen / 1"}).status_code == 422
     antwort = client.put(f"/api/decks/{deck.id}/sets", json={"name": "Fragen / 1", "neu": "Lektion 1"})
     assert [s["name"] for s in antwort.json()["sets"]] == ["Lektion 1"]

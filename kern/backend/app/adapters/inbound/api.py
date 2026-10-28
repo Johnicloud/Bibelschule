@@ -42,6 +42,7 @@ class AufgabeIn(BaseModel):
     soll: float | None = None
     ist: float | None = None
     einheit: str = ""
+    set_name: str = ""                # Orientierungsfragen: Karteikarten-Set dieses Fachs
 
 
 class AufgabeTeilIn(BaseModel):
@@ -56,6 +57,7 @@ class AufgabeTeilIn(BaseModel):
     soll: float | None = None
     ist: float | None = None
     einheit: str | None = None
+    set_name: str | None = None
 
 
 class AufgabeStatusIn(BaseModel):
@@ -112,7 +114,7 @@ def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
            "note": s.note,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
                          "erledigt": a.erledigt, "pensum_id": a.pensum_id, "art": a.art, "zaehlt": a.zaehlt,
-                         "notiz": a.notiz, "soll": a.soll, "ist": a.ist, "einheit": a.einheit,
+                         "notiz": a.notiz, "soll": a.soll, "ist": a.ist, "einheit": a.einheit, "set_name": a.set_name,
                          "fortschritt": a.fortschritt()} for a in s.aufgaben],
            "aktive_dienste": s.aktive_dienste}
     if synced is not None:
@@ -247,7 +249,7 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     @api.post("/subjects/{subject_id}/aufgaben", status_code=201)
     def add_aufgabe(subject_id: str, body: AufgabeIn):
         return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung, body.art, body.zaehlt,
-                                               body.notiz, body.soll, body.ist, body.einheit))
+                                               body.notiz, body.soll, body.ist, body.einheit, body.set_name))
 
     @api.patch("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
     def update_aufgabe(subject_id: str, aufgabe_id: str, body: AufgabeTeilIn):

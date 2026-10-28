@@ -101,6 +101,7 @@ export function forecastText(task) {
 export const AUFGABEN_ARTEN = {
   allgemein: { label: 'Aufgabe', icon: 'aufgaben', frist: 'Frist', hinweis: 'Eine einfache Aufgabe zum Abhaken.' },
   klausur: { label: 'Klausur', icon: 'kalender', frist: 'Termin', hinweis: 'Mit Termin; zeigt „Nur Klausur fehlt“, wenn nur sie offen ist.' },
+  fragen: { label: 'Orientierungsfragen', icon: 'karten', frist: 'Frist', fragen: true, hinweis: 'Fragen als Karteikarten-Set; der Fortschritt kommt vom Lernen.' },
   ausarbeitung: { label: 'Ausarbeitung', icon: 'stift', frist: 'Abgabe', umfang: true, hinweis: 'Texte verfassen, Register schreiben … mit Umfang und Stand.' },
 }
 export const artInfo = (art) => AUFGABEN_ARTEN[art] || AUFGABEN_ARTEN.allgemein

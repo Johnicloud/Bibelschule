@@ -122,20 +122,21 @@ class SubjectService:
             if wert is not None and wert < 0:
                 raise InvalidInput(f"{name} darf nicht negativ sein.")
         a.notiz = (a.notiz or "").strip()
+        a.set_name = (a.set_name or "").strip()
         a.einheit = (a.einheit or "").strip()
 
     def add_aufgabe(self, subject_id: str, titel: str, frist: str | None = None,
                      gewichtung: float | None = None, art: str = "allgemein", zaehlt: bool = True, notiz: str = "",
-                     soll: float | None = None, ist: float | None = None, einheit: str = "") -> Subject:
+                     soll: float | None = None, ist: float | None = None, einheit: str = "", set_name: str = "") -> Subject:
         subject = self._subject(subject_id)
         aufgabe = Aufgabe(titel=titel, frist=frist, gewichtung=gewichtung, art=art, zaehlt=zaehlt, notiz=notiz,
-                          soll=soll, ist=ist, einheit=einheit)
+                          soll=soll, ist=ist, einheit=einheit, set_name=set_name)
         self._pruefe_aufgabe(aufgabe)
         subject.aufgaben.append(aufgabe)
         self.subjects.save(subject)
         return subject
 
-    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit")
+    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit", "set_name")
 
     def update_aufgabe(self, subject_id: str, aufgabe_id: str, **felder) -> Subject:
         """Aufgabe bearbeiten: nur die genannten Felder ändern sich (leer/None entfernt Frist, Gewichtung, Umfang …).
@@ -255,19 +256,20 @@ class SubjectService:
         return (int(sum(values) / len(values) + 0.5) if values else None), parts
 
     @staticmethod
-    def _aufgaben_part(subject: Subject) -> tuple[dict, dict]:
+    def _aufgaben_part(subject: Subject, extern: dict[str, int] | None = None) -> tuple[dict, dict]:
         """Umfang des Fachs als eigener Teil des Fortschritts: gewichteter Fortschritt der Aufgaben.
         Hat eine Aufgabe eine Gewichtung (wie die „Anteilige Bewertung“ im Aufgabenblatt), zählt sie entsprechend
         mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel. Aufgaben „nur zum Lernen“ (`zaehlt` aus)
         und die Teilstände einer Ausarbeitung (Ist gegen Soll) werden berücksichtigt."""
+        extern = extern or {}
         total = len(subject.aufgaben)
         done = sum(1 for a in subject.aufgaben if a.erledigt)
         zaehlende = [a for a in subject.aufgaben if a.zaehlt]
         weight = sum(a.gewichtung for a in zaehlende if a.gewichtung)
         if weight:
-            progress = max(0, min(100, int(sum(a.gewichtung * a.fortschritt() for a in zaehlende if a.gewichtung) / weight + 0.5)))
+            progress = max(0, min(100, int(sum(a.gewichtung * a.fortschritt(extern.get(a.id)) for a in zaehlende if a.gewichtung) / weight + 0.5)))
         elif zaehlende:
-            progress = int(sum(a.fortschritt() for a in zaehlende) / len(zaehlende) + 0.5)
+            progress = int(sum(a.fortschritt(extern.get(a.id)) for a in zaehlende) / len(zaehlende) + 0.5)
         else:
             progress = None
         return ({"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": progress},
@@ -291,8 +293,20 @@ class SubjectService:
             return "in_arbeit"
         return "abgeschlossen"
 
+    @staticmethod
+    def _set_staende(sub: Subject, status: dict) -> dict[str, int]:
+        """Fortschritt (0–100) der Aufgaben, die an ein Karteikarten-Set geknüpft sind: Anteil sicher gelernter Karten im Set.
+        Kommt aus dem Status des Karteikarten-Dienstes, den der Kern ohnehin abfragt – kein eigener Aufruf nötig."""
+        sets = {s["name"]: s for s in ((status or {}).get("karteikarten") or {}).get("sets", [])}
+        ergebnis = {}
+        for a in sub.aufgaben:
+            if a.art == "fragen" and a.set_name:
+                s = sets.get(a.set_name)
+                ergebnis[a.id] = int(100 * s["mastered"] / s["card_count"] + 0.5) if s and s["card_count"] else 0
+        return ergebnis
+
     def _row(self, sub: Subject, status: dict, services: list[dict]) -> dict:
-        aufgaben_part, aufgaben_status = self._aufgaben_part(sub)
+        aufgaben_part, aufgaben_status = self._aufgaben_part(sub, self._set_staende(sub, status))
         _, service_parts = self._progress(status, services)
         parts = [aufgaben_part, *service_parts]
         values = [p["progress"] for p in parts if p["progress"] is not None]

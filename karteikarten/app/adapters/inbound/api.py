@@ -48,7 +48,8 @@ def card_out(pair: Pair) -> dict:
 def deck_out(d: Deck, with_cards: bool = False) -> dict:
     out = {"id": d.id, "name": d.name, "card_count": len(d.cards), "due_count": len(d.due_cards()),
            "sets": [{"name": n, "card_count": sum(1 for c in d.cards if c.set_name == n),
-                     "due_count": sum(1 for c in d.due_cards() if c.set_name == n)} for n in d.set_namen()]}
+                     "due_count": sum(1 for c in d.due_cards() if c.set_name == n),
+                     "mastered_count": sum(1 for c in d.cards if c.set_name == n and c.box >= 4)} for n in d.set_namen()]}
     if with_cards:
         out["cards"] = [card_out((d, c)) for c in d.cards]
     return out
