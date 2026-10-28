@@ -9,6 +9,11 @@ function aufgabeFelder(f) {
   }
 }
 
+function teilFelder(f) {
+  const voll = aufgabeFelder(f)
+  return Object.fromEntries(Object.keys(f).filter((k) => k in voll).map((k) => [k, voll[k]]))
+}
+
 export function createSubjectService(api) {
   return {
     list: () => api.listSubjects(),
@@ -23,7 +28,8 @@ export function createSubjectService(api) {
     addAufgabe: (id, titel, frist, gewichtung) => api.addAufgabe(id, titel.trim(), frist, gewichtung),
     // Standard für alle Arten: dieselbe Aufbereitung beim Anlegen und Bearbeiten (leer = entfernen)
     createAufgabe: (id, felder) => api.createAufgabe(id, aufgabeFelder(felder)),
-    updateAufgabe: (id, aufgabeId, felder) => api.updateAufgabe(id, aufgabeId, aufgabeFelder(felder)),
+    // Beim Bearbeiten nur die genannten Felder aufbereiten und schicken (sonst würden fehlende Felder als „leer“ überschreiben)
+    updateAufgabe: (id, aufgabeId, felder) => api.updateAufgabe(id, aufgabeId, teilFelder(felder)),
     setAufgabeErledigt: (id, aufgabeId, erledigt) => api.setAufgabeErledigt(id, aufgabeId, erledigt),
     removeAufgabe: (id, aufgabeId) => api.deleteAufgabe(id, aufgabeId),
     setAufgabePensum: (id, aufgabeId, pensumId) => api.setAufgabePensum(id, aufgabeId, pensumId),

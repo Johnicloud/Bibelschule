@@ -18,6 +18,7 @@ export function createReadingService(api) {
     add: (subjectId, t, buecher = null) => api.addTask({ subject_id: subjectId, ...taskBody(t, buecher) }),
     update: (id, t, buecher = null) => api.updateTask(id, taskBody(t, buecher)),
     remove: (id) => api.deleteTask(id),
+    setSkript: (id, skriptId) => api.setSkript(id, skriptId),   // Datei aus dem Reiter „Skripte“ ans Pensum hängen (null löst sie)
     log: (id, e) => api.log(id, { amount: Number(e.amount), day: e.day || null, buch_id: e.buchId || null,
       durchlauf: e.durchlauf ? Number(e.durchlauf) : 1 }),
     deleteEntry: (id, entryId) => api.deleteEntry(id, entryId),

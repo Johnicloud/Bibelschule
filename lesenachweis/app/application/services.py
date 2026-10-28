@@ -90,6 +90,13 @@ class ReadingService:
     def get_task(self, task_id: str) -> ReadingTask:
         return self._task(task_id)
 
+    def set_skript(self, task_id: str, skript_id: str | None) -> ReadingTask:
+        """Hängt eine Datei aus dem Skripte-Dienst an das Pensum (leer löst sie). Dienste teilen nur Ids, kein Wissen übereinander."""
+        task = self._task(task_id)
+        task.skript_id = (skript_id or "").strip() or None
+        self.repo.save(task)
+        return task
+
     def delete_task(self, task_id: str) -> None:
         task = self._task(task_id)
         self.repo.delete(task_id)

@@ -46,6 +46,7 @@ class ReadingTask:
     deadline: date | None = None
     entries: list[ReadingEntry] = field(default_factory=list)
     id: str = field(default_factory=new_id)
+    skript_id: str | None = None   # optional: Datei im Skripte-Dienst, die zu diesem Pensum gehört (nur die Id, der Inhalt bleibt dort)
 
     @property
     def target(self) -> int:

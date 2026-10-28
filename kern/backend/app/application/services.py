@@ -309,7 +309,7 @@ class SubjectService:
         for a in sub.aufgaben:
             if a.pensum_id:
                 ergebnis[a.id] = pensen.get(a.pensum_id, 0)
-            elif a.art == "fragen" and a.set_name:
+            elif a.set_name:                      # jede Aufgabe kann an ein Karteikarten-Set geknüpft sein, nicht nur „Orientierungsfragen“
                 s = sets.get(a.set_name)
                 ergebnis[a.id] = int(100 * s["mastered"] / s["card_count"] + 0.5) if s and s["card_count"] else 0
         return ergebnis

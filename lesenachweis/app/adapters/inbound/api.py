@@ -29,6 +29,10 @@ class TaskIn(BaseModel):
     buecher: list[BuchIn] | None = None
 
 
+class SkriptIn(BaseModel):
+    skript_id: str | None = None      # Datei im Skripte-Dienst, oder null zum Lösen
+
+
 class TaskUpdateIn(BaseModel):
     title: str
     unit: Literal["Seiten", "Kapitel"] = "Seiten"
@@ -71,7 +75,7 @@ def create_app(service: ReadingService) -> FastAPI:
         entries = sorted(t.entries, key=lambda e: (e.day, e.id), reverse=True)
         aktiv = t.aktiver_durchlauf()
         return {"id": t.id, "subject_id": t.subject_id, "title": t.title, "unit": t.unit,
-                "total": t.total, "passes": t.passes,
+                "total": t.total, "passes": t.passes, "skript_id": t.skript_id,
                 "buecher": [{"id": b.id, "title": b.title, "total": b.total, "done": t.buch_done(b.id)}
                             for b in t.buecher],
                 # Je Durchgang (nur bei passes > 1 wirklich mehr als einer): Stand und ob abgeschlossen bzw. der
@@ -123,6 +127,10 @@ def create_app(service: ReadingService) -> FastAPI:
         buecher = [b.model_dump() for b in body.buecher] if body.buecher is not None else None
         return task_out(service.update_task(task_id, body.title, body.unit, body.total,
                                             body.passes, body.start, body.deadline, buecher))
+
+    @api.put("/tasks/{task_id}/skript")
+    def set_skript(task_id: str, body: SkriptIn):
+        return task_out(service.set_skript(task_id, body.skript_id))
 
     @api.delete("/tasks/{task_id}", status_code=204)
     def delete_task(task_id: str):

@@ -59,3 +59,15 @@ def test_entry_without_durchlauf_defaults_to_1_after_reload():
 
     geladen = r.get(task.id)
     assert geladen.entries[0].durchlauf == 1
+
+
+def test_skript_id_wird_gespeichert_alte_pensen_ohne_bleiben_gueltig(tmp_path):
+    import json
+    pfad = tmp_path / "tasks.json"
+    pfad.write_text(json.dumps([{"id": "alt", "subject_id": "f", "title": "Alt", "unit": "Seiten", "total": 10}]))
+    repo = JsonReadingRepository(pfad)
+    assert repo.get("alt").skript_id is None
+    t = repo.get("alt")
+    t.skript_id = "datei-7"
+    repo.save(t)
+    assert JsonReadingRepository(pfad).get("alt").skript_id == "datei-7"

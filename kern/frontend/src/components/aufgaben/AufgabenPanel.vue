@@ -3,6 +3,7 @@ import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import AufgabeForm from './AufgabeForm.vue'
+import AufgabeKachel from './AufgabeKachel.vue'
 import { fensterOeffnen } from '../../application/pdf'
 import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 import { artInfo, formatDate, tageBisText } from '../../domain/status'
@@ -63,10 +64,9 @@ async function pensumSetzen(a, pensumId) {
 }
 
 const pensumVon = (a) => pensen.value.find((p) => p.id === a.pensum_id) || null
+async function setVerknuepfen(a, name) { await subjects.updateAufgabe(props.subjectId, a.id, { set_name: name }); await refresh() }
+async function skriptSetzen(pensumId, dateiId) { await reading.setSkript(pensumId, dateiId || null); await refresh() }
 async function formularSetzen(a, wert) { await subjects.updateAufgabe(props.subjectId, a.id, { formular: wert }); await refresh() }
-const formularDatei = (a) => (a.formular || '').startsWith('skript:') ? (a.formular || '').slice(7) : ''
-const formularName = (a) => dateien.value.find((d) => d.id === formularDatei(a))?.dateiname || 'Formular'
-const formularLink = (a) => `/api/skripte/skripte/${formularDatei(a)}/datei`
 const exportFehler = ref('')
 async function formularExportieren(a) {
   exportFehler.value = ''
@@ -78,10 +78,6 @@ async function formularExportieren(a) {
     const buecher = p.buecher.length ? p.buecher.map((b) => ({ titel: b.title, seiten: b.done })) : [{ titel: p.title, seiten: p.forecast.done }]
     await pdfcreator.lesenachweisExportieren(fachName.value, [profilVorname.value, profilNachname.value].filter(Boolean).join(' '), profilGemeinde.value, buecher, fenster)
   } catch (e) { exportFehler.value = e.message; fenster?.close() }
-}
-function setProzent(a) {
-  const st = setStaende.value[a.set_name]
-  return st && st.card_count ? Math.round((100 * st.mastered_count) / st.card_count) : 0
 }
 async function gespeichert() { anlegen.value = false; bearbeitetId.value = null; await refresh() }
 async function toggle(a) { await subjects.setAufgabeErledigt(props.subjectId, a.id, !a.erledigt); await refresh() }
@@ -203,75 +199,10 @@ onMounted(load)
       <li v-if="bearbeitetId === a.id">
         <AufgabeForm :subject-id="subjectId" :aufgabe="a" @saved="gespeichert" @cancel="bearbeitetId = null" />
       </li>
-      <li v-else class="panel flex items-center gap-3 p-4">
-        <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full border transition"
-          :class="a.erledigt ? 'border-transparent bg-primary text-white' : 'border-highlight opacity-40 hover:opacity-70'"
-          :aria-pressed="a.erledigt" :aria-label="`${a.titel} ${a.erledigt ? 'als offen markieren' : 'als erledigt markieren'}`"
-          @click="toggle(a)">
-          <AppIcon name="haken" class="h-5 w-5" />
-        </button>
-        <div class="min-w-0 flex-1">
-          <p class="flex flex-wrap items-center gap-2" :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">
-            {{ a.titel }}
-            <span v-if="a.art !== 'allgemein'" class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium no-underline dark:bg-slate-800">
-              <AppIcon :name="artInfo(a.art).icon" class="h-3.5 w-3.5" /> {{ artInfo(a.art).label }}
-            </span>
-            <span v-if="!a.zaehlt" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800" title="Zählt nicht zum Gesamtfortschritt">nur zum Lernen</span>
-          </p>
-          <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">
-            <template v-if="a.frist">{{ artInfo(a.art).frist }} {{ formatDate(a.frist) }}<template v-if="!a.erledigt"> ({{ tageBisText(a.frist) }})</template></template>
-            <template v-if="a.frist && a.gewichtung != null"> · </template>
-            <template v-if="a.gewichtung != null">{{ a.gewichtung }} % der Bewertung</template>
-          </p>
-          <div v-if="artInfo(a.art).umfang && a.soll" class="mt-1.5 max-w-xs">
-            <p class="text-xs text-slate-500 dark:text-slate-400">{{ a.ist ?? 0 }} von {{ a.soll }} {{ a.einheit }} · {{ a.fortschritt }} %</p>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: a.fortschritt + '%' }"></div></div>
-          </div>
-          <div v-if="a.art === 'fragen' && a.set_name" class="mt-1.5 max-w-xs">
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-              Set „{{ a.set_name }}“:
-              <template v-if="setStaende[a.set_name]">{{ setStaende[a.set_name].mastered_count }} von {{ setStaende[a.set_name].card_count }} Karten sicher gelernt · {{ setProzent(a) }} %</template>
-              <template v-else>noch keine Karten</template>
-            </p>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: setProzent(a) + '%' }"></div></div>
-          </div>
-          <div v-if="a.pensum_id && pensumVon(a)" class="mt-1.5 max-w-xs">
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-              Gelesen: {{ pensumVon(a).forecast.done }} von {{ pensumVon(a).forecast.target }} {{ pensumVon(a).unit }} · {{ Math.round(pensumVon(a).forecast.percent) }} %
-            </p>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div class="h-full rounded-full bg-primary" :style="{ width: Math.round(pensumVon(a).forecast.percent) + '%' }"></div></div>
-          </div>
-          <div v-if="a.art === 'lesen_pflicht'" class="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
-            <template v-if="a.formular === 'standard'">
-              <button type="button" class="btn btn-outline !py-1 text-xs" @click="formularExportieren(a)">Formular als PDF</button>
-            </template>
-            <template v-else-if="a.formular === 'angefragt'">
-              <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Formular angefragt</span>
-              <select v-if="dateien.length" class="input !w-auto !py-1 text-xs" aria-label="Erhaltenes Formular verknüpfen" @change="$event.target.value && formularSetzen(a, 'skript:' + $event.target.value)">
-                <option value="">Erhaltenes Formular verknüpfen …</option>
-                <option v-for="d in dateien" :key="d.id" :value="d.id">{{ d.dateiname }}</option>
-              </select>
-              <button type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'standard')">Doch Standard-Formular</button>
-            </template>
-            <template v-else-if="a.formular.startsWith('skript:')">
-              <a :href="formularLink(a)" target="_blank" rel="noopener" class="underline">{{ formularName(a) }}</a>
-              <button type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'angefragt')">Lösen</button>
-            </template>
-            <button v-else type="button" class="btn btn-ghost !py-1 text-xs" @click="formularSetzen(a, 'standard')">Standard-Formular nutzen</button>
-          </div>
-          <p v-if="exportFehler" class="mt-1 text-xs text-rose-600 dark:text-rose-400">{{ exportFehler }}</p>
-          <p v-if="a.notiz" class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ a.notiz }}</p>
-          <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
-            :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">
-            <option value="">Kein Lesepensum verknüpft</option>
-            <option v-for="p in pensen" :key="p.id" :value="p.id">{{ p.title }}</option>
-          </select>
-        </div>
-        <button class="btn btn-outline !px-2.5 !py-1" title="Aufgabe bearbeiten" :aria-label="`${a.titel} bearbeiten`" @click="bearbeitetId = a.id; anlegen = false">
-          <AppIcon name="stift" class="h-4 w-4" />
-        </button>
-        <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${a.titel} löschen`" @click="remove(a)">Löschen</button>
-      </li>
+      <AufgabeKachel v-else :aufgabe="a" :pensen="pensen" :set-staende="setStaende" :dateien="dateien"
+        @toggle="toggle(a)" @edit="bearbeitetId = a.id; anlegen = false" @remove="remove(a)"
+        @pensum="(id) => pensumSetzen(a, id)" @set="(name) => setVerknuepfen(a, name)"
+        @skript="(pensumId, dateiId) => skriptSetzen(pensumId, dateiId)" @formular="(wert) => formularSetzen(a, wert)" @export="formularExportieren(a)" />
     </template>
   </ul>
   <EmptyState v-else-if="!anlegen" title="Noch keine Aufgabe" text="Lege die erste Aufgabe an, um den Umfang des Fachs festzuhalten.">

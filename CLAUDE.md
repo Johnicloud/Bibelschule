@@ -850,6 +850,21 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Feldpositionen müssten von Hand eingemessen werden, siehe `pdfcreator`). Bücher/Seiten/Durchgänge eines angelegten Pensums
   ändert man weiter im Reiter „Lesenachweis“.
 
+- [fertig] Aufgaben neu gestaltet und nachträglich verknüpfbar (Nutzer: „Design sehr schlecht“, „kann nichts verknüpfen“).
+  **Design**: `AufgabeKachel.vue` statt der langen Zeile im `AufgabenPanel.vue`: oben Haken, Titel und Drei-Punkte-Menü
+  (`MenuButton.vue`: Bearbeiten, Verknüpfungen, Löschen), darunter eine Angaben-Zeile (Art, Termin mit „in N Tagen“, Gewichtung,
+  „nur zum Lernen“), ein schmaler Fortschrittsbalken mit Text (Quelle: Lesepensum, Karteikarten-Set oder Ist/Soll) und kleine
+  Marken für das, was verknüpft ist. Ursache der zerfallenen Anordnung bei mittlerer Breite: `.panel` ist `flex-col`, ein
+  zusätzliches `flex items-center` zentrierte alles untereinander – Kacheln brauchen eine eigene Zeile innen drin. **Verknüpfen
+  nachträglich** (Menü „Verknüpfungen“, bleibt offen): Lesepensum, Karteikarten-Set (jede Aufgabe, nicht nur Orientierungsfragen –
+  `_set_staende` nimmt jede Aufgabe mit `set_name`), Skript zum Pensum, bei der Pflichtlektüre das Formular (Standard / angefragt /
+  erhaltene Datei). **Skript am Pensum**: `ReadingTask.skript_id` (nur die Id, `PUT /api/lesenachweis/tasks/{id}/skript`,
+  `.get(..., None)`), sichtbar als Marke in der Aufgabe und als Link mit Auswahl auf der Pensum-Kachel im Reiter Lesenachweis; ein
+  beim Anlegen einer Skript-Lese-Aufgabe gewähltes Skript wird gleich am Pensum hinterlegt. **Fehler behoben**: beim Ändern einzelner
+  Angaben schickte `subjectService.updateAufgabe` alle Felder mit leeren Werten mit (leerer Titel) – der Kern lehnte das ab, die
+  Verknüpfung schlug still fehl; jetzt gehen nur die genannten Felder raus (`teilFelder`). Lehre: Teil-Änderungen nie über die
+  Anlege-Aufbereitung schicken.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

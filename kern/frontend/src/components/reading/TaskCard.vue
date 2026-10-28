@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, formatDate, num } from '../../domain/status'
 import { fensterOeffnen } from '../../application/pdf'
@@ -9,6 +9,12 @@ const props = defineProps({ task: Object, subjectName: String })
 const emit = defineEmits(['changed'])
 const reading = inject('reading')
 const pdfcreator = inject('pdfcreator')
+const skripte = inject('skripte')
+// Skript zum Pensum: eine Datei aus dem Reiter „Skripte“ hinterlegen (nur die Id wird gemerkt) und von hier öffnen
+const dateien = ref([])
+onMounted(async () => { try { dateien.value = await skripte.dateien(props.task.subject_id) } catch { dateien.value = [] } })
+const skriptName = computed(() => dateien.value.find((d) => d.id === props.task.skript_id)?.dateiname || 'Skript')
+async function skriptWaehlen(id) { await reading.setSkript(props.task.id, id || null); emit('changed') }
 
 const amount = ref('')
 const day = ref('')
@@ -123,6 +129,17 @@ async function saveEdit() {
       <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
         <span v-if="zeigeTagesziel" class="font-medium text-amber-700 dark:text-amber-300">{{ num(heutigesZiel) }} {{ task.unit }}/Tag nötig</span>
+      </div>
+      <div v-if="task.skript_id || dateien.length" class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <a v-if="task.skript_id" :href="`/api/skripte/skripte/${task.skript_id}/datei`" target="_blank" rel="noopener"
+          class="inline-flex items-center gap-1 rounded-full bg-backdrop px-2.5 py-1 text-xs hover:bg-highlight">
+          <AppIcon name="skripte" class="h-3.5 w-3.5" />Skript: {{ skriptName }}
+        </a>
+        <select v-if="dateien.length" class="input !w-auto !py-1 text-xs" :value="task.skript_id || ''" aria-label="Skript zu diesem Pensum"
+          @change="skriptWaehlen($event.target.value)">
+          <option value="">{{ task.skript_id ? 'Skript lösen' : 'Skript hinterlegen …' }}</option>
+          <option v-for="d in dateien" :key="d.id" :value="d.id">{{ d.dateiname }}</option>
+        </select>
       </div>
     </div>
 

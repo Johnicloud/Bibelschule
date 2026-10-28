@@ -202,3 +202,15 @@ def test_status_nennt_den_stand_jedes_pensums_fuer_verknuepfte_aufgaben(svc):
     svc.log_reading(b.id, 28)
     pensen = {p["id"]: p["percent"] for p in svc.subject_status("f")["pensen"]}
     assert pensen == {a.id: 25, b.id: 50}                       # ganze Prozent, 28 von 56 Kapiteln
+
+
+def test_skript_am_pensum_hinterlegen_und_loesen(svc):
+    t = svc.add_task("f", "Skript lesen", "Seiten", 135)
+    assert t.skript_id is None
+    assert svc.set_skript(t.id, "datei-1").skript_id == "datei-1"
+    assert svc.set_skript(t.id, "  ").skript_id is None            # leer löst die Verknüpfung
+    with pytest.raises(NotFound):
+        svc.set_skript("gibt-es-nicht", "datei-1")
+    svc.set_skript(t.id, "datei-2")
+    svc.update_task(t.id, "Skript lesen (neu)", "Seiten", 140)      # Bearbeiten des Pensums lässt das Skript in Ruhe
+    assert svc.get_task(t.id).skript_id == "datei-2"

@@ -15,6 +15,7 @@ def _to_dict(t: ReadingTask) -> dict:
             "buecher": [{"id": b.id, "title": b.title, "total": b.total} for b in t.buecher],
             "start": t.start.isoformat() if t.start else None,
             "deadline": t.deadline.isoformat() if t.deadline else None,
+            "skript_id": t.skript_id,
             "entries": [{"id": e.id, "day": e.day.isoformat(), "amount": e.amount, "note": e.note,
                          "buch_id": e.buch_id, "durchlauf": e.durchlauf} for e in t.entries]}
 
@@ -26,6 +27,7 @@ def _from_dict(d: dict) -> ReadingTask:
         buecher=[Buch(id=b["id"], title=b["title"], total=b["total"]) for b in d.get("buecher", [])],
         start=date.fromisoformat(d["start"]) if d.get("start") else None,
         deadline=date.fromisoformat(d["deadline"]) if d.get("deadline") else None,
+        skript_id=d.get("skript_id"),
         entries=[ReadingEntry(id=e["id"], day=date.fromisoformat(e["day"]), amount=e["amount"],
                               note=e.get("note", ""), buch_id=e.get("buch_id"), durchlauf=e.get("durchlauf", 1))
                  for e in d.get("entries", [])])

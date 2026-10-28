@@ -145,3 +145,12 @@ def test_formular_der_pflichtlektuere_wird_gespeichert_und_geprueft(svc):
 def test_lese_aufgabe_kann_beim_anlegen_ein_pensum_verknuepfen(svc):
     s = svc.add_aufgabe(fach(svc).id, "Skript lesen", art="lesen_skript", pensum_id="pensum-9")
     assert s.aufgaben[0].pensum_id == "pensum-9"
+
+
+def test_jede_aufgabe_kann_nachtraeglich_an_ein_set_geknuepft_werden(svc):
+    s = fach(svc)
+    a = svc.add_aufgabe(s.id, "Beantwortung der Orientierungsfragen").aufgaben[0]       # „allgemein“, ohne Set angelegt
+    s = svc.update_aufgabe(s.id, a.id, set_name="Fragen Kap. 1")
+    status = {"karteikarten": {"sets": [{"name": "Fragen Kap. 1", "card_count": 10, "mastered": 3}]}}
+    teil = next(p for p in svc._row(s, status, [])["parts"] if p["service"] == "aufgaben")
+    assert teil["progress"] == 30

@@ -85,6 +85,7 @@ async function pensumAnlegen() {
   } else if (art.value === 'lesen_skript') {
     if (!(Number(skriptSeiten.value) > 0)) throw new Error('Bitte die Seitenzahl des Skripts eintragen.')
     aufgabe = await reading.add(props.subjectId, { ...kopf, unit: 'Seiten', total: skriptSeiten.value })
+    if (skriptDatei.value) await reading.setSkript(aufgabe.id, skriptDatei.value)     // die Datei gehört zum Pensum
   } else {
     const liste = bibelWahl.value.sort((x, y) => x - y).map((i) => bibelBuecher.value.find((b) => b.index === i)).filter(Boolean)
       .map((b) => ({ title: b.name, total: b.kapitel_gesamt }))
