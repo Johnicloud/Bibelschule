@@ -1,19 +1,33 @@
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import { BAR_CLASSES, READING_STATUS, TONE_CLASSES, formatDate, num } from '../../domain/status'
+import { fensterOeffnen } from '../../application/pdf'
 import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
 
 const props = defineProps({ task: Object, subjectName: String })
 const emit = defineEmits(['changed'])
 const reading = inject('reading')
 const pdfcreator = inject('pdfcreator')
+const skripte = inject('skripte')
+// Skript zum Pensum: eine Datei aus dem Reiter „Skripte“ hinterlegen (nur die Id wird gemerkt) und von hier öffnen
+const dateien = ref([])
+onMounted(async () => { try { dateien.value = await skripte.dateien(props.task.subject_id) } catch { dateien.value = [] } })
+const skriptName = computed(() => dateien.value.find((d) => d.id === props.task.skript_id)?.dateiname || 'Skript')
+async function skriptWaehlen(id) { await reading.setSkript(props.task.id, id || null); emit('changed') }
 
 const amount = ref('')
 const day = ref('')
-const buchId = ref(props.task.buecher[0]?.id || '')
+const dayInput = ref(null)
+// Bewusst keine stille Vorauswahl des ersten Buches mehr: dadurch landeten Einträge unbemerkt beim falschen
+// (nämlich dem per Zufall vorausgewählten) Buch, wenn das Dropdown nicht tatsächlich angefasst wurde.
+const buchId = ref('')
+// Durchgang: hier ist eine Vorauswahl unproblematisch (anders als beim Buch), weil der „aktive“ Durchgang aus
+// echten Daten berechnet ist (der erste noch nicht abgeschlossene), nicht nur zufällig der erste in einer Liste.
+const durchlauf = ref(props.task.durchlaeufe?.find((d) => d.aktiv)?.nummer || 1)
 const error = ref('')
 const today = new Date().toLocaleDateString('sv-SE') // YYYY-MM-DD in der Zeit des Geräts
+function dayPickerOeffnen() { dayInput.value?.showPicker ? dayInput.value.showPicker() : dayInput.value?.click() }
 
 const bearbeiten = ref(false)
 const editForm = ref(null)
@@ -34,11 +48,22 @@ const status = computed(() => READING_STATUS[f.value.status])
 const heutigesZiel = computed(() => f.value.needed_per_day ?? f.value.plan_per_day)
 const heuteSchonGelesen = computed(() => props.task.entries.some((e) => e.day === today))
 const zeigeTagesziel = computed(() => f.value.status !== 'done' && !heuteSchonGelesen.value && heutigesZiel.value)
+// Einträge ohne Buch-Zuordnung (z. B. aus der Zeit vor der Aufteilung in mehrere Bücher) zählen zwar zum
+// Gesamtfortschritt des Pensums, aber zu keinem einzelnen Buch – sonst verschwände die Menge sonst spurlos.
+const ohneBuchGelesen = computed(() => props.task.buecher.length
+  ? f.value.done - props.task.buecher.reduce((n, b) => n + b.done, 0) : 0)
+// Mehrere Durchgänge: abgeschlossene oben nur als Zahl zusammenfassen, noch nicht begonnene (0 gelesen) gar
+// nicht erst zeigen – jeder begonnene, aber noch nicht abgeschlossene Durchgang bekommt seine eigene
+// Statusleiste (nicht nur der eine "aktive" = erste unvollständige – es kann mehrere gleichzeitig geben,
+// z. B. wenn ein späterer Durchgang schon fertig ist, während ein früherer noch offen ist).
+const abgeschlosseneDurchlaeufeAnzahl = computed(() => (props.task.durchlaeufe || []).filter((d) => d.abgeschlossen).length)
+const laufendeDurchlaeufe = computed(() => (props.task.durchlaeufe || []).filter((d) => d.done > 0 && !d.abgeschlossen))
 
 async function log() {
   error.value = ''
+  if (props.task.buecher.length && !buchId.value) { error.value = 'Bitte zuerst ein Buch auswählen.'; return }
   try {
-    await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value })
+    await reading.log(props.task.id, { amount: amount.value, day: day.value, buchId: buchId.value, durchlauf: durchlauf.value })
     amount.value = ''
     emit('changed')
   } catch (e) { error.value = e.message }
@@ -56,14 +81,15 @@ async function removeTask() {
 async function exportierenAlsPdf() {
   exportError.value = ''
   exportLaeuft.value = true
+  const fenster = fensterOeffnen()   // sofort im Klick öffnen, bevor die PDF geladen ist (siehe pdf.js)
   try {
     // Tatsächlich gelesene Seiten/Kapitel (b.done bzw. forecast.done), nicht der geplante Umfang (b.total/task.total).
     const buecher = props.task.buecher.length
       ? props.task.buecher.map((b) => ({ titel: b.title, seiten: b.done }))
       : [{ titel: props.task.title, seiten: props.task.forecast.done }]
-    await pdfcreator.lesenachweisExportieren(props.subjectName, exportName.value, exportGemeinde.value, buecher)
+    await pdfcreator.lesenachweisExportieren(props.subjectName, exportName.value, exportGemeinde.value, buecher, fenster)
     exportieren.value = false
-  } catch (e) { exportError.value = e.message }
+  } catch (e) { exportError.value = e.message; fenster?.close() }
   finally { exportLaeuft.value = false }
 }
 
@@ -98,16 +124,23 @@ async function saveEdit() {
           <AppIcon name="stift" class="h-3.5 w-3.5" />
         </button>
       </div>
-      <!-- Minimalistisch auf Wunsch: nur Status, Frist und das Tagesziel als eine Zahl bleiben auf den ersten
-           Blick sichtbar; der ausführliche Prognose-Satz und Start/Plan-Details fielen weg. -->
+      <!-- Minimalistisch auf Wunsch: nur Status (keine Frist mehr) und das Tagesziel als eine Zahl bleiben auf
+           den ersten Blick sichtbar; der ausführliche Prognose-Satz und Start/Plan-Details fielen weg. -->
       <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
         <span class="rounded-full px-2.5 py-0.5 text-xs font-medium" :class="TONE_CLASSES[status.tone]">{{ status.label }}</span>
-        <span v-if="task.deadline" class="opacity-70">Frist {{ formatDate(task.deadline) }}</span>
         <span v-if="zeigeTagesziel" class="font-medium text-amber-700 dark:text-amber-300">{{ num(heutigesZiel) }} {{ task.unit }}/Tag nötig</span>
       </div>
-      <p v-if="task.buecher.length" class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        aus: {{ task.buecher.map((b) => `${b.title} (${num(b.done)}/${num(b.total)})`).join(', ') }}
-      </p>
+      <div v-if="task.skript_id || dateien.length" class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <a v-if="task.skript_id" :href="`/api/skripte/skripte/${task.skript_id}/datei`" target="_blank" rel="noopener"
+          class="inline-flex items-center gap-1 rounded-full bg-backdrop px-2.5 py-1 text-xs hover:bg-highlight">
+          <AppIcon name="skripte" class="h-3.5 w-3.5" />Skript: {{ skriptName }}
+        </a>
+        <select v-if="dateien.length" class="input !w-auto !py-1 text-xs" :value="task.skript_id || ''" aria-label="Skript zu diesem Pensum"
+          @change="skriptWaehlen($event.target.value)">
+          <option value="">{{ task.skript_id ? 'Skript lösen' : 'Skript hinterlegen …' }}</option>
+          <option v-for="d in dateien" :key="d.id" :value="d.id">{{ d.dateiname }}</option>
+        </select>
+      </div>
     </div>
 
     <form v-else class="grid gap-3 sm:grid-cols-6" @submit.prevent="saveEdit">
@@ -164,19 +197,70 @@ async function saveEdit() {
       <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-6">{{ editError }}</p>
     </form>
 
-    <div v-if="!bearbeiten" class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar"
+    <div v-if="!bearbeiten" class="mt-3 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
       :aria-valuenow="f.percent" aria-valuemin="0" aria-valuemax="100" :aria-label="`${num(f.percent)} % gelesen`">
       <div class="h-full rounded-full" :class="BAR_CLASSES[status.tone]" :style="{ width: f.percent + '%' }"></div>
     </div>
 
-    <form v-if="!bearbeiten" class="mt-4 grid gap-2"
-      :class="task.buecher.length ? 'sm:grid-cols-[1fr_7rem_9rem_auto]' : 'sm:grid-cols-[7rem_9rem_auto]'" @submit.prevent="log">
-      <select v-if="task.buecher.length" v-model="buchId" class="input" aria-label="Buch">
+    <!-- Eigene, schlichte Statusleiste je Buch (Seitenzahl darüber), statt einer reinen Textzeile. -->
+    <div v-if="!bearbeiten && task.buecher.length" class="mt-3 grid gap-2">
+      <div v-for="b in task.buecher" :key="b.id">
+        <div class="flex items-center justify-between text-xs">
+          <span class="truncate">{{ b.title }}</span>
+          <span class="shrink-0 tabular-nums opacity-70">{{ num(b.done) }}/{{ num(b.total) }}</span>
+        </div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
+          :aria-valuenow="b.total ? Math.min(100, Math.round(b.done / b.total * 100)) : 0" aria-valuemin="0" aria-valuemax="100" :aria-label="b.title">
+          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, b.total ? (b.done / b.total * 100) : 0) + '%' }"></div>
+        </div>
+      </div>
+      <div v-if="ohneBuchGelesen > 0">
+        <div class="flex items-center justify-between text-xs opacity-70">
+          <span>Ohne Buch zugeordnet</span>
+          <span class="shrink-0 tabular-nums">{{ num(ohneBuchGelesen) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mehrere Durchgänge: abgeschlossene nur als Zahl oben, noch nicht begonnene Durchgänge erscheinen hier
+         gar nicht erst – jeder begonnene, offene Durchgang bekommt seine eigene Statusleiste. -->
+    <div v-if="!bearbeiten && task.passes > 1" class="mt-3 grid gap-2">
+      <p v-if="abgeschlosseneDurchlaeufeAnzahl" class="text-xs opacity-70">
+        {{ abgeschlosseneDurchlaeufeAnzahl }} von {{ task.passes }} {{ task.passes === 1 ? 'Durchgang' : 'Durchgängen' }} abgeschlossen
+      </p>
+      <div v-for="d in laufendeDurchlaeufe" :key="d.nummer">
+        <div class="flex items-center justify-between text-xs">
+          <span>Durchgang {{ d.nummer }}</span>
+          <span class="shrink-0 tabular-nums opacity-70">{{ num(d.done) }}/{{ num(d.total) }}</span>
+        </div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-highlight" role="progressbar"
+          :aria-valuenow="Math.min(100, Math.round(d.done / d.total * 100))" aria-valuemin="0" aria-valuemax="100"
+          :aria-label="`Durchgang ${d.nummer}`">
+          <div class="h-full rounded-full bg-primary" :style="{ width: Math.min(100, d.done / d.total * 100) + '%' }"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buchname bekommt den meisten Platz (voller Titel statt abgeschnitten), Datum nur als Kalender-Symbol
+         (öffnet den nativen Datumswähler), Eintragen als Haken-Symbol statt Textknopf. -->
+    <form v-if="!bearbeiten" class="mt-4 flex flex-wrap items-center gap-2" @submit.prevent="log">
+      <select v-if="task.buecher.length" v-model="buchId" class="input min-w-0 flex-1 basis-32" aria-label="Buch">
+        <option value="" disabled>Buch wählen</option>
         <option v-for="b in task.buecher" :key="b.id" :value="b.id">{{ b.title }}</option>
       </select>
-      <input v-model="amount" type="number" min="1" class="input" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
-      <input v-model="day" type="date" :max="today" class="input" aria-label="Datum (leer = heute)" />
-      <button class="btn btn-primary">Eintragen</button>
+      <select v-if="task.passes > 1" v-model="durchlauf" class="input w-auto shrink-0" aria-label="Durchgang">
+        <option v-for="d in task.durchlaeufe" :key="d.nummer" :value="d.nummer">Durchgang {{ d.nummer }}</option>
+      </select>
+      <input v-model="amount" type="number" min="1" class="input w-20 shrink-0" :placeholder="task.unit" :aria-label="`Gelesene ${task.unit}`" />
+      <div class="relative shrink-0">
+        <input ref="dayInput" v-model="day" type="date" :max="today" class="sr-only" aria-label="Datum (leer = heute)" />
+        <button type="button" class="btn btn-outline !px-2.5" :aria-label="day ? `Datum: ${formatDate(day)}` : 'Datum wählen (leer = heute)'" @click="dayPickerOeffnen">
+          <AppIcon name="kalender" class="h-4 w-4" />
+        </button>
+      </div>
+      <button type="submit" class="btn btn-primary !px-2.5 shrink-0" aria-label="Eintragen">
+        <AppIcon name="haken" class="h-4 w-4" />
+      </button>
     </form>
     <p v-if="!bearbeiten && error" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
 
@@ -188,6 +272,7 @@ async function saveEdit() {
         <li v-for="e in task.entries" :key="e.id" class="flex items-center gap-3 py-2">
           <span class="w-24 shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{{ formatDate(e.day) }}</span>
           <span class="w-28 shrink-0 tabular-nums">{{ num(e.amount) }} {{ task.unit }}</span>
+          <span v-if="task.passes > 1" class="w-24 shrink-0 text-slate-500 dark:text-slate-400">Durchgang {{ e.durchlauf }}</span>
           <span v-if="e.buch_id" class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ buchTitel(e.buch_id) }}</span>
           <span v-else class="min-w-0 flex-1 truncate text-slate-500 dark:text-slate-400">{{ e.note }}</span>
           <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`Eintrag vom ${formatDate(e.day)} löschen`" @click="removeEntry(e)">Löschen</button>

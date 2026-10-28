@@ -128,6 +128,41 @@ def test_log_reading_can_reference_a_buch(svc):
         svc.log_reading(t.id, 5, buch_id="gibt-es-nicht")
 
 
+def test_log_reading_tracks_each_durchlauf_separately(svc):
+    """Mehrere Durchgänge: im ersten Durchgang auf Seite 5 stehen, gleichzeitig im zweiten auf Seite 7 –
+    jeder Durchgang hat seinen eigenen Stand (wie bei Büchern), nicht nur eine gemeinsame Summe."""
+    t = svc.add_task("f", "Apostelgeschichte", "Seiten", 10, passes=3)
+    svc.log_reading(t.id, 5, durchlauf=1)
+    svc.log_reading(t.id, 7, durchlauf=2)
+    t = svc.get_task(t.id)
+    assert t.durchlauf_done(1) == 5 and t.durchlauf_done(2) == 7 and t.durchlauf_done(3) == 0
+    assert t.done == 12   # Gesamtfortschritt bleibt die Summe über alle Durchgänge
+
+    with pytest.raises(InvalidInput):
+        svc.log_reading(t.id, 1, durchlauf=0)
+    with pytest.raises(InvalidInput):
+        svc.log_reading(t.id, 1, durchlauf=4)   # nur 3 Durchgänge vereinbart
+
+
+def test_log_reading_without_durchlauf_defaults_to_the_first(svc):
+    t = svc.add_task("f", "Buch", "Seiten", 10, passes=2)
+    svc.log_reading(t.id, 3)
+    t = svc.get_task(t.id)
+    assert t.durchlauf_done(1) == 3 and t.entries[0].durchlauf == 1
+
+
+def test_aktiver_durchlauf_is_the_first_unfinished_one(svc):
+    t = svc.add_task("f", "Buch", "Seiten", 10, passes=3)
+    assert t.aktiver_durchlauf() == 1
+    svc.log_reading(t.id, 10, durchlauf=1)   # Durchgang 1 fertig
+    t = svc.get_task(t.id)
+    assert t.aktiver_durchlauf() == 2
+    svc.log_reading(t.id, 10, durchlauf=2)
+    svc.log_reading(t.id, 10, durchlauf=3)   # alle fertig
+    t = svc.get_task(t.id)
+    assert t.aktiver_durchlauf() == 3   # bleibt beim letzten, kein Durchgang 4
+
+
 def test_tasks_sorted_by_deadline(svc):
     svc.add_task("f", "Später", "Seiten", 10, deadline=date(2026, 12, 1))
     svc.add_task("f", "Ohne", "Seiten", 10)
@@ -145,7 +180,7 @@ def test_subject_status_and_hooks(svc):
     assert s["status"] == "not_started" and s["next_deadline"] == "2026-10-20"
     assert s["done_count"] == 0 and s["progress"] == 25 and s["urgent_title"] == "B"
     assert svc.subject_status("leer") == {"task_count": 0, "done_count": 0, "percent": 0.0, "progress": None,
-                                          "status": None, "urgent_title": None, "next_deadline": None}
+                                          "status": None, "urgent_title": None, "next_deadline": None, "pensen": []}
     svc.discard_subject("f")
     assert [t.title for t in svc.list_tasks()] == ["C"]
 
@@ -158,3 +193,24 @@ def test_subject_progress_counts_every_task_equally(svc):
     s = svc.subject_status("g")
     assert s["percent"] == 62.5 and s["progress"] == 63 and s["done_count"] == 1
     assert s["urgent_title"] == "Apostelgeschichte"
+
+
+def test_status_nennt_den_stand_jedes_pensums_fuer_verknuepfte_aufgaben(svc):
+    a = svc.add_task("f", "Pflichtlektüre", "Seiten", 200)
+    b = svc.add_task("f", "Apostelgeschichte", "Kapitel", 28, passes=2)
+    svc.log_reading(a.id, 50)
+    svc.log_reading(b.id, 28)
+    pensen = {p["id"]: p["percent"] for p in svc.subject_status("f")["pensen"]}
+    assert pensen == {a.id: 25, b.id: 50}                       # ganze Prozent, 28 von 56 Kapiteln
+
+
+def test_skript_am_pensum_hinterlegen_und_loesen(svc):
+    t = svc.add_task("f", "Skript lesen", "Seiten", 135)
+    assert t.skript_id is None
+    assert svc.set_skript(t.id, "datei-1").skript_id == "datei-1"
+    assert svc.set_skript(t.id, "  ").skript_id is None            # leer löst die Verknüpfung
+    with pytest.raises(NotFound):
+        svc.set_skript("gibt-es-nicht", "datei-1")
+    svc.set_skript(t.id, "datei-2")
+    svc.update_task(t.id, "Skript lesen (neu)", "Seiten", 140)      # Bearbeiten des Pensums lässt das Skript in Ruhe
+    assert svc.get_task(t.id).skript_id == "datei-2"

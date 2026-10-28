@@ -6,6 +6,14 @@ defineEmits(['nav'])
 const tabs = [
   { id: 'subjects', label: 'Fächer', icon: 'faecher' },
   { id: 'cards', label: 'Karten', icon: 'karten' },
+  { id: 'noten', label: 'Noten', icon: 'noten' },
+  { id: 'bibel', label: 'Bibel', icon: 'buch' },
+  { id: 'bibliothek', label: 'Bibliothek', icon: 'bibliothek' },
+  { id: 'schnelllesen', label: 'Schnelllesen', icon: 'tempo' },
+  { id: 'predigten', label: 'Predigten', icon: 'predigten' },
+  { id: 'notizen', label: 'Notizen', icon: 'notizen' },
+  { id: 'fragenki', label: 'Fragen und KI', icon: 'funken' },
+  { id: 'glossar', label: 'Glossar', icon: 'glossar' },
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>

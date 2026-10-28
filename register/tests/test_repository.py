@@ -32,3 +32,14 @@ def test_delete_register_removes_its_entries_on_disk(tmp_path):
     svc.delete_register(a.id)
     again = RegisterService(JsonRegisterRepository(tmp_path / "register.json"))
     assert [(r.name, n) for r, n in again.list_registers("f")] == [("B", 1)]
+
+
+def test_coordinates_survive_reload(tmp_path):
+    path = tmp_path / "register.json"
+    svc = RegisterService(JsonRegisterRepository(path))
+    orte = svc.create_register("f", "Orte")
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 11,28"], lat=30.9608, lon=46.1025)
+
+    again = RegisterService(JsonRegisterRepository(path))
+    reloaded = again.repo.get(e.id)
+    assert (reloaded.lat, reloaded.lon) == (30.9608, 46.1025)

@@ -94,6 +94,25 @@ def test_same_name_merges_within_a_register_only(svc, namen, orte, events):
     assert events.sent.count("register.entry_added") == 3
 
 
+def test_update_entry_replaces_name_and_refs(svc, namen):
+    e = svc.add_entry(namen.id, "Abraham", ["1Mo 12,1"])
+    updated = svc.update_entry(e.id, "Abram", ["1Mo 11,26", "Hebr 11,8"])
+    assert updated.name == "Abram"
+    assert texts(updated) == ["1Mo 11,26", "Hebr 11,8"]
+    assert [e.name for e in svc.list_entries("f")] == ["Abram"]   # ersetzt, nicht ergänzt
+
+
+def test_update_entry_rejects_duplicate_name_in_same_register(svc, namen):
+    svc.add_entry(namen.id, "Abraham", ["1Mo 12,1"])
+    e2 = svc.add_entry(namen.id, "Mose", ["2Mo 3,1"])
+    with pytest.raises(InvalidInput):
+        svc.update_entry(e2.id, "abraham", ["2Mo 3,1"])   # Groß/Klein egal
+    with pytest.raises(NotFound):
+        svc.update_entry("gibt-es-nicht", "Mose", ["2Mo 3,1"])
+    with pytest.raises(InvalidInput):
+        svc.update_entry(e2.id, "Mose", [])
+
+
 def test_bad_input_saves_nothing(svc, namen):
     with pytest.raises(InvalidInput):
         svc.add_entry(namen.id, "Mose", ["2Mo 3,1", "Quatsch 4"])
@@ -139,6 +158,37 @@ def test_delete_status_and_subject_hooks(svc, namen, orte):
         svc.delete_entry(a.id)
     svc.discard_subject("f")
     assert [e.name for e in svc.list_entries()] == ["Paulus"] and svc.list_registers("f") == []
+
+
+def test_entry_coordinates_are_optional_and_preserved_when_merging(svc, orte):
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 11,28"])
+    assert (e.lat, e.lon) == (None, None)
+
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 15,7"], lat=30.9608, lon=46.1025)   # Stellen dazu + Koordinaten gesetzt
+    assert (e.lat, e.lon) == (30.9608, 46.1025)
+
+    e = svc.add_entry(orte.id, "Ur", ["Neh 9,7"])   # ohne Angabe bleiben vorhandene Koordinaten unangetastet
+    assert (e.lat, e.lon) == (30.9608, 46.1025)
+
+
+def test_entry_coordinates_must_come_together_and_in_range(svc, orte):
+    with pytest.raises(InvalidInput):
+        svc.add_entry(orte.id, "Ur", ["1Mo 11,28"], lat=30.9608)
+    with pytest.raises(InvalidInput):
+        svc.add_entry(orte.id, "Ur", ["1Mo 11,28"], lat=300, lon=46.1025)
+
+
+def test_set_location_updates_or_clears_without_touching_refs(svc, orte):
+    e = svc.add_entry(orte.id, "Ur", ["1Mo 11,28"])
+    svc.set_location(e.id, 30.9608, 46.1025)
+    assert texts(svc.repo.get(e.id)) == ["1Mo 11,28"]
+    assert (svc.repo.get(e.id).lat, svc.repo.get(e.id).lon) == (30.9608, 46.1025)
+
+    svc.set_location(e.id, None, None)
+    assert (svc.repo.get(e.id).lat, svc.repo.get(e.id).lon) == (None, None)
+
+    with pytest.raises(NotFound):
+        svc.set_location("gibt-es-nicht", 1, 1)
 
 
 def test_migrate_legacy_moves_old_names_and_places_into_registers(svc):

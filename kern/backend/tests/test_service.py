@@ -45,7 +45,7 @@ class FakeGateway(ServiceGateway):
         return True
 
     def status(self, s, i): return {"n": len(self.known[s])} if i in self.known[s] else {"n": 0}
-    def forward(self, service, method, path, query, body, content_type): return 200, b"{}", "application/json"
+    def forward(self, service, method, path, query, body, content_type, range_header=None): return 200, b"{}", "application/json", {}
 
 
 @pytest.fixture
@@ -250,6 +250,37 @@ def test_se_is_stored_on_the_subject(svc):
     assert subject.se == 2
     subject = svc.set_se(subject.id, 3.5)
     assert subject.se == 3.5 and svc.get_subject(subject.id).se == 3.5
+
+
+def test_note_is_stored_and_validated(svc):
+    subject, _ = svc.create_subject("Dogmatik")
+    assert subject.note is None
+    subject = svc.set_note(subject.id, 1.7)
+    assert subject.note == 1.7 and svc.get_subject(subject.id).note == 1.7
+    subject = svc.set_note(subject.id, None)
+    assert subject.note is None
+    with pytest.raises(InvalidInput):
+        svc.set_note(subject.id, 0.7)
+    with pytest.raises(InvalidInput):
+        svc.set_note(subject.id, 5.3)
+
+
+def test_notenuebersicht_is_weighted_by_se(svc):
+    a, _ = svc.create_subject("Dogmatik", se=4)
+    b, _ = svc.create_subject("Griechisch", se=2)
+    c, _ = svc.create_subject("Ohne SE")   # zählt wie eine SE
+    svc.set_note(a.id, 1.0)
+    svc.set_note(b.id, 3.0)
+    svc.set_note(c.id, 2.0)
+    u = svc.notenuebersicht()
+    # (1,0*4 + 3,0*2 + 2,0*1) / (4+2+1) = 12/7 = 1.71
+    assert u["durchschnitt"] == 1.71 and u["anzahl"] == 3
+    assert [f["name"] for f in u["faecher"]] == ["Dogmatik", "Griechisch", "Ohne SE"]
+
+
+def test_notenuebersicht_ignores_ungraded_subjects(svc):
+    svc.create_subject("Ohne Note")
+    assert svc.notenuebersicht() == {"durchschnitt": None, "anzahl": 0, "faecher": []}
 
 
 def test_aufgaben_progress_falls_back_to_count_without_gewichtung(svc):

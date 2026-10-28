@@ -8,15 +8,44 @@
 <style>
   .uk-list-item { flex-direction: column; align-items: stretch; }
   .uk-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .uk-kopf { display: flex; justify-content: flex-end; margin-bottom: .75rem; }
+  .uk-suche { display: flex; gap: .5rem; margin-bottom: .75rem; }
+  .uk-suche-erg { display: grid; gap: .5rem; margin-bottom: 1rem; }
+  .uk-suche-erg[hidden] { display: none; }
+  .uk-treffer { display: block; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: .7rem; background: var(--panel);
+    color: var(--text); text-decoration: none; }
+  .uk-treffer:hover { border-color: var(--accent); }
+  .uk-treffer mark { background: var(--accent); color: var(--accent-text); border-radius: .25rem; padding: 0 .15rem; }
+  .uk-qual a { color: var(--muted); }
+  .uk-upload { display: grid; gap: .75rem; margin-bottom: 1rem; }
+  .uk-upload[hidden] { display: none; }
   .uk-sub { color: var(--muted); font-size: .85rem; }
+  .uk-docx { background: #fff; color: #111; overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; padding: .5rem; }
+  .uk-fragen { margin-top: .75rem; display: grid; gap: .5rem; }
+  .uk-frage { display: grid; grid-template-columns: auto 1fr; gap: .25rem .6rem; align-items: start; }
+  .uk-frage input[type=text] { grid-column: 2; }
+  .uk-medien { display: block; width: 100%; max-height: 75vh; margin-top: .75rem; border-radius: .7rem; }
+  img.uk-medien { width: auto; max-width: 100%; object-fit: contain; }
   iframe.uk-vorschau { width: 100%; height: 75vh; border: 1px solid var(--border); border-radius: .7rem; margin-top: .75rem; }
 </style>
 </head>
 <body class="ui-kit">
-<!-- Skripte dieses Fachs: hochladen, direkt im Browser lesen (PDF), herunterladen, löschen. -->
-<form id="form" class="uk-form">
-  <input id="datei" class="uk-input" type="file" aria-label="Datei auswählen" required>
-  <button class="uk-btn">Hochladen</button>
+<!-- Skripte dieses Fachs: hochladen (+ öffnet das Formular: Datei wählen oder hineinziehen, Name änderbar), direkt im Browser ansehen (PDF, Word .docx, Pages, Text/Markdown, PowerPoint/OpenDocument als Text, Bilder, Audio, Video), Fragen als Karteikarten übernehmen, herunterladen, löschen. -->
+<div class="uk-kopf">
+  <button class="uk-btn uk-icon-btn" id="neu" type="button" title="Neue Datei" aria-label="Neue Datei" aria-expanded="false"></button>
+</div>
+<form id="suche" class="uk-suche" role="search">
+  <input id="suche-q" class="uk-input" type="search" placeholder="In allen Skripten dieses Fachs suchen …" aria-label="Suchen">
+  <button class="uk-btn uk-icon-btn" id="suche-los" type="submit" title="Suchen" aria-label="Suchen"></button>
+</form>
+<div id="suche-erg" class="uk-suche-erg" hidden></div>
+<form id="form" class="uk-panel uk-upload" hidden>
+  <div id="ablage-platz"></div>
+  <input id="name" class="uk-input" type="text" placeholder="Name der Datei" aria-label="Name der Datei" disabled>
+  <div class="uk-form" style="margin:0">
+    <button class="uk-btn uk-icon-btn" id="hochladen" type="submit" disabled></button>
+    <button class="uk-btn-ghost uk-icon-btn" id="abbrechen" type="button"></button>
+  </div>
 </form>
 <p id="fehler" class="uk-error" role="alert"></p>
 <ul id="liste" class="uk-list"></ul>
@@ -24,7 +53,7 @@
 
 <script src="/ui-kit.js"></script>
 <script>
-  const { call, el, subjectId } = UIKit
+  const { call, el, subjectId, icon, setIcon, menu, dropzone } = UIKit
   const subject = subjectId()
 
   function groesse(bytes) {
@@ -32,30 +61,243 @@
     return Math.round(bytes / 1024) + ' KB'
   }
 
+  // Word (.docx) kann der Browser nicht selbst anzeigen: docx-preview zeichnet es im Browser (Bibliotheken liegen
+  // lokal unter /vendor, kein Fremdserver). Das alte .doc-Format kann sie nicht – das bleibt zum Herunterladen.
+  // Die Art der Datei (pdf, docx, pages, text, ansichtstext, bild, audio, video, doc, sonst) und ob sich Fragen auslesen
+  // lassen, kommt vom Dienst (domain/dateitypen.py) – eine Stelle, nicht hier noch einmal.
+  const istDocx = (s) => s.art === 'docx'
+  const istDoc = (s) => s.art === 'doc'
+  const istPages = (s) => s.art === 'pages'
+  const kannAnzeigen = (s) => s.art !== 'doc' && s.art !== 'sonst'
+  const kannFragen = (s) => s.kann_fragen
+  // Wohin die Vorschau zeigt: Pages über die eingebettete PDF, PowerPoint/OpenDocument als reiner Text, sonst die Datei selbst
+  const vorschauUrl = (s) => `skripte/${s.id}/${s.art === 'pages' ? 'vorschau' : s.art === 'ansichtstext' ? 'text' : 'datei'}`
+  function vorschauElement(s) {
+    if (s.art === 'docx') return el('div', { class: 'uk-docx', hidden: 'true' })
+    if (s.art === 'bild') return el('img', { class: 'uk-medien', alt: s.dateiname, hidden: 'true' })
+    if (s.art === 'audio') return el('audio', { class: 'uk-medien', controls: 'true', preload: 'none', hidden: 'true' })
+    if (s.art === 'video') return el('video', { class: 'uk-medien', controls: 'true', preload: 'metadata', playsinline: 'true', hidden: 'true' })
+    return el('iframe', { class: 'uk-vorschau', hidden: 'true' })
+  }
+  function skriptLaden(src) {
+    return new Promise((ok, fehler) => {
+      const t = document.createElement('script')
+      t.src = src; t.onload = ok; t.onerror = () => fehler(new Error('Anzeige konnte nicht geladen werden.'))
+      document.head.appendChild(t)
+    })
+  }
+  let docxBereit = null
+  function docxLaden() {
+    docxBereit ||= skriptLaden('/vendor/jszip.min.js').then(() => skriptLaden('/vendor/docx-preview.min.js'))
+    return docxBereit
+  }
+
+  // Neue Datei: „+“ klappt das Formular auf – Datei per Klick wählen oder hineinziehen, Name vorab änderbar
+  const $ = (id) => document.getElementById(id)
+  setIcon($('neu'), 'plus', 'Neue Datei')
+  setIcon($('suche-los'), 'suche', 'Suchen')
+  $('hochladen').append(icon('upload'), 'Hochladen')
+  $('abbrechen').append(icon('x'), 'Abbrechen')
+  let gewaehlt = null
+  const ablage = dropzone({ onFile: (datei) => dateiSetzen(datei) })
+  $('ablage-platz').replaceWith(ablage.node)
+  function dateiSetzen(datei) {
+    gewaehlt = datei || null
+    ablage.zeigen(datei ? `${datei.name} (${groesse(datei.size)})` : null)
+    $('name').disabled = !datei
+    $('name').value = datei ? datei.name.replace(/\.[^.]+$/, '') : ''      // ohne Endung: sie bleibt automatisch
+    $('hochladen').disabled = !datei
+    if (datei) $('name').focus()
+  }
+  function formularZu() { $('form').hidden = true; $('neu').setAttribute('aria-expanded', 'false'); $('fehler').textContent = ''; dateiSetzen(null) }
+  $('neu').onclick = () => {
+    const auf = $('form').hidden
+    if (!auf) return formularZu()
+    $('form').hidden = false; $('neu').setAttribute('aria-expanded', 'true')
+  }
+  $('abbrechen').onclick = formularZu
+
+  // Volltextsuche über alle Skripte des Fachs: Treffer mit Seite und Ausschnitt, Klick öffnet die Datei an dieser Stelle
+  function treffer(t, q) {
+    const seitenLink = t.art === 'pdf' && t.seite ? `#page=${t.seite}&search=${encodeURIComponent(q.split(/\s+/)[0])}` : ''
+    const ziel = t.art === 'pages' ? 'vorschau' : t.art === 'docx' ? 'ansicht' : t.art === 'ansichtstext' ? 'text' : 'datei'
+    const a = el('a', { class: 'uk-treffer', href: `skripte/${t.skript_id}/${ziel}${seitenLink}`, target: '_blank', rel: 'noopener' }, [
+      el('div', { class: 'uk-sub' }, `${t.dateiname}${t.seite ? ` · Seite ${t.seite}` : ''}`),
+      el('div', {}, [t.ausschnitt.slice(0, t.von), el('mark', {}, t.ausschnitt.slice(t.von, t.bis)), t.ausschnitt.slice(t.bis)]),
+    ])
+    return a
+  }
+  $('suche').onsubmit = async (e) => {
+    e.preventDefault()
+    const q = $('suche-q').value.trim()
+    const box = $('suche-erg')
+    if (!q) { box.hidden = true; return }
+    box.hidden = false
+    box.textContent = 'Sucht …'
+    try {
+      const erg = await call('GET', `skripte/suche?subject_id=${encodeURIComponent(subject)}&q=${encodeURIComponent(q)}`)
+      const teile = []
+      teile.push(el('div', { class: 'uk-sub' }, erg.treffer.length
+        ? `${erg.treffer.length}${erg.begrenzt ? '+' : ''} Fundstellen für „${q}“` : `Nichts gefunden für „${q}“.`))
+      teile.push(...erg.treffer.map((t) => treffer(t, q)))
+      if (erg.ohne_text.length) teile.push(el('div', { class: 'uk-sub' }, `Nicht durchsucht, weil noch kein Text erkannt ist: ${erg.ohne_text.join(', ')} – im Menü „Text erkennen“.`))
+      box.replaceChildren(...teile)
+    } catch (err) { box.textContent = err.message }
+  }
+
   function zeile(s) {
     const url = `skripte/${s.id}/datei`
-    const vorschau = el('iframe', { class: 'uk-vorschau', hidden: 'true' })
-    const oeffnenBtn = el('button', { class: 'uk-btn' }, 'Öffnen')
-    oeffnenBtn.onclick = () => {
+    const docx = istDocx(s)
+    const vorschau = vorschauElement(s)
+    let geladen = false
+    // Vorschau: ein Tipp auf den Namen klappt sie auf oder zu
+    async function vorschauUmschalten() {
       const zu = vorschau.hidden
       vorschau.hidden = !zu
-      if (zu && !vorschau.src) vorschau.src = url
-      oeffnenBtn.textContent = zu ? 'Schließen' : 'Öffnen'
+      if (!zu || geladen) return
+      if (!docx) { if (!vorschau.getAttribute('src')) vorschau.src = vorschauUrl(s); return }
+      try {
+        vorschau.textContent = 'Lädt …'
+        const [res] = await Promise.all([fetch(url), docxLaden()])
+        if (!res.ok) throw new Error('Datei konnte nicht geladen werden.')
+        vorschau.textContent = ''
+        await window.docx.renderAsync(await res.blob(), vorschau)
+        geladen = true
+      } catch (err) { vorschau.textContent = 'Anzeige nicht möglich: ' + err.message }
     }
+    const nameBtn = el('button', { class: 'uk-name', type: 'button', title: 'Vorschau ein-/ausblenden' }, s.dateiname)
+    nameBtn.onclick = vorschauUmschalten
+    if (!kannAnzeigen(s)) { nameBtn.disabled = true; nameBtn.title = istDoc(s) ? 'Altes .doc-Format: bitte herunterladen oder als .docx speichern' : 'Dieser Dateityp lässt sich nicht anzeigen, nur herunterladen' }
+
+    const fragenBox = el('div', { class: 'uk-fragen', hidden: 'true' })
+    async function kartenOeffnen() {
+      if (!fragenBox.hidden) { fragenBox.hidden = true; return }
+      fragenBox.hidden = false
+      fragenBox.textContent = 'Liest die Datei …'
+      try { kartenZeigen(fragenBox, s, await call('GET', `skripte/${s.id}/karten`)) }
+      catch (err) { fragenBox.textContent = err.message }
+    }
+
+    // Gescannte PDFs haben keinen Text: erst „Text erkennen“ (OCR, dauert bei einem ganzen Skript einige Minuten,
+    // läuft im Hintergrund), danach lässt sich in der Anzeige markieren und kopieren.
+    const textInfo = el('span', { class: 'uk-sub', role: 'status' })
+    const qualBox = el('div', { class: 'uk-sub uk-qual', role: 'status' })
+    async function qualitaetPruefen() {
+      qualBox.textContent = 'Prüft den Text …'
+      try {
+        const q = await call('GET', `skripte/${s.id}/qualitaet`)
+        if (q.durchschnitt === null) { qualBox.textContent = 'Kein erkannter Text zum Prüfen.'; return }
+        const seitenLinks = q.unsicher.slice(0, 20).flatMap((n, i) => [i ? ', ' : '', el('a', { href: `skripte/${s.id}/datei#page=${n}`, target: '_blank', rel: 'noopener' }, String(n))])
+        qualBox.replaceChildren(`Textqualität etwa ${q.durchschnitt} % (Schätzung)` + (q.unsicher.length
+          ? ` · ${q.unsicher.length} Seite${q.unsicher.length === 1 ? '' : 'n'} unsicher: ` : ' · keine unsichere Seite'), ...seitenLinks)
+      } catch (err) { qualBox.textContent = err.message }
+    }
+    let textStatus = s.text_status
+    const textAktion = async () => {
+      m.punkt('text').disabled = true
+      try { const t = await call('POST', `skripte/${s.id}/text-erkennen${textStatus === 'fertig' ? '?neu=true' : ''}`); textZeigen({ ...s, text_status: t.status, text_fehler: t.fehler, text_groesse: t.groesse }) }
+      catch (err) { textInfo.textContent = err.message; m.punkt('text').disabled = false }
+    }
+    const textZeigen = (t) => {
+      textStatus = t.text_status
+      const p = m.punkt('text')
+      p.hidden = s.art !== 'pdf'
+      p.disabled = t.text_status === 'laeuft'
+      p.replaceChildren(icon(t.text_status === 'laeuft' ? 'uhr' : 'scan'),
+        t.text_status === 'laeuft' ? 'Text wird erkannt …' : t.text_status === 'fertig' ? 'Text neu erkennen' : 'Text erkennen')
+      const gr = t.text_groesse ? ` · ${groesse(t.text_groesse)}` : ''
+      textInfo.textContent = t.text_status === 'fertig' ? `Text markierbar${gr}${t.text_fehler ? ` · letzte Neuerkennung fehlgeschlagen: ${t.text_fehler}` : ''}` : t.text_status === 'fehler' ? (t.text_fehler || 'Texterkennung fehlgeschlagen.')
+        : t.text_status === 'laeuft' ? 'Text wird erkannt …' + (t.text_groesse ? ` (bisherige Fassung${gr} bleibt bis dahin)` : '') : ''
+      if (t.text_status === 'laeuft') setTimeout(textAbfragen, 5000)
+    }
+    const textAbfragen = async () => {
+      try { textZeigen((await call('GET', 'skripte?subject_id=' + encodeURIComponent(subject))).find((x) => x.id === s.id) || s) } catch { /* nächster Versuch */ }
+    }
+
+    // Umbenennen: Name wird zum Eingabefeld (Enter speichert, Escape bricht ab); die Endung bleibt erhalten
+    const kopf = el('div', {}, [nameBtn])
+    function umbenennenStarten() {
+      const feld = el('input', { class: 'uk-input', type: 'text', value: s.dateiname, 'aria-label': 'Neuer Dateiname' })
+      const fehlerZeile = el('div', { class: 'uk-error', role: 'alert' })
+      const fertig = async () => {
+        try { await call('PUT', `skripte/${s.id}`, { dateiname: feld.value }); laden() }
+        catch (err) { fehlerZeile.textContent = err.message }
+      }
+      feld.onkeydown = (e) => { if (e.key === 'Enter') fertig(); if (e.key === 'Escape') kopf.replaceChildren(nameBtn) }
+      const ok = el('button', { class: 'uk-btn uk-icon-btn', type: 'button', onclick: fertig }); setIcon(ok, 'haken', 'Speichern')
+      const nein = el('button', { class: 'uk-btn-ghost uk-icon-btn', type: 'button', onclick: () => kopf.replaceChildren(nameBtn) }); setIcon(nein, 'x', 'Abbrechen')
+      kopf.replaceChildren(el('div', { style: 'display:flex;gap:.4rem;align-items:center' }, [feld, ok, nein]), fehlerZeile)
+      feld.focus(); feld.select()
+    }
+
+    const m = menu([
+      ...(kannAnzeigen(s) ? [{ icon: 'extern', text: 'In neuem Tab öffnen', href: docx ? `skripte/${s.id}/ansicht` : vorschauUrl(s) }] : []),
+      { id: 'text', icon: 'scan', text: 'Text erkennen', title: 'Gescanntes PDF durchsuchbar machen, damit sich Text markieren und kopieren lässt', onclick: textAktion },
+      ...(kannFragen(s) ? [{ icon: 'karten', text: 'Karten übernehmen', onclick: kartenOeffnen }] : []),
+      ...(s.art === 'pdf' ? [{ icon: 'haken', text: 'Textqualität prüfen', title: 'Schätzt, wie zuverlässig der erkannte Text ist, und nennt unsichere Seiten', onclick: qualitaetPruefen }] : []),
+      { icon: 'stift', text: 'Umbenennen', onclick: umbenennenStarten },
+      { icon: 'download', text: 'Herunterladen', onclick: () => el('a', { href: url + '?original=1', download: s.dateiname }).click() },
+      { icon: 'trash', text: 'Löschen', danger: true, onclick: async () => {
+        if (!confirm(`„${s.dateiname}“ löschen?`)) return
+        await call('DELETE', `skripte/${s.id}`); laden()
+      } },
+    ])
+    textZeigen(s)
+
     return el('li', { class: 'uk-list-item' }, [
       el('div', { class: 'uk-row' }, [
-        el('div', {}, [el('div', {}, s.dateiname), el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`)]),
-        el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
-          oeffnenBtn,
-          el('a', { class: 'uk-btn-ghost', href: url, download: s.dateiname }, 'Herunterladen'),
-          el('button', { class: 'uk-btn-danger', onclick: async () => {
-            if (!confirm(`„${s.dateiname}“ löschen?`)) return
-            await call('DELETE', `skripte/${s.id}`); laden()
-          } }, 'Löschen'),
-        ]),
+        el('div', {}, [kopf, el('div', { class: 'uk-sub' }, `${groesse(s.groesse)} · ${s.hochgeladen_am}`), textInfo, qualBox]),
+        m.node,
       ]),
+      fragenBox,
       vorschau,
     ])
+  }
+
+  // Die erkannten Karten sind nur ein Vorschlag: abwählen, Antwort eintragen oder ganz verwerfen geht vor dem Anlegen.
+  // Karteikarten brauchen eine Rückseite – ohne eingetragene Antwort steht dort ein Platzhalter.
+  // Alle übernommenen Karten bilden ein Set (Name frei wählbar, Vorgabe = Dateiname), das die Kartenliste filtern kann.
+  const KARTEN = `/api/karteikarten/decks/${encodeURIComponent(subject)}/cards`
+  const OHNE_ANTWORT = '(Antwort noch nicht eingetragen)'
+  function kartenZeigen(box, s, erg) {
+    const karten = erg.karten
+    if (!karten.length) { box.textContent = 'Keine Fragen gefunden.'; return }
+    const zeilen = karten.map((k) => {
+      const haken = el('input', { type: 'checkbox', checked: 'true', 'aria-label': 'Karte übernehmen' })
+      const antwort = el('input', { class: 'uk-input', type: 'text', placeholder: 'Antwort (optional, kann leer bleiben)', value: k.antwort })
+      const frage = el('input', { class: 'uk-input', type: 'text', value: k.frage, 'aria-label': 'Frage' })   // Texterkennung kann sich irren: Frage lässt sich korrigieren
+      return { frage, haken, antwort, node: el('div', { class: 'uk-frage' }, [haken, frage, antwort]) }
+    })
+    const setName = el('input', { class: 'uk-input', type: 'text', value: s.dateiname.replace(/\.[^.]+$/, ''), 'aria-label': 'Name des Sets' })
+    const meldung = el('p', { class: 'uk-sub', role: 'status' })
+    const anlegen = el('button', { class: 'uk-btn uk-icon-btn', title: 'Als Set speichern' })
+    const verwerfen = el('button', { class: 'uk-btn-ghost uk-icon-btn', title: 'Erkannte Karten verwerfen, nichts wird angelegt' })
+    verwerfen.append(icon('x'), 'Verwerfen')
+    verwerfen.onclick = () => { box.hidden = true; box.replaceChildren() }
+    const zaehlen = () => { const n = zeilen.filter((z) => z.haken.checked).length; anlegen.replaceChildren(icon('haken'), `${n} Karte${n === 1 ? '' : 'n'} als Set speichern`); anlegen.disabled = n === 0 }
+    zeilen.forEach((z) => z.haken.addEventListener('change', zaehlen))
+    zaehlen()
+    anlegen.onclick = async () => {
+      anlegen.disabled = true
+      meldung.textContent = ''
+      try {
+        const vorhanden = new Set(((await call('GET', `/api/karteikarten/decks/${encodeURIComponent(subject)}`)).cards || []).map((c) => c.front))
+        let neu = 0, doppelt = 0
+        for (const z of zeilen.filter((z) => z.haken.checked)) {
+          const f = z.frage.value.trim()
+          if (!f) continue
+          if (vorhanden.has(f)) { doppelt++; continue }
+          await call('POST', KARTEN, { kind: 'classic', front: f, back: z.antwort.value.trim() || OHNE_ANTWORT, options: [], correct_index: null, set_name: setName.value.trim() })
+          neu++
+        }
+        meldung.textContent = `${neu} Karte${neu === 1 ? '' : 'n'} gespeichert` + (doppelt ? `, ${doppelt} gab es schon.` : '.')
+      } catch (err) { meldung.textContent = err.message }
+      zaehlen()
+    }
+    const hinweis = erg.quelle === 'druckbogen' ? 'Druckbogen erkannt – Fragen und Antworten sind übernommen.' : 'Fragenliste erkannt – ohne Antworten.'
+    box.replaceChildren(el('p', { class: 'uk-sub' }, `${karten.length} Karten: ${hinweis} Sie landen im Reiter „Karteikarten“ dieses Fachs.`),
+      el('label', { class: 'uk-sub' }, 'Name des Sets'), setName,
+      ...zeilen.map((z) => z.node), el('div', { style: 'display:flex;gap:.5rem' }, [anlegen, verwerfen]), meldung)
   }
 
   async function laden() {
@@ -64,22 +306,23 @@
     document.getElementById('leer').hidden = skripte.length > 0
   }
 
-  document.getElementById('form').onsubmit = async (e) => {
+  $('form').onsubmit = async (e) => {
     e.preventDefault()
-    const fehler = document.getElementById('fehler')
+    const fehler = $('fehler')
     fehler.textContent = ''
-    const feld = document.getElementById('datei')
-    const datei = feld.files[0]
-    if (!datei) return
+    if (!gewaehlt) return
     const formdata = new FormData()
     formdata.append('subject_id', subject)
-    formdata.append('datei', datei)
+    formdata.append('datei', gewaehlt)
+    if ($('name').value.trim()) formdata.append('dateiname', $('name').value.trim())
+    $('hochladen').disabled = true
     try {
       const res = await fetch('skripte', { method: 'POST', body: formdata })
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(typeof err.detail === 'string' ? err.detail : 'Hochladen fehlgeschlagen.') }
-      feld.value = ''
+      $('datei').value = ''
+      formularZu()
       await laden()
-    } catch (err) { fehler.textContent = err.message }
+    } catch (err) { fehler.textContent = err.message; $('hochladen').disabled = false }
   }
 
   laden().catch((err) => { document.getElementById('fehler').textContent = err.message })

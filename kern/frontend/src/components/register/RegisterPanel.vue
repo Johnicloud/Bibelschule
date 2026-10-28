@@ -2,10 +2,12 @@
 import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import RegisterTabs from './RegisterTabs.vue'
 import EmptyState from '../ui/EmptyState.vue'
+import { formatKoordinaten, kartenKachelUrl, kartenLink } from '../../application/registerService'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const register = inject('register')
+const bibel = inject('bibel')
 
 const registers = ref([])
 const selectedId = ref('')
@@ -16,10 +18,16 @@ const loaded = ref(false)
 const loadError = ref('')
 const createError = ref('')
 const error = ref('')
-const form = ref({ name: '', refs: '' })
+const form = ref({ name: '', refs: '', koordinaten: '' })
+const editingLocationId = ref('')
+const editLocationValue = ref('')
+const locationError = ref('')
 const nameInput = ref(null)
 const renaming = ref(false)
 const renameValue = ref('')
+const editingId = ref('')
+const editForm = ref({ name: '', refs: '' })
+const editError = ref('')
 const vorhandeneNamen = ref(new Set())
 
 const storeKey = computed(() => `bibelschule.register.${props.subjectId}`)
@@ -91,11 +99,40 @@ async function add() {
   error.value = ''
   try {
     await register.add(selectedId.value, form.value)
-    form.value = { name: '', refs: '' }
+    form.value = { name: '', refs: '', koordinaten: '' }
     await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()]) // auch die Zahlen auf den Reitern
     emit('changed')
     focusName() // gleich der nächste Eintrag
   } catch (e) { error.value = e.message }
+}
+function startEditEntry(entry) {
+  editingId.value = entry.id
+  editForm.value = { name: entry.name, refs: entry.refs.map((r) => r.text).join('; ') }
+  editError.value = ''
+}
+function cancelEditEntry() { editingId.value = '' }
+async function saveEditEntry() {
+  editError.value = ''
+  try {
+    await register.update(editingId.value, editForm.value)
+    editingId.value = ''
+    await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
+    emit('changed')
+  } catch (e) { editError.value = e.message }
+}
+
+function startLocation(entry) {
+  editingLocationId.value = entry.id
+  editLocationValue.value = formatKoordinaten(entry)
+  locationError.value = ''
+}
+async function saveLocation(entry) {
+  locationError.value = ''
+  try {
+    const updated = await register.setLocation(entry.id, editLocationValue.value)
+    Object.assign(entry, updated)
+    editingLocationId.value = ''
+  } catch (e) { locationError.value = e.message }
 }
 async function removeEntry(entry) {
   if (!confirm(`„${entry.name}“ aus dem Register löschen?`)) return
@@ -103,6 +140,15 @@ async function removeEntry(entry) {
   await Promise.all([loadRegisters(selectedId.value), loadEntries(), ladenNamen()])
   emit('changed')
 }
+const bibelFehler = ref('')
+async function inBibelOeffnen(text) {
+  bibelFehler.value = ''
+  try {
+    const { seite } = await bibel.stelle(text)
+    window.open(bibel.dateiUrl(seite), '_blank')
+  } catch (e) { bibelFehler.value = `${text}: ${e.message}` }
+}
+
 const exportError = ref('')
 async function exportieren(format) {
   exportError.value = ''
@@ -150,9 +196,12 @@ onMounted(() => loadRegisters())
         </div>
         <input v-model="form.refs" class="input" placeholder="Bibelstellen, z. B. 1Mo 12,1-3; Hebr 11,8" aria-label="Bibelstellen" />
         <button class="btn btn-primary">Eintragen</button>
+        <input v-model="form.koordinaten" class="input sm:col-span-2" placeholder="Koordinaten (optional), z. B. 52.52, 13.405"
+          aria-label="Koordinaten" />
         <p class="text-xs text-slate-500 dark:text-slate-400 sm:col-span-3">
           Mehrere Stellen mit Semikolon trennen, kurz oder ausgeschrieben (Apg 8,26-40 oder Apostelgeschichte 8,26-40).
-          Gibt es den Namen in diesem Register schon, kommen die Stellen dazu.
+          Gibt es den Namen in diesem Register schon, kommen die Stellen dazu. Koordinaten (Breite, Länge) sind
+          nur bei Orten sinnvoll, von Hand eingetragen – es gibt keine automatische Ortssuche.
         </p>
         <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-3">{{ error }}</p>
       </form>
@@ -170,6 +219,7 @@ onMounted(() => loadRegisters())
         </template>
       </div>
       <p v-if="exportError" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ exportError }}</p>
+      <p v-if="bibelFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ bibelFehler }}</p>
 
       <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
       <EmptyState v-else-if="empty" title="Noch keine Einträge in diesem Register"
@@ -177,22 +227,64 @@ onMounted(() => loadRegisters())
 
       <ul v-else-if="view !== 'stellen'" class="grid gap-3 md:grid-cols-2">
         <li v-for="e in entries" :key="e.id" class="panel p-4">
-          <div class="flex items-start justify-between gap-2">
-            <span class="font-semibold">{{ e.name }}</span>
-            <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="removeEntry(e)">Löschen</button>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-1.5">
-            <span v-for="r in e.refs" :key="r.text" :title="r.book_name"
-              class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 dark:bg-teal-500/10 dark:text-teal-300">
-              {{ r.text }}
-            </span>
-          </div>
+          <template v-if="editingId !== e.id">
+            <div class="flex items-start justify-between gap-2">
+              <span class="font-semibold">{{ e.name }}</span>
+              <span class="flex shrink-0 gap-2">
+                <button class="btn btn-ghost !px-2.5 !py-1" :aria-label="`${e.name} bearbeiten`" @click="startEditEntry(e)">Bearbeiten</button>
+                <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${e.name} löschen`" @click="removeEntry(e)">Löschen</button>
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <button v-for="r in e.refs" :key="r.text" type="button" :title="`${r.book_name} – in der Bibel öffnen`"
+                class="rounded-lg bg-teal-50 px-2 py-0.5 text-sm tabular-nums text-teal-800 transition hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:hover:bg-teal-500/20"
+                @click="inBibelOeffnen(r.text)">
+                {{ r.text }}
+              </button>
+            </div>
+
+            <form v-if="editingLocationId === e.id" class="mt-3 flex items-center gap-2" @submit.prevent="saveLocation(e)">
+              <input v-model="editLocationValue" class="input !py-1 text-sm" placeholder="Breite, Länge (leer = löschen)"
+                aria-label="Koordinaten" />
+              <button class="btn btn-primary !px-2.5 !py-1">Speichern</button>
+              <button type="button" class="btn btn-ghost !px-2.5 !py-1" @click="editingLocationId = ''">Abbrechen</button>
+            </form>
+            <template v-else-if="e.lat != null">
+              <a :href="kartenLink(e.lat, e.lon)" target="_blank" rel="noopener" class="mt-3 block"
+                title="In OpenStreetMap öffnen">
+                <img :src="kartenKachelUrl(e.lat, e.lon)" alt="" width="256" height="256" loading="lazy"
+                  class="h-32 w-32 rounded-lg object-cover" />
+              </a>
+              <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">© OpenStreetMap-Mitwirkende</p>
+              <button type="button" class="mt-1 text-xs text-slate-500 underline hover:text-primary dark:text-slate-400"
+                @click="startLocation(e)">
+                {{ e.lat }}, {{ e.lon }} – ändern
+              </button>
+            </template>
+            <button v-else type="button" class="mt-3 text-xs text-slate-500 underline hover:text-primary dark:text-slate-400"
+              @click="startLocation(e)">
+              Koordinaten eintragen
+            </button>
+            <p v-if="locationError && editingLocationId === e.id" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
+              {{ locationError }}
+            </p>
+          </template>
+          <form v-else class="grid gap-2" @submit.prevent="saveEditEntry">
+            <input v-model="editForm.name" class="input" placeholder="Name oder Begriff" :aria-label="`Name für ${e.name}`" />
+            <input v-model="editForm.refs" class="input" placeholder="Bibelstellen, z. B. 1Mo 12,1-3; Hebr 11,8" :aria-label="`Bibelstellen für ${e.name}`" />
+            <div class="flex gap-2">
+              <button class="btn btn-primary !py-1.5">Speichern</button>
+              <button type="button" class="btn btn-ghost !py-1.5" @click="cancelEditEntry">Abbrechen</button>
+            </div>
+            <p v-if="editError" class="text-sm text-rose-600 dark:text-rose-400">{{ editError }}</p>
+          </form>
         </li>
       </ul>
 
       <ul v-else class="panel divide-y divide-slate-200 dark:divide-slate-800">
         <li v-for="p in passages" :key="p.text" class="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <span class="w-32 shrink-0 font-medium tabular-nums" :title="p.book_name">{{ p.text }}</span>
+          <button type="button" class="w-32 shrink-0 text-left font-medium tabular-nums text-primary hover:underline"
+            :title="`${p.book_name} – in der Bibel öffnen`" @click="inBibelOeffnen(p.text)">{{ p.text }}</button>
           <span class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
             <span v-for="e in p.entries" :key="e.id">{{ e.name }}</span>
           </span>

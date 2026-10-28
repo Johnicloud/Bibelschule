@@ -95,3 +95,25 @@ export function forecastText(task) {
       return `Bei ${per(f.pace_per_day)} bist du am ${formatDate(f.projected_finish)} fertig (Frist ${deadline}). Nötig sind ${per(f.needed_per_day)}.`
   }
 }
+
+// Arten einer Aufgabe (Standard für alle): Beschriftung, Symbol und wie die Frist heißt. Die Art bestimmt, welche Felder
+// das Formular zeigt (`umfang` = Soll/Ist/Einheit, z. B. Seiten einer Ausarbeitung). Weitere Arten kommen hier dazu.
+export const AUFGABEN_ARTEN = {
+  allgemein: { label: 'Aufgabe', icon: 'aufgaben', frist: 'Frist', hinweis: 'Eine einfache Aufgabe zum Abhaken.' },
+  klausur: { label: 'Klausur', icon: 'kalender', frist: 'Termin', hinweis: 'Mit Termin; zeigt „Nur Klausur fehlt“, wenn nur sie offen ist.' },
+  fragen: { label: 'Orientierungsfragen', icon: 'karten', frist: 'Frist', fragen: true, hinweis: 'Fragen als Karteikarten-Set; der Fortschritt kommt vom Lernen.' },
+  lesen_pflicht: { label: 'Lesepensum Pflichtlektüre', icon: 'lesenachweis', frist: 'Frist', lesen: 'pflicht', hinweis: 'Bücher mit Seitenzahl, dazu das Formular für den Lesenachweis.' },
+  lesen_skript: { label: 'Lesepensum Skript', icon: 'skripte', frist: 'Frist', lesen: 'skript', hinweis: 'Nur der Lesefortschritt, mit Seitenzahl.' },
+  lesen_bibel: { label: 'Lesepensum Bibel', icon: 'buch', frist: 'Frist', lesen: 'bibel', hinweis: 'Bücher der Bibel wählen, Kapitel und Durchgänge.' },
+  ausarbeitung: { label: 'Ausarbeitung', icon: 'stift', frist: 'Abgabe', umfang: true, hinweis: 'Texte verfassen, Register schreiben … mit Umfang und Stand.' },
+}
+export const artInfo = (art) => AUFGABEN_ARTEN[art] || AUFGABEN_ARTEN.allgemein
+
+// „in 12 Tagen“ / „heute“ / „seit 3 Tagen vorbei“ – für Termine und Abgaben
+export function tageBisText(iso, heute = new Date()) {
+  if (!iso) return ''
+  const tage = Math.round((new Date(`${iso}T00:00:00`) - new Date(heute.getFullYear(), heute.getMonth(), heute.getDate())) / 86400000)
+  if (tage === 0) return 'heute'
+  if (tage === 1) return 'morgen'
+  return tage > 0 ? `in ${tage} Tagen` : `seit ${-tage} ${tage === -1 ? 'Tag' : 'Tagen'} vorbei`
+}

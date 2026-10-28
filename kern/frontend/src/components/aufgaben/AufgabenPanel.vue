@@ -2,13 +2,20 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import EmptyState from '../ui/EmptyState.vue'
-import { formatDate } from '../../domain/status'
+import AufgabeForm from './AufgabeForm.vue'
+import AufgabeKachel from './AufgabeKachel.vue'
+import { fensterOeffnen } from '../../application/pdf'
+import { gemeinde as profilGemeinde, nachname as profilNachname, vorname as profilVorname } from '../../state/auth'
+import { artInfo, formatDate, tageBisText } from '../../domain/status'
 
 const props = defineProps({ subjectId: String })
 const emit = defineEmits(['changed'])
 const subjects = inject('subjects')
 const aufgabenleser = inject('aufgabenleser')
 const reading = inject('reading')
+const skripte = inject('skripte')
+const pdfcreator = inject('pdfcreator')
+const flash = inject('service')   // Karteikarten: Stand der Sets für Orientierungsfragen
 
 // Erkennt Vorschläge, die eigentlich ein Lesepensum sind (z. B. „Pflicht-Lektüre 600 Seiten“), an der
 // Mengenangabe im Titel – der aufgabenleser-Dienst kennt den Lesenachweis nicht, das bleibt reine
@@ -21,13 +28,14 @@ function leseErkennung(titel) {
 }
 
 const aufgaben = ref([])
+const dateien = ref([])   // Dateien im Reiter „Skripte“ (für ein erhaltenes Formular)
+const fachName = ref('')
+const setStaende = ref({})   // Set-Name -> { card_count, mastered_count }
 const pensen = ref([])   // Lesenachweis-Pensen dieses Fachs, zum Verknüpfen mit einer Aufgabe
 const loadError = ref('')
 const error = ref('')
 const anlegen = ref(false)
-const titel = ref('')
-const frist = ref('')
-const gewichtung = ref('')
+const bearbeitetId = ref(null)   // Aufgabe, die gerade im Formular steht
 
 // Aufgabenblatt (PDF) von Ollama lesen lassen: liefert nur Vorschläge, der Nutzer wählt aus, nichts wird
 // automatisch angelegt (siehe Projektnotizen, Entscheidungen: Ergebnisse der KI sind immer nur Vorschläge).
@@ -40,10 +48,14 @@ const legtAn = ref(false)
 
 async function load() {
   try {
-    aufgaben.value = (await subjects.get(props.subjectId)).aufgaben
+    const fach = await subjects.get(props.subjectId)
+    aufgaben.value = fach.aufgaben
+    fachName.value = fach.name
     loadError.value = ''
   } catch (e) { loadError.value = e.message }
   try { pensen.value = await reading.list(props.subjectId) } catch { pensen.value = [] }
+  try { dateien.value = await skripte.dateien(props.subjectId) } catch { dateien.value = [] }
+  try { setStaende.value = Object.fromEntries((await flash.openDeck(props.subjectId)).sets.map((x) => [x.name, x])) } catch { setStaende.value = {} }
 }
 async function refresh() { await load(); emit('changed') }
 async function pensumSetzen(a, pensumId) {
@@ -51,17 +63,23 @@ async function pensumSetzen(a, pensumId) {
   await refresh()
 }
 
-async function add() {
-  error.value = ''
+const pensumVon = (a) => pensen.value.find((p) => p.id === a.pensum_id) || null
+async function setVerknuepfen(a, name) { await subjects.updateAufgabe(props.subjectId, a.id, { set_name: name }); await refresh() }
+async function skriptSetzen(pensumId, dateiId) { await reading.setSkript(pensumId, dateiId || null); await refresh() }
+async function formularSetzen(a, wert) { await subjects.updateAufgabe(props.subjectId, a.id, { formular: wert }); await refresh() }
+const exportFehler = ref('')
+async function formularExportieren(a) {
+  exportFehler.value = ''
+  const p = pensumVon(a)
+  if (!p) { exportFehler.value = 'Zu dieser Aufgabe gibt es kein Lesepensum.'; return }
+  const fenster = fensterOeffnen()   // sofort im Klick öffnen (siehe pdf.js)
   try {
-    await subjects.addAufgabe(props.subjectId, titel.value, frist.value, gewichtung.value)
-    anlegen.value = false
-    titel.value = ''
-    frist.value = ''
-    gewichtung.value = ''
-    await refresh()
-  } catch (e) { error.value = e.message }
+    // Tatsächlich gelesene Seiten (b.done), wie beim Export im Reiter Lesenachweis
+    const buecher = p.buecher.length ? p.buecher.map((b) => ({ titel: b.title, seiten: b.done })) : [{ titel: p.title, seiten: p.forecast.done }]
+    await pdfcreator.lesenachweisExportieren(fachName.value, [profilVorname.value, profilNachname.value].filter(Boolean).join(' '), profilGemeinde.value, buecher, fenster)
+  } catch (e) { exportFehler.value = e.message; fenster?.close() }
 }
+async function gespeichert() { anlegen.value = false; bearbeitetId.value = null; await refresh() }
 async function toggle(a) { await subjects.setAufgabeErledigt(props.subjectId, a.id, !a.erledigt); await refresh() }
 async function remove(a) {
   if (!confirm(`Aufgabe „${a.titel}“ löschen?`)) return
@@ -108,19 +126,20 @@ onMounted(load)
 </script>
 
 <template>
-  <h2 class="mb-3 text-lg font-semibold">Aufgabenblatt einlesen</h2>
-  <div class="panel p-4">
-    <p class="text-sm text-slate-500 dark:text-slate-400">
-      Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor. Nur ein Vorschlag –
-      geprüft wird unten, angelegt werden nur die ausgewählten.
-    </p>
-    <label class="btn btn-outline mt-3 inline-flex cursor-pointer">
-      {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
-      <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
-    </label>
-    <p v-if="leseFehler" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ leseFehler }}</p>
+  <div class="mb-3 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Umfang dieses Fachs</h2>
+    <div class="flex gap-2">
+      <label class="btn btn-outline !py-1.5 inline-flex cursor-pointer" :title="'Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor – nur ein Vorschlag, geprüft wird vor dem Anlegen.'">
+        {{ liestEin ? 'Liest ein …' : 'PDF auswählen' }}
+        <input ref="dateiInput" type="file" accept="application/pdf" class="hidden" :disabled="liestEin" @change="dateiGewaehlt" />
+      </label>
+      <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true; bearbeitetId = null">+ Neue Aufgabe</button>
+    </div>
+  </div>
 
-    <template v-if="vorschlaege.length">
+  <p v-if="leseFehler" class="mb-4 text-sm text-rose-600 dark:text-rose-400">{{ leseFehler }}</p>
+
+  <div v-if="vorschlaege.length" class="panel mb-4 p-4">
       <div v-if="aufgabenVorschlaege.length" class="mt-4">
         <p class="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           <AppIcon name="aufgaben" class="h-3.5 w-3.5" /> Aufgaben
@@ -157,8 +176,7 @@ onMounted(load)
           </li>
         </ul>
       </div>
-    </template>
-    <div v-if="vorschlaege.length" class="mt-3 flex gap-2">
+    <div class="mt-3 flex gap-2">
       <button class="btn btn-primary" :disabled="legtAn || !vorschlaege.some((v) => v.ausgewaehlt)" @click="vorschlaegeUebernehmen">
         {{ legtAn ? 'Legt an …' : 'Ausgewählte übernehmen' }}
       </button>
@@ -171,43 +189,21 @@ onMounted(load)
     </details>
   </div>
 
-  <div class="mb-3 mt-10 flex items-center justify-between">
-    <h2 class="text-lg font-semibold">Umfang dieses Fachs</h2>
-    <button v-if="!anlegen && aufgaben.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neue Aufgabe</button>
+  <div v-if="anlegen" class="mb-4">
+    <AufgabeForm :subject-id="subjectId" @saved="gespeichert" @cancel="anlegen = false" />
   </div>
-
-  <form v-if="anlegen" class="panel mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_10rem_8rem_auto]" @submit.prevent="add">
-    <input v-model="titel" class="input" placeholder="Titel, z. B. Exegese Kapitel 3" aria-label="Titel der Aufgabe" />
-    <input v-model="frist" type="date" class="input" aria-label="Frist (optional)" />
-    <input v-model="gewichtung" type="number" min="0" max="100" class="input" placeholder="Gewichtung %" aria-label="Anteilige Bewertung in Prozent (optional)" />
-    <button class="btn btn-primary">Aufgabe anlegen</button>
-    <button type="button" class="btn btn-ghost" @click="anlegen = false">Abbrechen</button>
-    <p v-if="error" class="text-sm text-rose-600 dark:text-rose-400 sm:col-span-4">{{ error }}</p>
-    <p class="text-xs text-slate-500 dark:text-slate-400 sm:col-span-4">
-      Gewichtung = anteilige Bewertung wie im Aufgabenblatt (z. B. Klausur 50 %). Ohne Gewichtung zählt jede Aufgabe gleich viel.
-    </p>
-  </form>
 
   <p v-if="loadError" class="text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
   <ul v-else-if="aufgaben.length" class="grid gap-3">
-    <li v-for="a in aufgaben" :key="a.id" class="panel flex items-center gap-3 p-4">
-      <input type="checkbox" class="h-5 w-5 shrink-0 rounded-md" :checked="a.erledigt"
-        :aria-label="`${a.titel} erledigt`" @change="toggle(a)" />
-      <div class="min-w-0 flex-1">
-        <p :class="a.erledigt ? 'text-slate-400 line-through dark:text-slate-500' : ''">{{ a.titel }}</p>
-        <p v-if="a.frist || a.gewichtung != null" class="text-sm text-slate-500 dark:text-slate-400">
-          <template v-if="a.frist">Frist {{ formatDate(a.frist) }}</template>
-          <template v-if="a.frist && a.gewichtung != null"> · </template>
-          <template v-if="a.gewichtung != null">{{ a.gewichtung }} % der Bewertung</template>
-        </p>
-        <select v-if="pensen.length" class="input !mt-1.5 !w-auto !py-1 text-xs" :value="a.pensum_id || ''"
-          :aria-label="`${a.titel} mit Lesepensum verknüpfen`" @change="pensumSetzen(a, $event.target.value)">
-          <option value="">Kein Lesepensum verknüpft</option>
-          <option v-for="p in pensen" :key="p.id" :value="p.id">{{ p.title }}</option>
-        </select>
-      </div>
-      <button class="btn btn-danger !px-2.5 !py-1" :aria-label="`${a.titel} löschen`" @click="remove(a)">Löschen</button>
-    </li>
+    <template v-for="a in aufgaben" :key="a.id">
+      <li v-if="bearbeitetId === a.id">
+        <AufgabeForm :subject-id="subjectId" :aufgabe="a" @saved="gespeichert" @cancel="bearbeitetId = null" />
+      </li>
+      <AufgabeKachel v-else :aufgabe="a" :pensen="pensen" :set-staende="setStaende" :dateien="dateien"
+        @toggle="toggle(a)" @edit="bearbeitetId = a.id; anlegen = false" @remove="remove(a)"
+        @pensum="(id) => pensumSetzen(a, id)" @set="(name) => setVerknuepfen(a, name)"
+        @skript="(pensumId, dateiId) => skriptSetzen(pensumId, dateiId)" @formular="(wert) => formularSetzen(a, wert)" @export="formularExportieren(a)" />
+    </template>
   </ul>
   <EmptyState v-else-if="!anlegen" title="Noch keine Aufgabe" text="Lege die erste Aufgabe an, um den Umfang des Fachs festzuhalten.">
     <button class="btn btn-primary" @click="anlegen = true">Erste Aufgabe anlegen</button>

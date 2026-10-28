@@ -90,6 +90,13 @@ class ReadingService:
     def get_task(self, task_id: str) -> ReadingTask:
         return self._task(task_id)
 
+    def set_skript(self, task_id: str, skript_id: str | None) -> ReadingTask:
+        """Hängt eine Datei aus dem Skripte-Dienst an das Pensum (leer löst sie). Dienste teilen nur Ids, kein Wissen übereinander."""
+        task = self._task(task_id)
+        task.skript_id = (skript_id or "").strip() or None
+        self.repo.save(task)
+        return task
+
     def delete_task(self, task_id: str) -> None:
         task = self._task(task_id)
         self.repo.delete(task_id)
@@ -97,7 +104,7 @@ class ReadingService:
 
     # Leseprotokoll
     def log_reading(self, task_id: str, amount: int, day: date | None = None, note: str = "",
-                     buch_id: str | None = None) -> ReadingTask:
+                     buch_id: str | None = None, durchlauf: int = 1) -> ReadingTask:
         task = self._task(task_id)
         day = day or self.today()
         if not isinstance(amount, int) or amount < 1:
@@ -106,7 +113,10 @@ class ReadingService:
             raise InvalidInput("Das Datum liegt in der Zukunft.")
         if buch_id and task.get_buch(buch_id) is None:
             raise InvalidInput("Dieses Buch gehört nicht zu diesem Pensum.")
-        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(), buch_id=buch_id or None))
+        if not isinstance(durchlauf, int) or not 1 <= durchlauf <= task.passes:
+            raise InvalidInput(f"Der Durchgang muss zwischen 1 und {task.passes} liegen.")
+        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(),
+                                         buch_id=buch_id or None, durchlauf=durchlauf))
         self.repo.save(task)
         self._emit("reading.logged", {"subject_id": task.subject_id, "task_id": task.id,
                                       "amount": amount, "done": task.done, "target": task.target})
@@ -143,4 +153,6 @@ class ReadingService:
                 "progress": int(percent + 0.5) if forecasts else None,   # Gesamtfortschritt des Kerns (0 bis 100)
                 "status": worst_status([f.status for _, f in forecasts]),
                 "urgent_title": urgent[0].title if urgent else None,     # dringendstes offenes Pensum
-                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None}
+                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None,
+                # Stand je Pensum (ganze Prozent): damit der Kern eine mit dem Pensum verknüpfte Aufgabe fortschreiben kann
+                "pensen": [{"id": t.id, "percent": int(f.percent + 0.5)} for t, f in forecasts]}

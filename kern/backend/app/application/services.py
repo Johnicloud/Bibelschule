@@ -5,11 +5,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.application.ports import ServiceGateway, SubjectRepository
 from app.domain.errors import InvalidInput, NotFound
-from app.domain.models import Aufgabe, Subject
+from app.domain.models import ARTEN, Aufgabe, Subject
 
 
 # Diese Namen gehören dem Kern selbst und dürfen kein Dienst sein.
-RESERVED = {"subjects", "services", "sync", "overview", "registry", "health", "docs", "openapi.json", "redoc"}
+RESERVED = {"subjects", "services", "sync", "overview", "registry", "health", "docs", "openapi.json", "redoc", "noten"}
 SERVICE_NAME = re.compile(r"^[a-z][a-z0-9-]{1,30}$")
 
 
@@ -76,6 +76,27 @@ class SubjectService:
         self.subjects.save(subject)
         return subject
 
+    def set_note(self, subject_id: str, note: float | None) -> Subject:
+        """Abschlussnote des Fachs, deutsche Notenskala 1,0 (sehr gut) bis 5,0 (nicht ausreichend)."""
+        if note is not None and not 1.0 <= note <= 5.0:
+            raise InvalidInput("Die Note liegt zwischen 1,0 und 5,0.")
+        subject = self._subject(subject_id)
+        subject.note = note
+        self.subjects.save(subject)
+        return subject
+
+    def notenuebersicht(self) -> dict:
+        """Allgemeine Auswertung aller benoteten Fächer: Durchschnitt gewichtet nach Studieneinheiten (SE);
+        Fächer ohne SE zählen dabei wie ein Fach mit einer SE (gleiches Vorgehen wie bei der Aufgaben-Gewichtung:
+        vorhandene Gewichte zählen entsprechend mehr, fehlende wie ein normaler Anteil)."""
+        benotet = [s for s in self.subjects.list() if s.note is not None]
+        gewicht = lambda s: s.se if s.se else 1
+        summe_gewicht = sum(gewicht(s) for s in benotet)
+        durchschnitt = round(sum(s.note * gewicht(s) for s in benotet) / summe_gewicht, 2) if benotet else None
+        faecher = sorted(({"id": s.id, "name": s.name, "note": s.note, "se": s.se} for s in benotet),
+                         key=lambda f: _sort_key(f["name"]))
+        return {"durchschnitt": durchschnitt, "anzahl": len(benotet), "faecher": faecher}
+
     def delete_subject(self, subject_id: str) -> dict[str, bool]:
         subject = self._subject(subject_id)
         self.subjects.delete(subject.id)
@@ -88,10 +109,55 @@ class SubjectService:
                 return a
         raise NotFound("Aufgabe nicht gefunden.")
 
+    @staticmethod
+    def _pruefe_aufgabe(a: Aufgabe) -> None:
+        """Ein Standard für alle Arten: dieselben Regeln beim Anlegen und beim Bearbeiten."""
+        a.titel = _clean(a.titel)
+        if a.art not in ARTEN:
+            raise InvalidInput("Diese Art von Aufgabe gibt es nicht.")
+        a.frist = (a.frist or "").strip() or None
+        if a.gewichtung is not None and not 0 < a.gewichtung <= 100:
+            raise InvalidInput("Die Gewichtung muss zwischen 0 und 100 Prozent liegen.")
+        for wert, name in ((a.soll, "Der Umfang"), (a.ist, "Der erreichte Stand")):
+            if wert is not None and wert < 0:
+                raise InvalidInput(f"{name} darf nicht negativ sein.")
+        a.notiz = (a.notiz or "").strip()
+        a.set_name = (a.set_name or "").strip()
+        a.formular = (a.formular or "").strip()
+        if a.formular not in ("", "standard", "angefragt") and not a.formular.startswith("skript:"):
+            raise InvalidInput("Dieses Formular ist unbekannt.")
+        a.einheit = (a.einheit or "").strip()
+
     def add_aufgabe(self, subject_id: str, titel: str, frist: str | None = None,
-                     gewichtung: float | None = None) -> Subject:
+                     gewichtung: float | None = None, art: str = "allgemein", zaehlt: bool = True, notiz: str = "",
+                     soll: float | None = None, ist: float | None = None, einheit: str = "", set_name: str = "",
+                     formular: str = "", pensum_id: str | None = None) -> Subject:
         subject = self._subject(subject_id)
-        subject.aufgaben.append(Aufgabe(titel=_clean(titel), frist=frist or None, gewichtung=gewichtung))
+        aufgabe = Aufgabe(titel=titel, frist=frist, gewichtung=gewichtung, art=art, zaehlt=zaehlt, notiz=notiz,
+                          soll=soll, ist=ist, einheit=einheit, set_name=set_name, formular=formular, pensum_id=pensum_id or None)
+        self._pruefe_aufgabe(aufgabe)
+        subject.aufgaben.append(aufgabe)
+        self.subjects.save(subject)
+        return subject
+
+    BEARBEITBAR = ("titel", "art", "frist", "gewichtung", "erledigt", "zaehlt", "notiz", "soll", "ist", "einheit", "set_name", "formular")
+
+    def update_aufgabe(self, subject_id: str, aufgabe_id: str, **felder) -> Subject:
+        """Aufgabe bearbeiten: nur die genannten Felder ändern sich (leer/None entfernt Frist, Gewichtung, Umfang …).
+        Eine abgelehnte Änderung lässt die Aufgabe unverändert."""
+        unbekannt = set(felder) - set(self.BEARBEITBAR)
+        if unbekannt:
+            raise InvalidInput(f"Unbekannte Angabe: {', '.join(sorted(unbekannt))}.")
+        subject = self._subject(subject_id)
+        aufgabe = self._aufgabe(subject, aufgabe_id)
+        vorher = dict(vars(aufgabe))
+        for name, wert in felder.items():
+            setattr(aufgabe, name, wert)
+        try:
+            self._pruefe_aufgabe(aufgabe)
+        except InvalidInput:
+            vars(aufgabe).update(vorher)
+            raise
         self.subjects.save(subject)
         return subject
 
@@ -194,18 +260,20 @@ class SubjectService:
         return (int(sum(values) / len(values) + 0.5) if values else None), parts
 
     @staticmethod
-    def _aufgaben_part(subject: Subject) -> tuple[dict, dict]:
-        """Umfang des Fachs als eigener Teil des Fortschritts: Anteil erledigter Aufgaben.
+    def _aufgaben_part(subject: Subject, extern: dict[str, int] | None = None) -> tuple[dict, dict]:
+        """Umfang des Fachs als eigener Teil des Fortschritts: gewichteter Fortschritt der Aufgaben.
         Hat eine Aufgabe eine Gewichtung (wie die „Anteilige Bewertung“ im Aufgabenblatt), zählt sie entsprechend
-        mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel."""
+        mehr oder weniger; ohne Gewichtung zählt jede Aufgabe gleich viel. Aufgaben „nur zum Lernen“ (`zaehlt` aus)
+        und die Teilstände einer Ausarbeitung (Ist gegen Soll) werden berücksichtigt."""
+        extern = extern or {}
         total = len(subject.aufgaben)
         done = sum(1 for a in subject.aufgaben if a.erledigt)
-        weight = sum(a.gewichtung for a in subject.aufgaben if a.gewichtung)
+        zaehlende = [a for a in subject.aufgaben if a.zaehlt]
+        weight = sum(a.gewichtung for a in zaehlende if a.gewichtung)
         if weight:
-            done_weight = sum(a.gewichtung for a in subject.aufgaben if a.erledigt and a.gewichtung)
-            progress = max(0, min(100, int(done_weight / weight * 100 + 0.5)))
-        elif total:
-            progress = int(done / total * 100 + 0.5)
+            progress = max(0, min(100, int(sum(a.gewichtung * a.fortschritt(extern.get(a.id)) for a in zaehlende if a.gewichtung) / weight + 0.5)))
+        elif zaehlende:
+            progress = int(sum(a.fortschritt(extern.get(a.id)) for a in zaehlende) / len(zaehlende) + 0.5)
         else:
             progress = None
         return ({"service": "aufgaben", "label": "Aufgaben", "online": True, "progress": progress},
@@ -217,7 +285,7 @@ class SubjectService:
         Ist nur noch eine Aufgabe offen, deren Titel „Klausur“ enthält, bekommt das Fach eine eigene Stufe
         dafür (wie im Aufgabenblatt: die Klausur steht meist am Ende, mit eigenem Termin)."""
         offene = [a for a in subject.aufgaben if not a.erledigt]
-        klausur_offen = [a for a in offene if "klausur" in a.titel.casefold()]
+        klausur_offen = [a for a in offene if a.art == "klausur" or "klausur" in a.titel.casefold()]
         sonst_offen = [a for a in offene if a not in klausur_offen]
         if klausur_offen and not sonst_offen and progress is not None and progress < 100:
             return "klausur_offen"
@@ -229,8 +297,25 @@ class SubjectService:
             return "in_arbeit"
         return "abgeschlossen"
 
+    @staticmethod
+    def _set_staende(sub: Subject, status: dict) -> dict[str, int]:
+        """Fortschritt (0–100) der Aufgaben, deren Stand ein anderer Dienst kennt – aus dem Status, den der Kern ohnehin
+        abfragt (kein eigener Aufruf): Orientierungsfragen = Anteil sicher gelernter Karten ihres Karteikarten-Sets,
+        Lese-Aufgaben = Stand des verknüpften Lesenachweis-Pensums."""
+        status = status or {}
+        sets = {s["name"]: s for s in (status.get("karteikarten") or {}).get("sets", [])}
+        pensen = {p["id"]: p["percent"] for p in (status.get("lesenachweis") or {}).get("pensen", [])}
+        ergebnis = {}
+        for a in sub.aufgaben:
+            if a.pensum_id:
+                ergebnis[a.id] = pensen.get(a.pensum_id, 0)
+            elif a.set_name:                      # jede Aufgabe kann an ein Karteikarten-Set geknüpft sein, nicht nur „Orientierungsfragen“
+                s = sets.get(a.set_name)
+                ergebnis[a.id] = int(100 * s["mastered"] / s["card_count"] + 0.5) if s and s["card_count"] else 0
+        return ergebnis
+
     def _row(self, sub: Subject, status: dict, services: list[dict]) -> dict:
-        aufgaben_part, aufgaben_status = self._aufgaben_part(sub)
+        aufgaben_part, aufgaben_status = self._aufgaben_part(sub, self._set_staende(sub, status))
         _, service_parts = self._progress(status, services)
         parts = [aufgaben_part, *service_parts]
         values = [p["progress"] for p in parts if p["progress"] is not None]
@@ -252,7 +337,7 @@ class SubjectService:
 
     # Weiterleitung: die Oberfläche spricht nur mit dem Kern, der Kern mit den Diensten
     def forward(self, service: str, method: str, path: str, query: str, body: bytes,
-                content_type: str | None) -> tuple[int, bytes, str]:
+                content_type: str | None, range_header: str | None = None) -> tuple[int, bytes, str, dict[str, str]]:
         if service not in self.gateway.names():
             raise NotFound(f"Einen Dienst „{service}“ gibt es nicht.")
-        return self.gateway.forward(service, method, path, query, body, content_type)
+        return self.gateway.forward(service, method, path, query, body, content_type, range_header)

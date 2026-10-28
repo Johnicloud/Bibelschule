@@ -30,5 +30,16 @@ def test_health_check_uses_the_short_default_timeout():
 def test_forward_returns_502_when_the_service_does_not_answer_in_time():
     import httpx
     with patch("app.adapters.outbound.http_gateway.httpx.request", side_effect=httpx.ReadTimeout("zu lange")):
-        status, body, content_type = gw().forward("aufgabenleser", "POST", "lesen", "", b"", None)
+        status, body, content_type, extra = gw().forward("aufgabenleser", "POST", "lesen", "", b"", None)
     assert status == 502 and b"nicht erreichbar" in body
+
+
+def test_forward_reicht_range_durch_und_gibt_die_spul_header_zurueck():
+    with patch("app.adapters.outbound.http_gateway.httpx.request") as request:
+        request.return_value.status_code = 206
+        request.return_value.content = b"abc"
+        request.return_value.headers = {"content-type": "audio/mpeg", "content-range": "bytes 0-2/10", "accept-ranges": "bytes", "x-anderes": "nein"}
+        status, body, content_type, extra = gw().forward("aufgabenleser", "GET", "datei", "", b"", None, "bytes=0-2")
+    assert request.call_args.kwargs["headers"]["Range"] == "bytes=0-2"
+    assert (status, content_type) == (206, "audio/mpeg")
+    assert extra == {"accept-ranges": "bytes", "content-range": "bytes 0-2/10"}

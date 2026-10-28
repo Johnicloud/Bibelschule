@@ -28,10 +28,39 @@ class SeIn(BaseModel):
     se: float | None = None
 
 
+class NoteIn(BaseModel):
+    note: float | None = None
+
+
 class AufgabeIn(BaseModel):
     titel: str
     frist: str | None = None
     gewichtung: float | None = None   # anteilige Bewertung in Prozent, wie im Aufgabenblatt
+    art: str = "allgemein"
+    zaehlt: bool = True               # False = nur zum Lernen, zählt nicht zum Gesamtfortschritt
+    notiz: str = ""
+    soll: float | None = None
+    ist: float | None = None
+    einheit: str = ""
+    set_name: str = ""                # Orientierungsfragen: Karteikarten-Set dieses Fachs
+    formular: str = ""                # Pflichtlektüre: standard | angefragt | skript:<Datei-Id>
+    pensum_id: str | None = None      # Lese-Aufgaben: das gleichzeitig angelegte Pensum des Lesenachweis-Diensts
+
+
+class AufgabeTeilIn(BaseModel):
+    """Bearbeiten: nur mitgeschickte Felder ändern sich (null/leer entfernt das Feld)."""
+    titel: str | None = None
+    art: str | None = None
+    frist: str | None = None
+    gewichtung: float | None = None
+    erledigt: bool | None = None
+    zaehlt: bool | None = None
+    notiz: str | None = None
+    soll: float | None = None
+    ist: float | None = None
+    einheit: str | None = None
+    set_name: str | None = None
+    formular: str | None = None
 
 
 class AufgabeStatusIn(BaseModel):
@@ -73,15 +102,23 @@ class ProfileIn(BaseModel):
     gemeinde: str = ""
 
 
+class AdminStatusIn(BaseModel):
+    is_admin: bool
+
+
 def account_out(account) -> dict:
     return {"username": account.username, "is_admin": account.is_admin, "vorname": account.vorname,
-            "nachname": account.nachname, "gemeinde": account.gemeinde}
+            "nachname": account.nachname, "gemeinde": account.gemeinde,
+            "muss_passwort_aendern": account.muss_passwort_aendern}
 
 
 def subject_out(s: Subject, synced: dict[str, bool] | None = None) -> dict:
     out = {"id": s.id, "name": s.name, "se": s.se, "credits": round(s.se * 1.5, 2) if s.se is not None else None,
+           "note": s.note,
            "aufgaben": [{"id": a.id, "titel": a.titel, "frist": a.frist, "gewichtung": a.gewichtung,
-                         "erledigt": a.erledigt, "pensum_id": a.pensum_id} for a in s.aufgaben],
+                         "erledigt": a.erledigt, "pensum_id": a.pensum_id, "art": a.art, "zaehlt": a.zaehlt,
+                         "notiz": a.notiz, "soll": a.soll, "ist": a.ist, "einheit": a.einheit, "set_name": a.set_name, "formular": a.formular,
+                         "fortschritt": a.fortschritt()} for a in s.aufgaben],
            "aktive_dienste": s.aktive_dienste}
     if synced is not None:
         out["synced"] = synced   # welcher Dienst das Fach übernommen hat (false = nicht erreichbar, später /api/sync)
@@ -160,7 +197,8 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def list_accounts(request: Request):
         """Nur Admins; nie der Passwort-Hash."""
         _require_admin(request)
-        return [{"username": a.username, "is_admin": a.is_admin} for a in auth.list_accounts()]
+        return [{"username": a.username, "is_admin": a.is_admin, "muss_passwort_aendern": a.muss_passwort_aendern}
+                for a in auth.list_accounts()]
 
     @api.post("/accounts", status_code=201)
     def create_account(request: Request, body: AccountIn):
@@ -168,6 +206,23 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
         _require_admin(request)
         account = auth.create_account(body.username, body.password, body.is_admin)
         return {"username": account.username, "is_admin": account.is_admin}
+
+    @api.put("/accounts/{username}/admin")
+    def set_account_admin(request: Request, username: str, body: AdminStatusIn):
+        """Admin-Recht nachträglich geben/entziehen (wie bei der Finanzapp) – der letzte Admin kann es sich
+        nicht selbst nehmen, das prüft der Anwendungsfall."""
+        _require_admin(request)
+        account = auth.set_is_admin(username, body.is_admin)
+        return {"username": account.username, "is_admin": account.is_admin}
+
+    @api.post("/accounts/{username}/reset-password")
+    def reset_account_password(request: Request, username: str):
+        """Setzt ein zufälliges, temporäres Passwort und meldet das Konto überall ab; es muss sich beim
+        nächsten Anmelden selbst ein neues Passwort wählen. Die Antwort zeigt das temporäre Passwort EINMAL –
+        der Admin muss es dem Benutzer auf einem anderen Weg mitteilen (z. B. mündlich)."""
+        _require_admin(request)
+        temp_password = auth.reset_password(username)
+        return {"temporaeres_passwort": temp_password}
 
     @api.get("/subjects")
     def list_subjects():
@@ -196,7 +251,14 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
 
     @api.post("/subjects/{subject_id}/aufgaben", status_code=201)
     def add_aufgabe(subject_id: str, body: AufgabeIn):
-        return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung))
+        return subject_out(service.add_aufgabe(subject_id, body.titel, body.frist, body.gewichtung, body.art, body.zaehlt,
+                                               body.notiz, body.soll, body.ist, body.einheit, body.set_name, body.formular, body.pensum_id))
+
+    @api.patch("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
+    def update_aufgabe(subject_id: str, aufgabe_id: str, body: AufgabeTeilIn):
+        # nur Felder ändern, die wirklich mitgeschickt wurden (null heißt „entfernen“, nicht „nicht angegeben“)
+        felder = {name: getattr(body, name) for name in body.model_fields_set}
+        return subject_out(service.update_aufgabe(subject_id, aufgabe_id, **felder))
 
     @api.put("/subjects/{subject_id}/aufgaben/{aufgabe_id}")
     def set_aufgabe_erledigt(subject_id: str, aufgabe_id: str, body: AufgabeStatusIn):
@@ -220,6 +282,15 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
     def set_se(subject_id: str, body: SeIn):
         return subject_out(service.set_se(subject_id, body.se))
 
+    @api.put("/subjects/{subject_id}/note")
+    def set_note(subject_id: str, body: NoteIn):
+        return subject_out(service.set_note(subject_id, body.note))
+
+    @api.get("/noten")
+    def notenuebersicht():
+        """Allgemeine Auswertung: Notendurchschnitt (gewichtet nach SE) über alle benoteten Fächer."""
+        return service.notenuebersicht()
+
     @api.get("/services")
     def services():
         return service.services_status()
@@ -241,10 +312,10 @@ def create_app(service: SubjectService, auth: AuthService) -> FastAPI:
                    include_in_schema=False)
     async def proxy(service_name: str, path: str, request: Request):
         body = await request.body()
-        status, content, content_type = await run_in_threadpool(
+        status, content, content_type, extra = await run_in_threadpool(
             service.forward, service_name, request.method, path, request.url.query, body,
-            request.headers.get("content-type"))
-        return Response(content=content, status_code=status, media_type=content_type)
+            request.headers.get("content-type"), request.headers.get("range"))
+        return Response(content=content, status_code=status, media_type=content_type, headers=extra)
 
     app.include_router(api)
     return app

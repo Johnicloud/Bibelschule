@@ -1,4 +1,32 @@
 services:
+  glossar:
+    build: ./glossar
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://glossar:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise ("art=glossar") beim Bibel-Dienst an
+    volumes:
+      - ./data/glossar:/app/data
+    restart: unless-stopped
+  fragenki:
+    build: ./fragenki
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://fragenki:8000
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
+    networks: [default, ki]
+    restart: unless-stopped
+  predigten:
+    build: ./predigten
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://predigten:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise auf Bibelstellen direkt beim Bibel-Dienst an
+    volumes:
+      - ./data/predigten:/app/data
+    restart: unless-stopped
   adressbuch:
     build: ./adressbuch
     environment:
@@ -42,6 +70,43 @@ services:
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
     networks: [default, ki]
+    restart: unless-stopped
+  bibel:
+    build: ./bibel
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibel:8000
+    volumes:
+      - ./data/bibel:/app/data
+    restart: unless-stopped
+  bibliothek:
+    build: ./bibliothek
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://bibliothek:8000
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-llama3.2-vision}
+    volumes:
+      - ./data/bibliothek:/app/data
+    networks: [default, ki]
+    restart: unless-stopped
+  schnelllesen:
+    build: ./schnelllesen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://schnelllesen:8000
+      BIBEL_URL: http://bibel:8000       # holt sich den Kapiteltext selbst vom Bibel-Dienst
+    volumes:
+      - ./data/schnelllesen:/app/data
+    restart: unless-stopped
+  notizen:
+    build: ./notizen
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://notizen:8000
+      BIBEL_URL: http://bibel:8000       # meldet Kommentare als Verweis beim Bibel-Dienst an
+    volumes:
+      - ./data/notizen:/app/data
     restart: unless-stopped
 
 networks:

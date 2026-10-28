@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skript</title>
+<style>
+  body { margin: 0; background: #e5e7eb; font-family: system-ui, sans-serif; }
+  #seite { padding: 1rem; }
+  #meldung { padding: 2rem; color: #374151; }
+</style>
+</head>
+<body>
+<!-- Ansicht eines Word-Skripts (.docx) in einem eigenen Tab: docx-preview zeichnet die Datei im Browser (Bibliotheken
+     liegen lokal unter /vendor). Die Seite steht unter .../skripte/<id>/ansicht, die Datei darum relativ unter "datei". -->
+<div id="meldung">Lädt …</div>
+<div id="seite"></div>
+<script src="/vendor/jszip.min.js"></script>
+<script src="/vendor/docx-preview.min.js"></script>
+<script>
+  (async () => {
+    const meldung = document.getElementById('meldung')
+    try {
+      const res = await fetch('datei')
+      if (!res.ok) throw new Error('Datei konnte nicht geladen werden.')
+      await window.docx.renderAsync(await res.blob(), document.getElementById('seite'))
+      meldung.remove()
+    } catch (err) { meldung.textContent = 'Anzeige nicht möglich: ' + err.message }
+  })()
+</script>
+</body>
+</html>
