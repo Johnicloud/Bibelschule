@@ -7,7 +7,7 @@ function taskBody(t, buecher) {
     passes: Number(t.passes) || 1,
     start: t.start || null,
     deadline: t.deadline || null,
-    buecher: buecher ? buecher.map((b) => ({ title: b.title.trim(), total: Number(b.total) })) : null,
+    buecher: buecher ? buecher.map((b) => ({ id: b.id || null, title: b.title.trim(), total: Number(b.total) })) : null,
   }
 }
 

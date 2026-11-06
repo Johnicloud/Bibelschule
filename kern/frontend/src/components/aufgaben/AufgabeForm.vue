@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import AppIcon from '../ui/AppIcon.vue'
 import { AUFGABEN_ARTEN, artInfo } from '../../domain/status'
 
@@ -95,6 +95,29 @@ async function pensumAnlegen() {
   return aufgabe.id
 }
 
+// Lese-Aufgabe bearbeiten: auch das verknüpfte Pensum (Start, Frist, Durchgänge, Bücher bzw. Seiten) lässt sich hier ändern –
+// die Leseeinträge bleiben dabei erhalten (Bücher behalten ihre Id).
+const pensum = ref(null)
+const pensumForm = ref(null)
+const pensumBuecher = ref([])
+const pensumFehler = ref('')
+async function pensumLaden() {
+  if (!a?.pensum_id || !info.value.lesen) return
+  try {
+    pensum.value = (await reading.list(props.subjectId)).find((p) => p.id === a.pensum_id) || null
+    if (!pensum.value) return
+    const p = pensum.value
+    pensumForm.value = { title: p.title, unit: p.unit, total: p.total, passes: p.passes, start: p.start || '', deadline: p.deadline || '' }
+    pensumBuecher.value = p.buecher.map((b) => ({ id: b.id, title: b.title, total: b.total }))
+  } catch { pensum.value = null }
+}
+onMounted(pensumLaden)      // erst nach dem Aufbau: `info` ist weiter unten definiert
+async function pensumSpeichern() {
+  if (!pensum.value) return
+  const f = pensumForm.value
+  await reading.update(pensum.value.id, { ...f, deadline: frist.value || f.deadline || '' }, pensumBuecher.value.length ? pensumBuecher.value : null)
+}
+
 const NUMMER = /^\s*(?:\d{1,3}\s*[.)]|[-*•])\s*/
 const fragenAusText = (text) => text.split('\n').map((z) => z.replace(NUMMER, '').trim()).filter(Boolean).map((frage) => ({ frage, antwort: '' }))
 
@@ -128,6 +151,7 @@ async function submit() {
       if (!titel.value.trim()) throw new Error('Bitte einen Titel eingeben.')
       felder.pensum_id = await pensumAnlegen()
     }
+    if (a && pensum.value) await pensumSpeichern()
     if (info.value.lesen === 'pflicht') felder.formular = formular.value
     if (info.value.fragen && !a) felder.set_name = await fragenAlsSetAnlegen()
     else if (info.value.fragen) felder.set_name = setName.value
@@ -203,7 +227,24 @@ async function submit() {
         </div>
       </template>
     </div>
-    <p v-else-if="info.lesen && a" class="text-sm text-slate-500 dark:text-slate-400">Bücher, Seiten und Durchgänge dieses Lesepensums änderst du im Reiter „Lesenachweis“.</p>
+    <div v-else-if="info.lesen && a && pensumForm" class="space-y-3 rounded-xl p-3 ring-1 ring-slate-300 dark:ring-slate-700">
+      <p class="text-sm font-medium">Lesepensum „{{ pensum.title }}“</p>
+      <div class="grid gap-3 sm:grid-cols-3">
+        <label class="grid gap-1 text-xs text-slate-500 dark:text-slate-400">Start<input v-model="pensumForm.start" type="date" class="input" /></label>
+        <label class="grid gap-1 text-xs text-slate-500 dark:text-slate-400">Durchgänge<input v-model.number="pensumForm.passes" type="number" min="1" class="input" /></label>
+        <label v-if="!pensumBuecher.length" class="grid gap-1 text-xs text-slate-500 dark:text-slate-400">{{ pensumForm.unit }} gesamt<input v-model.number="pensumForm.total" type="number" min="1" class="input" /></label>
+      </div>
+      <template v-if="pensumBuecher.length">
+        <div v-for="(b, i) in pensumBuecher" :key="b.id || i" class="grid grid-cols-[1fr_7rem_auto] gap-2">
+          <input v-model="b.title" class="input" :aria-label="`Titel von Buch ${i + 1}`" />
+          <input v-model.number="b.total" type="number" min="1" class="input" :aria-label="`${pensumForm.unit} von Buch ${i + 1}`" />
+          <button type="button" class="btn btn-ghost !px-2.5" :aria-label="`Buch ${i + 1} entfernen`" :disabled="pensumBuecher.length === 1" @click="pensumBuecher.splice(i, 1)"><AppIcon name="x" class="h-4 w-4" /></button>
+        </div>
+        <button type="button" class="btn btn-outline !py-1.5" @click="pensumBuecher.push({ title: '', total: '' })">+ Buch</button>
+      </template>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Bereits eingetragenes Lesen bleibt erhalten. Die Frist ist die der Aufgabe.</p>
+    </div>
+    <p v-else-if="info.lesen && a" class="text-sm text-slate-500 dark:text-slate-400">Zu dieser Aufgabe gibt es (noch) kein Lesepensum. Verknüpfe eines über das Menü „Verknüpfungen“.</p>
 
     <div v-if="info.lesen === 'pflicht'" class="space-y-1 rounded-xl p-3 ring-1 ring-slate-300 dark:ring-slate-700" role="radiogroup" aria-label="Formular">
       <p class="text-sm font-medium">Formular für den Lesenachweis</p>

@@ -865,6 +865,24 @@ Sprache der Oberfläche und der Texte: Deutsch.
   Verknüpfung schlug still fehl; jetzt gehen nur die genannten Felder raus (`teilFelder`). Lehre: Teil-Änderungen nie über die
   Anlege-Aufbereitung schicken.
 
+- [fertig] Sammelrunde (Nutzer: „mache soviel wie möglich auf einmal“):
+  **Texterkennung in Stücken**: `OcrmypdfTexterkennung` teilt ein Skript in Stücke zu 20 Seiten (`STUECK_SEITEN`), erkennt jedes
+  einzeln (3 Seiten gleichzeitig) und fügt sie mit pypdf wieder zusammen – der Speicherverbrauch hängt nicht mehr von der Dicke des
+  Skripts ab (ein ganzes 135-Seiten-Skript mit 300 dpi wurde von Docker bei 7,6 GB wegen Speichermangels beendet), und ein Fehler
+  trifft nur ein Stück. Tests mit untergeschobener Erkennung (Reihenfolge, Stückelung, Fehler). **Set-Verwaltung in „Alle
+  Karten“**: die Chip-Leiste samt Anlegen/Umbenennen/Löschen steht jetzt als `SetLeiste.vue` bereit und wird vom Fach-Reiter UND
+  von „Alle Karten“ (sobald ein Fach gewählt ist) benutzt – eine Stelle statt zwei. **Lesepensum in der Aufgabe bearbeiten**
+  (`AufgabeForm.vue`, nur Bearbeiten): Start, Durchgänge, Bücher/Seiten des verknüpften Pensums, die Frist ist die der Aufgabe.
+  Dabei Fehler im Lesenachweis behoben: beim Bearbeiten bekamen alle Bücher neue Ids, Leseeinträge verloren ihr Buch;
+  `ReadingService._validate_task` behält jetzt die Id (über die mitgeschickte `id`, sonst über den Titel), `BuchIn.id`, die
+  Oberfläche schickt sie mit (Test `test_buecher_beim_bearbeiten_behalten_ihre_id…`). Fehler gefunden beim Bau: `pensumLaden()` lief
+  im Setup vor der Definition von `info` (TDZ, still verschluckt) – jetzt in `onMounted`. **Bibelverse und Adressbuch** nutzen das
+  Drei-Punkte-Menü des UI-Kits (`UIKit.menu`) für Bearbeiten/Löschen/Entfernen. **Schmale Breite** geprüft (375 px): Kopfzeilen
+  der Aufgaben-, Karten- und Lesenachweis-Reiter umbrechen (`flex-wrap`), kein seitliches Scrollen mehr. **Proxmox**:
+  `deploy/proxmox/` (README mit VM-Größe – 8 GB RAM wegen der Texterkennung –, `Caddyfile` für HTTPS, Compose-Zusatz mit Caddy
+  statt Port 8170); die Compose-Datei ist mit `docker compose config` auf Gültigkeit geprüft, auf einer echten Proxmox nicht probiert.
+  Weiter offen: Ausfüllen fremder Formulare (Feldpositionen von Hand), Test mit echter PowerPoint-/Videodatei, Prüfung auf dem iPad.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

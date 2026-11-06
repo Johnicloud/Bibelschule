@@ -126,7 +126,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="mb-3 flex items-center justify-between">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-lg font-semibold">Umfang dieses Fachs</h2>
     <div class="flex gap-2">
       <label class="btn btn-outline !py-1.5 inline-flex cursor-pointer" :title="'Lädt ein Aufgabenblatt (PDF) hoch; eine lokale KI (Ollama) schlägt daraus Aufgaben vor – nur ein Vorschlag, geprüft wird vor dem Anlegen.'">

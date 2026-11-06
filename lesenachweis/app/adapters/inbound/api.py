@@ -16,6 +16,7 @@ from app.domain.models import ReadingTask
 class BuchIn(BaseModel):
     title: str
     total: int
+    id: str | None = None       # beim Bearbeiten: das bisherige Buch, damit seine Leseeinträge dranbleiben
 
 
 class TaskIn(BaseModel):

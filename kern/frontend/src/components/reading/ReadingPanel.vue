@@ -77,9 +77,9 @@ onMounted(load)
 <template>
   <ReadingSummary v-if="status && status.task_count" :status="status" class="mb-8" />
 
-  <div class="mb-3 flex items-center justify-between">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-lg font-semibold">Pensen in diesem Fach</h2>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <button v-if="tasks.length" type="button" class="btn btn-outline !py-1.5" @click="exportieren = true">Als PDF exportieren</button>
       <button v-if="!anlegen && tasks.length" type="button" class="btn btn-outline !py-1.5" @click="anlegen = true">+ Neues Pensum</button>
     </div>

@@ -214,3 +214,15 @@ def test_skript_am_pensum_hinterlegen_und_loesen(svc):
     svc.set_skript(t.id, "datei-2")
     svc.update_task(t.id, "Skript lesen (neu)", "Seiten", 140)      # Bearbeiten des Pensums lässt das Skript in Ruhe
     assert svc.get_task(t.id).skript_id == "datei-2"
+
+
+def test_buecher_beim_bearbeiten_behalten_ihre_id_und_damit_ihre_leseeintraege(svc):
+    t = svc.add_task("f", "Pflicht", "Seiten", None, buecher=[{"title": "Eins", "total": 100}, {"title": "Zwei", "total": 50}])
+    eins, zwei = t.buecher
+    svc.log_reading(t.id, 30, buch_id=eins.id)
+    # Bearbeiten ohne ids (wie die Oberfläche): Zuordnung über den Titel, Umbenennen über die id
+    t = svc.update_task(t.id, "Pflicht", "Seiten", None, buecher=[{"title": "eins", "total": 120}, {"id": zwei.id, "title": "Zwei (neu)", "total": 50},
+                                                                   {"title": "Drei", "total": 10}])
+    assert [b.id for b in t.buecher][:2] == [eins.id, zwei.id]
+    assert [b.title for b in t.buecher] == ["eins", "Zwei (neu)", "Drei"] and t.total == 180
+    assert t.buch_done(eins.id) == 30                       # der Eintrag hängt weiter am ersten Buch

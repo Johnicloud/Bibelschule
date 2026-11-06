@@ -36,7 +36,7 @@
 
 <script src="/ui-kit.js"></script>
 <script>
-  const { call, el, subjectId } = UIKit
+  const { call, el, subjectId, menu } = UIKit
   const subject = subjectId()
   let fachName = subject
 
@@ -52,21 +52,21 @@
     const kontakt = [d.email, d.telefon, d.adresse].filter(Boolean).join(' · ')
     return el('li', { class: 'uk-list-item' }, [
       el('div', {}, [el('div', {}, d.name), kontakt ? el('div', { class: 'uk-sub' }, kontakt) : '']),
-      el('div', { style: 'display:flex;gap:.4rem' }, [
+      el('div', { style: 'display:flex;gap:.4rem;align-items:center' }, [
         d.email ? el('a', { class: 'uk-btn', href: mailtoUrl(d) }, 'Mail vorbereiten') : '',
-        el('button', { class: 'uk-btn-ghost', onclick: async () => { await call('DELETE', `dozenten/${d.id}/faecher/${subject}`); laden() } }, 'Aus Fach entfernen'),
+        menu([{ icon: 'x', text: 'Aus Fach entfernen', onclick: async () => { await call('DELETE', `dozenten/${d.id}/faecher/${subject}`); laden() } }]).node,
       ]),
     ])
   }
   function zeileUnzugeordnet(d) {
     return el('li', { class: 'uk-list-item' }, [
       d.name,
-      el('div', { style: 'display:flex;gap:.4rem' }, [
+      el('div', { style: 'display:flex;gap:.4rem;align-items:center' }, [
         el('button', { class: 'uk-btn', onclick: async () => { await call('POST', `dozenten/${d.id}/faecher/${subject}`); laden() } }, 'Diesem Fach zuordnen'),
-        el('button', { class: 'uk-btn-danger', onclick: async () => {
+        menu([{ icon: 'trash', text: 'Ganz aus dem Adressbuch löschen', danger: true, onclick: async () => {
           if (!confirm(`„${d.name}“ ganz aus dem Adressbuch löschen?`)) return
           await call('DELETE', `dozenten/${d.id}`); laden()
-        } }, 'Löschen'),
+        } }]).node,
       ]),
     ])
   }

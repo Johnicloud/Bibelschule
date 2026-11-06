@@ -98,7 +98,7 @@ function openEdit() {
   const t = props.task
   editForm.value = { title: t.title, unit: t.unit, total: t.total, passes: t.passes, start: t.start || '', deadline: t.deadline || '' }
   editMehrereBuecher.value = t.buecher.length > 0
-  editBuecher.value = t.buecher.length ? t.buecher.map((b) => ({ title: b.title, total: b.total })) : [{ title: '', total: '' }]
+  editBuecher.value = t.buecher.length ? t.buecher.map((b) => ({ id: b.id, title: b.title, total: b.total })) : [{ title: '', total: '' }]
   bearbeiten.value = true
 }
 function addEditBuchFeld() { editBuecher.value.push({ title: '', total: '' }) }

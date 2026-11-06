@@ -1,0 +1,24 @@
+# HTTPS-Vorsatz für die Bibelschule auf Proxmox (Caddy holt das Zertifikat selbst).
+# Ersetze bibelschule.example.de durch deine Adresse (DNS muss auf die VM zeigen, Ports 80 und 443 frei).
+# Nur im Heimnetz ohne eigene Adresse: statt der Domain `tls internal` nutzen (Caddy erzeugt ein eigenes Zertifikat,
+# das der Browser einmal bestätigen muss) – siehe README.md in diesem Ordner.
+bibelschule.example.de {
+	encode zstd gzip
+
+	# Große Uploads (Skripte bis 200 MB, Audio/Video) nicht abschneiden; lange Texterkennung nicht abbrechen
+	request_body {
+		max_size 250MB
+	}
+	reverse_proxy frontend:80 {
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
+}

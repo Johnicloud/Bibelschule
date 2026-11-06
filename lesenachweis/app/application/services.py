@@ -36,7 +36,10 @@ class ReadingService:
 
     # Pensen
     def _validate_task(self, unit: str, total: int | None, passes: int, start: date | None,
-                        deadline: date | None, buecher: list[dict] | None) -> tuple[int, list[Buch]]:
+                        deadline: date | None, buecher: list[dict] | None,
+                        bisherige: list[Buch] | None = None) -> tuple[int, list[Buch]]:
+        """`bisherige`: die Bücher vor dem Bearbeiten – ein Buch behält seine Id (über die mitgeschickte Id oder, wenn keine
+        da ist, über den Titel), damit Leseeinträge nicht ihr Buch verlieren."""
         if unit not in UNITS:
             raise InvalidInput("Die Einheit ist Seiten oder Kapitel.")
         if not isinstance(passes, int) or not 1 <= passes <= MAX_PASSES:
@@ -49,7 +52,11 @@ class ReadingService:
                 buch_total = b.get("total")
                 if not isinstance(buch_total, int) or buch_total < 1:
                     raise InvalidInput(f"Der Umfang eines Buches muss mindestens 1 sein ({unit}).")
-                buch_objekte.append(Buch(title=_clean(b.get("title"), "Der Titel eines Buches"), total=buch_total))
+                titel = _clean(b.get("title"), "Der Titel eines Buches")
+                frei = [x for x in (bisherige or []) if x.id not in {o.id for o in buch_objekte}]
+                alt = next((x for x in frei if b.get("id") and x.id == b["id"]), None) \
+                    or next((x for x in frei if x.title.casefold() == titel.casefold()), None)
+                buch_objekte.append(Buch(id=alt.id, title=titel, total=buch_total) if alt else Buch(title=titel, total=buch_total))
             total = sum(b.total for b in buch_objekte)
         elif buecher is not None:
             raise InvalidInput("Gib mindestens ein Buch an, oder lass die Bücherliste ganz weg.")
@@ -72,7 +79,7 @@ class ReadingService:
                     start: date | None = None, deadline: date | None = None,
                     buecher: list[dict] | None = None) -> ReadingTask:
         task = self._task(task_id)
-        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher)
+        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher, task.buecher)
         task.title = _clean(title, "Der Titel")
         task.unit = unit
         task.total = total

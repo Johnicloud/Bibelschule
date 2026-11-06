@@ -1,7 +1,8 @@
 <script setup>
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 import CardForm from '../components/cards/CardForm.vue'
+import SetLeiste from '../components/cards/SetLeiste.vue'
 import CardItem from '../components/cards/CardItem.vue'
 import { KINDS } from '../domain/kinds'
 
@@ -14,6 +15,10 @@ const deckFilter = ref('')
 const kindFilter = ref('')
 const setFilter = ref('')
 const bearbeitetId = ref(null)
+// Ist ein Fach gewählt, lassen sich seine Sets hier verwalten (dieselbe Leiste wie im Fach-Reiter)
+const gewaehltesFach = computed(() => decks.value.find((d) => d.id === deckFilter.value) || null)
+watch(deckFilter, () => { setFilter.value = '' })
+const ohneSetImFach = computed(() => cards.value.filter((c) => c.deck_id === deckFilter.value && !c.set_name).length)
 const onlyDue = ref(false)
 const error = ref('')
 
@@ -54,13 +59,13 @@ onMounted(load)
   <p v-if="error" class="mt-4 text-sm text-rose-600 dark:text-rose-400">{{ error }}</p>
 
   <section class="mt-6">
-    <div class="mb-4 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+    <div class="mb-4 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]" >
       <input v-model="q" class="input" placeholder="Karten durchsuchen" aria-label="Karten durchsuchen" />
       <select v-model="deckFilter" class="input sm:w-44" aria-label="Fach filtern">
         <option value="">Alle Fächer</option>
         <option v-for="d in decks" :key="d.id" :value="d.id">{{ d.name }}</option>
       </select>
-      <select v-model="setFilter" class="input sm:w-44" aria-label="Set filtern">
+      <select v-if="!gewaehltesFach" v-model="setFilter" class="input sm:w-44" aria-label="Set filtern">
         <option value="">Alle Sets</option>
         <option value="__ohne__">Ohne Set</option>
         <option v-for="s in setOptionen" :key="s" :value="s">Set: {{ s }}</option>
@@ -73,6 +78,9 @@ onMounted(load)
         <input v-model="onlyDue" type="checkbox" class="h-4 w-4 accent-teal-600" /> Nur fällige
       </label>
     </div>
+
+    <SetLeiste v-if="gewaehltesFach" class="mb-3 block" :deck-id="gewaehltesFach.id" :sets="gewaehltesFach.sets || []" :alle="gewaehltesFach.card_count"
+      :ohne="ohneSetImFach" v-model="setFilter" @changed="load" />
 
     <ul v-if="filtered.length" class="grid gap-3 md:grid-cols-2">
       <template v-for="c in filtered" :key="c.id">
