@@ -10,16 +10,16 @@ from app.domain.models import Card, Deck
 
 
 def _to_dict(d: Deck) -> dict:
-    return {"id": d.id, "name": d.name, "cards": [
+    return {"id": d.id, "name": d.name, "sets": d.sets, "cards": [
         {"id": c.id, "kind": c.kind, "front": c.front, "back": c.back, "options": c.options,
-         "correct_index": c.correct_index, "box": c.box, "due": c.due.isoformat()}
+         "correct_index": c.correct_index, "set_name": c.set_name, "box": c.box, "due": c.due.isoformat()}
         for c in d.cards]}
 
 
 def _from_dict(d: dict) -> Deck:
-    return Deck(id=d["id"], name=d["name"], cards=[
+    return Deck(id=d["id"], name=d["name"], sets=d.get("sets", []), cards=[
         Card(id=c["id"], kind=c.get("kind", "classic"), front=c["front"], back=c["back"],
-             options=c.get("options", []), correct_index=c.get("correct_index"),
+             options=c.get("options", []), correct_index=c.get("correct_index"), set_name=c.get("set_name", ""),
              box=c["box"], due=datetime.fromisoformat(c["due"])) for c in d["cards"]])
 
 

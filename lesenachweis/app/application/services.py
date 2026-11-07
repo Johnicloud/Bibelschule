@@ -36,7 +36,10 @@ class ReadingService:
 
     # Pensen
     def _validate_task(self, unit: str, total: int | None, passes: int, start: date | None,
-                        deadline: date | None, buecher: list[dict] | None) -> tuple[int, list[Buch]]:
+                        deadline: date | None, buecher: list[dict] | None,
+                        bisherige: list[Buch] | None = None) -> tuple[int, list[Buch]]:
+        """`bisherige`: die Bücher vor dem Bearbeiten – ein Buch behält seine Id (über die mitgeschickte Id oder, wenn keine
+        da ist, über den Titel), damit Leseeinträge nicht ihr Buch verlieren."""
         if unit not in UNITS:
             raise InvalidInput("Die Einheit ist Seiten oder Kapitel.")
         if not isinstance(passes, int) or not 1 <= passes <= MAX_PASSES:
@@ -49,7 +52,11 @@ class ReadingService:
                 buch_total = b.get("total")
                 if not isinstance(buch_total, int) or buch_total < 1:
                     raise InvalidInput(f"Der Umfang eines Buches muss mindestens 1 sein ({unit}).")
-                buch_objekte.append(Buch(title=_clean(b.get("title"), "Der Titel eines Buches"), total=buch_total))
+                titel = _clean(b.get("title"), "Der Titel eines Buches")
+                frei = [x for x in (bisherige or []) if x.id not in {o.id for o in buch_objekte}]
+                alt = next((x for x in frei if b.get("id") and x.id == b["id"]), None) \
+                    or next((x for x in frei if x.title.casefold() == titel.casefold()), None)
+                buch_objekte.append(Buch(id=alt.id, title=titel, total=buch_total) if alt else Buch(title=titel, total=buch_total))
             total = sum(b.total for b in buch_objekte)
         elif buecher is not None:
             raise InvalidInput("Gib mindestens ein Buch an, oder lass die Bücherliste ganz weg.")
@@ -72,7 +79,7 @@ class ReadingService:
                     start: date | None = None, deadline: date | None = None,
                     buecher: list[dict] | None = None) -> ReadingTask:
         task = self._task(task_id)
-        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher)
+        total, buch_objekte = self._validate_task(unit, total, passes, start, deadline, buecher, task.buecher)
         task.title = _clean(title, "Der Titel")
         task.unit = unit
         task.total = total
@@ -90,6 +97,13 @@ class ReadingService:
     def get_task(self, task_id: str) -> ReadingTask:
         return self._task(task_id)
 
+    def set_skript(self, task_id: str, skript_id: str | None) -> ReadingTask:
+        """Hängt eine Datei aus dem Skripte-Dienst an das Pensum (leer löst sie). Dienste teilen nur Ids, kein Wissen übereinander."""
+        task = self._task(task_id)
+        task.skript_id = (skript_id or "").strip() or None
+        self.repo.save(task)
+        return task
+
     def delete_task(self, task_id: str) -> None:
         task = self._task(task_id)
         self.repo.delete(task_id)
@@ -97,7 +111,7 @@ class ReadingService:
 
     # Leseprotokoll
     def log_reading(self, task_id: str, amount: int, day: date | None = None, note: str = "",
-                     buch_id: str | None = None) -> ReadingTask:
+                     buch_id: str | None = None, durchlauf: int = 1) -> ReadingTask:
         task = self._task(task_id)
         day = day or self.today()
         if not isinstance(amount, int) or amount < 1:
@@ -106,7 +120,10 @@ class ReadingService:
             raise InvalidInput("Das Datum liegt in der Zukunft.")
         if buch_id and task.get_buch(buch_id) is None:
             raise InvalidInput("Dieses Buch gehört nicht zu diesem Pensum.")
-        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(), buch_id=buch_id or None))
+        if not isinstance(durchlauf, int) or not 1 <= durchlauf <= task.passes:
+            raise InvalidInput(f"Der Durchgang muss zwischen 1 und {task.passes} liegen.")
+        task.entries.append(ReadingEntry(day=day, amount=amount, note=(note or "").strip(),
+                                         buch_id=buch_id or None, durchlauf=durchlauf))
         self.repo.save(task)
         self._emit("reading.logged", {"subject_id": task.subject_id, "task_id": task.id,
                                       "amount": amount, "done": task.done, "target": task.target})
@@ -143,4 +160,6 @@ class ReadingService:
                 "progress": int(percent + 0.5) if forecasts else None,   # Gesamtfortschritt des Kerns (0 bis 100)
                 "status": worst_status([f.status for _, f in forecasts]),
                 "urgent_title": urgent[0].title if urgent else None,     # dringendstes offenes Pensum
-                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None}
+                "next_deadline": min(open_deadlines).isoformat() if open_deadlines else None,
+                # Stand je Pensum (ganze Prozent): damit der Kern eine mit dem Pensum verknüpfte Aufgabe fortschreiben kann
+                "pensen": [{"id": t.id, "percent": int(f.percent + 0.5)} for t, f in forecasts]}

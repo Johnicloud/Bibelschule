@@ -45,6 +45,12 @@ class SessionStore(ABC):
     @abstractmethod
     def delete(self, token: str) -> None: ...
 
+    @abstractmethod
+    def delete_for_account(self, account_id: str) -> None:
+        """Alle Sitzungen eines Kontos beenden (z. B. nach einem Passwort-Reset durch einen Admin:
+        das Konto ist überall abgemeldet und muss sich mit dem neuen Passwort neu anmelden)."""
+        ...
+
 
 class ServiceGateway(ABC):
     """Ausgehender Port: das Dienstverzeichnis und der Draht zu den Diensten.
@@ -86,4 +92,6 @@ class ServiceGateway(ABC):
 
     @abstractmethod
     def forward(self, service: str, method: str, path: str, query: str, body: bytes,
-                content_type: str | None) -> tuple[int, bytes, str]: ...
+                content_type: str | None, range_header: str | None = None) -> tuple[int, bytes, str, dict[str, str]]:
+        """(Status, Inhalt, Content-Type, weitere Antwort-Header). Die weiteren Header sind nur die, die Audio/Video
+        zum Spulen brauchen (Accept-Ranges, Content-Range); `range_header` wird an den Dienst weitergereicht."""

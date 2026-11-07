@@ -1,7 +1,7 @@
 import pytest
 from app.application.auth_service import AuthService
 from app.application.ports import AccountRepository, SessionStore
-from app.domain.errors import InvalidInput, Unauthorized
+from app.domain.errors import InvalidInput, NotFound, Unauthorized
 
 
 class InMemoryAccounts(AccountRepository):
@@ -19,6 +19,7 @@ class InMemorySessions(SessionStore):
         return token
     def account_id_for(self, token): return self.d.get(token)
     def delete(self, token): self.d.pop(token, None)
+    def delete_for_account(self, account_id): self.d = {t: a for t, a in self.d.items() if a != account_id}
 
 
 @pytest.fixture
@@ -113,3 +114,51 @@ def test_update_profile_trims_and_empty_becomes_none(svc):
 def test_update_profile_rejects_unknown_account(svc):
     with pytest.raises(Unauthorized):
         svc.update_profile("gibt-es-nicht", "Johannes", "Löwen", "EFG")
+
+
+def test_set_is_admin_can_promote_and_demote(svc):
+    svc.create_account("admin", "geheim123", is_admin=True)
+    svc.create_account("maria", "geheim456")
+    updated = svc.set_is_admin("maria", True)
+    assert updated.is_admin is True
+    updated = svc.set_is_admin("maria", False)
+    assert updated.is_admin is False
+
+
+def test_set_is_admin_protects_the_last_admin(svc):
+    svc.create_account("admin", "geheim123", is_admin=True)
+    with pytest.raises(InvalidInput):
+        svc.set_is_admin("admin", False)
+
+
+def test_set_is_admin_allows_demotion_when_another_admin_exists(svc):
+    svc.create_account("admin1", "geheim123", is_admin=True)
+    svc.create_account("admin2", "geheim456", is_admin=True)
+    assert svc.set_is_admin("admin1", False).is_admin is False
+
+
+def test_set_is_admin_rejects_unknown_account(svc):
+    with pytest.raises(NotFound):
+        svc.set_is_admin("gibt-es-nicht", True)
+
+
+def test_reset_password_forces_a_change_and_logs_out_everywhere(svc):
+    account = svc.create_account("johannes", "geheim123")
+    token = svc.login("johannes", "geheim123")
+    temp_password = svc.reset_password("johannes")
+
+    assert svc.current_account(token) is None   # alte Sitzung weg
+    with pytest.raises(Unauthorized):
+        svc.login("johannes", "geheim123")       # altes Passwort geht nicht mehr
+
+    neuer_token = svc.login("johannes", temp_password)
+    found = svc.current_account(neuer_token)
+    assert found.muss_passwort_aendern is True
+
+    svc.change_password(account.id, temp_password, "eigenesPasswort9")
+    assert svc.current_account(neuer_token).muss_passwort_aendern is False
+
+
+def test_reset_password_rejects_unknown_account(svc):
+    with pytest.raises(NotFound):
+        svc.reset_password("gibt-es-nicht")

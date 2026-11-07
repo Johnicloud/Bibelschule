@@ -26,6 +26,18 @@ class EntryIn(BaseModel):
     register_id: str
     name: str
     refs: list[str] = Field(default_factory=list)   # z. B. ["1Mo 12,1-3", "Hebr 11,8"] oder "Joh 3,16; Joh 4,5"
+    lat: float | None = None   # Koordinaten, von Hand eingetragen; optional, nicht nur für Orte-Register
+    lon: float | None = None
+
+
+class LocationIn(BaseModel):
+    lat: float | None = None
+    lon: float | None = None
+
+
+class EntryUpdate(BaseModel):
+    name: str
+    refs: list[str] = Field(default_factory=list)
 
 
 class SubjectIn(BaseModel):
@@ -43,7 +55,7 @@ def register_out(r: Register, count: int) -> dict:
 
 def entry_out(e: RegisterEntry) -> dict:
     return {"id": e.id, "subject_id": e.subject_id, "register_id": e.register_id, "name": e.name,
-            "refs": [ref_out(r) for r in e.refs]}
+            "lat": e.lat, "lon": e.lon, "refs": [ref_out(r) for r in e.refs]}
 
 
 def create_app(service: RegisterService) -> FastAPI:
@@ -96,11 +108,19 @@ def create_app(service: RegisterService) -> FastAPI:
 
     @api.post("/entries", status_code=201)
     def add_entry(body: EntryIn):
-        return entry_out(service.add_entry(body.register_id, body.name, body.refs))
+        return entry_out(service.add_entry(body.register_id, body.name, body.refs, body.lat, body.lon))
+
+    @api.put("/entries/{entry_id}")
+    def update_entry(entry_id: str, body: EntryUpdate):
+        return entry_out(service.update_entry(entry_id, body.name, body.refs))
 
     @api.delete("/entries/{entry_id}", status_code=204)
     def delete_entry(entry_id: str):
         service.delete_entry(entry_id)
+
+    @api.put("/entries/{entry_id}/location")
+    def set_location(entry_id: str, body: LocationIn):
+        return entry_out(service.set_location(entry_id, body.lat, body.lon))
 
     @api.get("/passages")
     def passages(subject_id: str | None = None, register_id: str | None = None):

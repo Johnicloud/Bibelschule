@@ -43,3 +43,7 @@ class MemorySessionStore(SessionStore):
     def delete(self, token: str) -> None:
         with self._lock:
             self._sessions.pop(token, None)
+
+    def delete_for_account(self, account_id: str) -> None:
+        with self._lock:
+            self._sessions = {t: s for t, s in self._sessions.items() if s[0] != account_id}

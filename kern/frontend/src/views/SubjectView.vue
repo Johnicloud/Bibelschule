@@ -8,7 +8,7 @@ import ExternalPanel from '../components/ui/ExternalPanel.vue'
 import SubjectOverview from '../components/ui/SubjectOverview.vue'
 import AppIcon from '../components/ui/AppIcon.vue'
 import DozentenAuswahl from '../components/ui/DozentenAuswahl.vue'
-import { BAR_CLASSES, FACH_STATUS, OPTIONAL_SERVICES, TAB_ICONS } from '../domain/status'
+import { BAR_CLASSES, FACH_STATUS, OPTIONAL_SERVICES, TAB_ICONS, TONE_CLASSES } from '../domain/status'
 
 const props = defineProps({ subjectId: String, tab: { type: String, default: 'uebersicht' } })
 defineEmits(['study', 'update:tab'])
@@ -23,6 +23,7 @@ const bearbeiten = ref(false)
 const editName = ref('')
 const editSe = ref('')
 const editCredits = ref('')
+const editNote = ref('')
 const alleDozenten = ref([])
 const ausgewaehlteDozenten = ref([])
 const editError = ref('')
@@ -61,6 +62,7 @@ async function openEdit() {
   editName.value = subject.value.name
   editSe.value = subject.value.se ?? ''
   editCredits.value = subject.value.credits ?? ''
+  editNote.value = subject.value.note ?? ''
   try { alleDozenten.value = await adressbuch.dozenten() } catch { alleDozenten.value = [] }
   ausgewaehlteDozenten.value = alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id)
   bearbeiten.value = true
@@ -71,6 +73,7 @@ async function saveEdit() {
   try {
     if (editName.value.trim() !== subject.value.name) await subjects.rename(props.subjectId, editName.value)
     subject.value = await subjects.setSe(props.subjectId, editSe.value)
+    subject.value = await subjects.setNote(props.subjectId, editNote.value)
     const vorher = new Set(alleDozenten.value.filter((d) => d.faecher.includes(props.subjectId)).map((d) => d.id))
     const nachher = new Set(ausgewaehlteDozenten.value)
     await Promise.all([
@@ -98,12 +101,16 @@ onMounted(async () => {
       <template v-if="!bearbeiten">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 class="text-3xl font-semibold tracking-tight">{{ subject.name }}</h1>
+          <span v-if="overview && FACH_STATUS[overview.stufe]" class="rounded-full px-2 py-0.5 text-xs font-medium" :class="TONE_CLASSES[FACH_STATUS[overview.stufe].tone]">
+            {{ FACH_STATUS[overview.stufe].label }}
+          </span>
+          <span v-if="overview && overview.progress != null" class="text-sm tabular-nums opacity-70">{{ overview.progress }} %</span>
+          <span v-if="subject.note != null" class="text-sm tabular-nums opacity-70">Note {{ subject.note.toFixed(1).replace('.', ',') }}</span>
           <button class="btn btn-ghost !p-2 ml-auto" aria-label="Fach bearbeiten" @click="openEdit">
             <AppIcon name="stift" class="h-4 w-4" />
           </button>
         </div>
-        <!-- Nur ein Farbbalken: Farbe nach Fach-Status, Breite nach Gesamtfortschritt – keine Zahl, kein
-             Satz, kein eigener Status-Chip mehr (auf Wunsch so minimal). -->
+        <!-- Status-Chip + Prozentzahl neben dem Titel, Farbbalken darunter (Farbe nach Fach-Status). -->
         <div v-if="overview && overview.progress != null" class="mt-3 h-2 overflow-hidden rounded-full bg-highlight"
           role="progressbar" :aria-valuenow="overview.progress" aria-valuemin="0" aria-valuemax="100"
           :aria-label="FACH_STATUS[overview.stufe]?.label">
@@ -117,6 +124,7 @@ onMounted(async () => {
           <div class="flex gap-2">
             <input v-model="editSe" type="number" min="0" step="0.5" class="input !w-24" placeholder="SE" aria-label="Studieneinheiten" />
             <input v-model="editCredits" type="number" min="0" step="0.1" class="input !w-28" placeholder="Credits" aria-label="Credits" />
+            <input v-model="editNote" type="number" min="1" max="5" step="0.1" class="input !w-24" placeholder="Note" aria-label="Note (1,0 bis 5,0)" />
           </div>
           <DozentenAuswahl v-model="ausgewaehlteDozenten" :dozenten="alleDozenten" class="flex-1" />
         </div>
@@ -143,6 +151,7 @@ onMounted(async () => {
     <div class="mt-6" role="tabpanel">
       <SubjectOverview v-if="current.name === 'uebersicht' && overview" :subject="subject" :overview="overview" :services="services"
         @go="(name) => $emit('update:tab', name)" @aktivieren="(name) => dienstAktivieren(name).then(() => $emit('update:tab', name))" />
+      <template v-else-if="current.name === 'uebersicht'" /> <!-- overview noch nicht geladen: nicht auf ExternalPanel zurückfallen -->
       <AufgabenPanel v-else-if="current.name === 'aufgaben'" :subject-id="subjectId" @changed="loadOverview" />
       <DeckPanel v-else-if="current.name === 'karteikarten'" :subject-id="subjectId" @study="$emit('study')" @changed="loadOverview" />
       <ReadingPanel v-else-if="current.name === 'lesenachweis'" :subject-id="subjectId" @changed="loadOverview" />

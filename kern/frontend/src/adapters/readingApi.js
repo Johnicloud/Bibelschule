@@ -8,6 +8,7 @@ export function createReadingApi(base = '/api/lesenachweis') {
     tasks: (subjectId) => call('GET', `/tasks?subject_id=${encodeURIComponent(subjectId)}`),
     addTask: (task) => call('POST', '/tasks', task),
     updateTask: (id, task) => call('PUT', `/tasks/${id}`, task),
+    setSkript: (id, skriptId) => call('PUT', `/tasks/${id}/skript`, { skript_id: skriptId || null }),
     deleteTask: (id) => call('DELETE', `/tasks/${id}`),
     log: (id, entry) => call('POST', `/tasks/${id}/entries`, entry),
     deleteEntry: (id, entryId) => call('DELETE', `/tasks/${id}/entries/${entryId}`),

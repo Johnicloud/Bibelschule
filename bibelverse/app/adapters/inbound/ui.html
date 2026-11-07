@@ -73,7 +73,7 @@
 
 <script src="/ui-kit.js"></script>
 <script>
-  const { call, el, subjectId } = UIKit
+  const { call, el, subjectId, menu } = UIKit
   const subject = subjectId()
   let warteschlange = []
   let modus = 'aufdecken'
@@ -109,13 +109,13 @@
           v.faellig ? el('span', {}, 'fällig') : el('span', {}, `fällig am ${formatDatum(v.due)}`),
         ]),
       ]),
-      el('div', { style: 'display:flex;gap:.4rem;flex-shrink:0' }, [
-        el('button', { class: 'uk-btn-ghost', onclick: () => zeigeBearbeiten(zeile, v, erneutLaden) }, 'Bearbeiten'),
-        el('button', { class: 'uk-btn-danger', onclick: async () => {
+      menu([
+        { icon: 'stift', text: 'Bearbeiten', onclick: () => zeigeBearbeiten(zeile, v, erneutLaden) },
+        { icon: 'trash', text: 'Löschen', danger: true, onclick: async () => {
           if (!confirm(`Vers „${v.referenz}“ löschen?`)) return
           await call('DELETE', `verse/${v.id}`); erneutLaden()
-        } }, 'Löschen'),
-      ]),
+        } },
+      ]).node,
     ])
     zeile.replaceChildren(kontakt)
   }

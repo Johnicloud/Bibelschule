@@ -1,9 +1,11 @@
 """Anwendungsfälle rund um Konten und Anmeldung. Kennt nur Domäne und Ports.
 Neue Konten legt entweder ./neues-konto.sh an oder ein schon angemeldetes Konto über die Oberfläche
 („Benutzer verwalten“) – nie ein Fremder ohne Anmeldung."""
+import secrets
+
 from app.application.ports import AccountRepository, SessionStore
 from app.domain.auth import hash_password, verify_password
-from app.domain.errors import InvalidInput, Unauthorized
+from app.domain.errors import InvalidInput, NotFound, Unauthorized
 from app.domain.models import Account
 
 MIN_PASSWORD_LENGTH = 8
@@ -53,7 +55,35 @@ class AuthService:
         if len(new_password or "") < MIN_PASSWORD_LENGTH:
             raise InvalidInput(f"Das neue Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen haben.")
         account.password_hash = hash_password(new_password)
+        account.muss_passwort_aendern = False   # eigenes Passwort gewählt: ein Admin-Reset ist damit erledigt
         self.accounts.save(account)
+
+    def set_is_admin(self, username: str, is_admin: bool) -> Account:
+        """Der letzte Admin kann sein Admin-Recht nicht verlieren – sonst könnte niemand mehr Konten verwalten."""
+        account = self.accounts.get_by_username(username)
+        if account is None:
+            raise NotFound("Dieses Konto gibt es nicht.")
+        if account.is_admin and not is_admin:
+            admins = [a for a in self.accounts.list() if a.is_admin]
+            if len(admins) <= 1:
+                raise InvalidInput("Der letzte Admin kann sein Admin-Recht nicht abgeben.")
+        account.is_admin = is_admin
+        self.accounts.save(account)
+        return account
+
+    def reset_password(self, username: str) -> str:
+        """Ein Admin setzt für ein anderes Konto ein neues, zufälliges Passwort – das Konto wird überall
+        abgemeldet (delete_for_account) und muss beim nächsten Anmelden selbst ein eigenes Passwort wählen
+        (muss_passwort_aendern), damit der Admin das endgültige Passwort nie kennt."""
+        account = self.accounts.get_by_username(username)
+        if account is None:
+            raise NotFound("Dieses Konto gibt es nicht.")
+        temp_password = secrets.token_urlsafe(9)
+        account.password_hash = hash_password(temp_password)
+        account.muss_passwort_aendern = True
+        self.accounts.save(account)
+        self.sessions.delete_for_account(account.id)
+        return temp_password
 
     def update_profile(self, account_id: str, vorname: str, nachname: str, gemeinde: str) -> Account:
         account = next((a for a in self.accounts.list() if a.id == account_id), None)

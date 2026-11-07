@@ -1,7 +1,7 @@
 <script setup>
 import { computed, inject, onMounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
-import { BAR_CLASSES, OPTIONAL_SERVICES, READING_STATUS, TAB_ICONS, TONE_CLASSES, formatDate } from '../../domain/status'
+import { BAR_CLASSES, OPTIONAL_SERVICES, READING_STATUS, TAB_ICONS, TONE_CLASSES, artInfo, formatDate, tageBisText } from '../../domain/status'
 
 // Erster Reiter im Fach: besteht aus den Aufgaben (der Umfang des Fachs) – jede mit einem erledigt/offen-Feld,
 // oder, ist sie mit einem Lesenachweis-Pensum verknüpft (Aufgabe bearbeiten -> „Lesepensum“), mit dessen
@@ -65,7 +65,13 @@ const dienstRows = computed(() => props.overview.parts
               {{ a.erledigt ? 'Erledigt' : 'Offen' }}
             </span>
           </div>
-          <p v-if="a.frist" class="mt-1.5 text-xs opacity-70">Frist {{ formatDate(a.frist) }}</p>
+          <p v-if="a.art !== 'allgemein' || !a.zaehlt" class="mt-1 text-xs opacity-70">
+            {{ artInfo(a.art).label }}<template v-if="!a.zaehlt"> · nur zum Lernen</template>
+          </p>
+          <p v-if="a.frist" class="mt-1.5 text-xs opacity-70">
+            {{ artInfo(a.art).frist }} {{ formatDate(a.frist) }}<template v-if="!a.erledigt"> ({{ tageBisText(a.frist) }})</template>
+          </p>
+          <p v-if="artInfo(a.art).umfang && a.soll" class="mt-1 text-xs opacity-70">{{ a.ist ?? 0 }} von {{ a.soll }} {{ a.einheit }} · {{ a.fortschritt }} %</p>
         </button>
       </li>
     </ul>

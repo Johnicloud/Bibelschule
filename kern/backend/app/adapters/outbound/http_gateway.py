@@ -100,11 +100,16 @@ class HttpServiceGateway(ServiceGateway):
         return r.json() if r is not None and r.status_code == 200 else None
 
     def forward(self, service: str, method: str, path: str, query: str, body: bytes,
-                content_type: str | None) -> tuple[int, bytes, str]:
+                content_type: str | None, range_header: str | None = None) -> tuple[int, bytes, str, dict[str, str]]:
         url = f"/api/{path}" + (f"?{query}" if query else "")
-        headers = {"Content-Type": content_type} if content_type else None
-        r = self._request(service, method, url, content=body or None, headers=headers, timeout=self.forward_timeout)
+        headers = {}
+        if content_type:
+            headers["Content-Type"] = content_type
+        if range_header:
+            headers["Range"] = range_header      # Safari spielt Audio/Video nur ab, wenn der Server Teilstücke liefert
+        r = self._request(service, method, url, content=body or None, headers=headers or None, timeout=self.forward_timeout)
         if r is None:
             detail = json.dumps({"detail": f"Der Dienst „{service}“ ist gerade nicht erreichbar."}, ensure_ascii=False)
-            return 502, detail.encode("utf-8"), "application/json"
-        return r.status_code, r.content, r.headers.get("content-type", "application/json")
+            return 502, detail.encode("utf-8"), "application/json", {}
+        extra = {k: r.headers[k] for k in ("accept-ranges", "content-range") if k in r.headers}
+        return r.status_code, r.content, r.headers.get("content-type", "application/json"), extra

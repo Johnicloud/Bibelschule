@@ -3,7 +3,7 @@ Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json (auch für übergeord
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.application.services import FlashcardService, Pair
@@ -21,6 +21,12 @@ class CardIn(BaseModel):
     back: str = ""
     options: list[str] = Field(default_factory=list)
     correct_index: int | None = None
+    set_name: str = ""
+
+
+class SetIn(BaseModel):
+    name: str
+    neu: str | None = None      # nur beim Umbenennen
 
 
 class SubjectIn(BaseModel):
@@ -35,12 +41,15 @@ def card_out(pair: Pair) -> dict:
     deck, c = pair
     return {"id": c.id, "deck_id": deck.id, "deck_name": deck.name, "kind": c.kind,
             "front": c.front, "back": c.back, "options": c.options,
-            "correct_index": c.correct_index, "box": c.box,
+            "correct_index": c.correct_index, "set_name": c.set_name, "box": c.box,
             "due": c.due.isoformat(), "is_due": c.is_due()}
 
 
 def deck_out(d: Deck, with_cards: bool = False) -> dict:
-    out = {"id": d.id, "name": d.name, "card_count": len(d.cards), "due_count": len(d.due_cards())}
+    out = {"id": d.id, "name": d.name, "card_count": len(d.cards), "due_count": len(d.due_cards()),
+           "sets": [{"name": n, "card_count": sum(1 for c in d.cards if c.set_name == n),
+                     "due_count": sum(1 for c in d.due_cards() if c.set_name == n),
+                     "mastered_count": sum(1 for c in d.cards if c.set_name == n and c.box >= 4)} for n in d.set_namen()]}
     if with_cards:
         out["cards"] = [card_out((d, c)) for c in d.cards]
     return out
@@ -78,6 +87,12 @@ def create_app(service: FlashcardService) -> FastAPI:
     def delete_deck(deck_id: str):
         service.delete_deck(deck_id)
 
+    @api.get("/decks/{deck_id}/druckbogen")
+    def druckbogen(deck_id: str, format: str = "a7"):
+        pdf = service.druckbogen(deck_id, format)
+        return Response(content=pdf, media_type="application/pdf",
+                         headers={"Content-Disposition": 'inline; filename="karteikarten.pdf"'})
+
     @api.get("/cards")
     def all_cards():
         return [card_out(p) for p in service.all_cards()]
@@ -85,7 +100,27 @@ def create_app(service: FlashcardService) -> FastAPI:
     @api.post("/decks/{deck_id}/cards", status_code=201)
     def add_card(deck_id: str, body: CardIn):
         return card_out(service.add_card(deck_id, body.kind, body.front, body.back,
-                                         body.options, body.correct_index))
+                                         body.options, body.correct_index, body.set_name))
+
+    @api.post("/decks/{deck_id}/sets", status_code=201)
+    def create_set(deck_id: str, body: SetIn):
+        return deck_out(service.create_set(deck_id, body.name))
+
+    @api.put("/decks/{deck_id}/sets")
+    def rename_set(deck_id: str, body: SetIn):
+        return deck_out(service.rename_set(deck_id, body.name, body.neu or ""))
+
+    @api.delete("/decks/{deck_id}/sets")
+    def delete_set(deck_id: str, name: str, mit_karten: bool = False):
+        # Name als Abfrage-Parameter, nicht im Pfad: Set-Namen dürfen jedes Zeichen enthalten (auch „/“)
+        return deck_out(service.delete_set(deck_id, name, mit_karten))
+
+    @api.put("/decks/{deck_id}/cards/{card_id}")
+    def update_card(deck_id: str, card_id: str, body: CardIn):
+        # set_name nur ändern, wenn es mitgeschickt wurde (leer = aus dem Set nehmen)
+        set_name = body.set_name if "set_name" in body.model_fields_set else None
+        return card_out(service.update_card(deck_id, card_id, body.kind, body.front, body.back,
+                                            body.options, body.correct_index, set_name))
 
     @api.delete("/decks/{deck_id}/cards/{card_id}", status_code=204)
     def delete_card(deck_id: str, card_id: str):

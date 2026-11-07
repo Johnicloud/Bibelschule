@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject, onMounted, ref } from 'vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 import { gemeinde, isAdmin, nachname, username as currentUsername, vorname } from '../state/auth'
 
 defineEmits(['back'])
@@ -25,6 +26,8 @@ async function speichernProfil() {
 
 const accounts = ref([])
 const loadError = ref('')
+const adminError = ref('')
+const zurueckgesetzt = ref(null) // { username, temp } – einmalige Anzeige des temporären Passworts
 
 const services = ref([])
 const servicesError = ref('')
@@ -57,6 +60,22 @@ async function load() {
   if (!isAdmin.value) return
   try { accounts.value = await auth.accounts(); loadError.value = '' }
   catch (e) { loadError.value = e.message }
+}
+
+async function adminUmschalten(a) {
+  adminError.value = ''
+  try { await auth.setAdmin(a.username, !a.is_admin); await load() }
+  catch (e) { adminError.value = e.message }
+}
+async function passwortZuruecksetzen(a) {
+  if (!confirm(`Neues, zufälliges Passwort für „${a.username}“ setzen? Das Konto wird dabei überall abgemeldet und muss sich beim nächsten Anmelden ein eigenes Passwort wählen.`)) return
+  adminError.value = ''
+  zurueckgesetzt.value = null
+  try {
+    const { temporaeres_passwort } = await auth.resetPassword(a.username)
+    zurueckgesetzt.value = { username: a.username, temp: temporaeres_passwort }
+    await load()
+  } catch (e) { adminError.value = e.message }
 }
 
 async function changePassword() {
@@ -121,10 +140,31 @@ onMounted(() => { load(); loadServices() })
   <section v-if="isAdmin" class="panel mt-6 p-5">
     <h2 class="text-lg font-semibold">Benutzer</h2>
     <p v-if="loadError" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ loadError }}</p>
-    <ul v-else class="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
-      <li v-for="a in accounts" :key="a.username" class="flex items-center justify-between py-2 text-sm">
-        {{ a.username }}
-        <span v-if="a.is_admin" class="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-800 dark:bg-teal-500/15 dark:text-teal-300">Admin</span>
+    <p v-if="adminError" class="mt-2 text-sm text-error">{{ adminError }}</p>
+    <div v-if="zurueckgesetzt" class="mt-2 flex items-start justify-between gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+      <span>
+        Temporäres Passwort für „{{ zurueckgesetzt.username }}“: <strong class="select-all">{{ zurueckgesetzt.temp }}</strong>
+        — steht nur jetzt hier, bitte dem Benutzer mitteilen (z. B. mündlich).
+      </span>
+      <button type="button" class="btn btn-ghost !p-1.5 shrink-0" aria-label="Hinweis schließen" @click="zurueckgesetzt = null">
+        <AppIcon name="x" class="h-3.5 w-3.5" />
+      </button>
+    </div>
+    <ul v-if="!loadError" class="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
+      <li v-for="a in accounts" :key="a.username" class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+        <span>
+          {{ a.username }}
+          <span v-if="a.muss_passwort_aendern" class="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+            muss neues Passwort wählen
+          </span>
+        </span>
+        <span class="flex items-center gap-3">
+          <label class="flex items-center gap-1.5">
+            <input type="checkbox" :checked="a.is_admin" class="h-4 w-4 rounded" @change="adminUmschalten(a)" />
+            Admin
+          </label>
+          <button type="button" class="btn btn-ghost !px-2 !py-1" @click="passwortZuruecksetzen(a)">Passwort neu setzen</button>
+        </span>
       </li>
     </ul>
 
