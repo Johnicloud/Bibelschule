@@ -1,6 +1,6 @@
 import pytest
-from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor,
-                                   VerweisRepository)
+from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, Texterkennung, VersRepository,
+                                   VerseExtractor, VerweisRepository)
 from app.application.services import BibelService
 from app.domain.bible import BOOKS, find_book
 from app.domain.errors import InvalidInput, NotFound
@@ -51,10 +51,22 @@ class FakeExtractor(VerseExtractor):
         return [(1, 1, "Im Anfang schuf Gott die Himmel und die Erde."), (1, 2, "Die Erde aber war wüst und leer.")]
 
 
+class FakeTexterkennung(Texterkennung):
+    """Tut so, als bräuchte jeder Inhalt, der noch nicht mit 'ERKANNT:' beginnt, eine Texterkennung."""
+    def noetig(self, pdf): return not pdf.startswith(b"ERKANNT:")
+    def erkennen(self, pdf): return b"ERKANNT:" + pdf
+
+
 @pytest.fixture
 def svc():
     return BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText(), InMemoryVersRepo(), FakeExtractor(),
                         InMemoryVerweisRepo())
+
+
+@pytest.fixture
+def svc_mit_texterkennung():
+    return BibelService(InMemoryIndexRepo(), InMemoryDateien(), FakeText(), InMemoryVersRepo(), FakeExtractor(),
+                        InMemoryVerweisRepo(), FakeTexterkennung())
 
 
 def test_hochladen_speichert_datei_und_erkannte_seiten(svc):
@@ -66,6 +78,37 @@ def test_hochladen_speichert_datei_und_erkannte_seiten(svc):
     jud = index.seite_von(find_book("Jud").index)
     assert jud.seite is None and jud.erkannt is False
     assert svc.datei() == b"%PDF-fake"
+
+
+def test_hochladen_ueberspringt_die_seiten_erkennung_wenn_texterkennung_noetig_ist(svc_mit_texterkennung):
+    """Ein gescanntes Faksimile (siehe fraktur_ocr.py) hat beim Hochladen noch keine Textebene – die Seiten-
+    Erkennung kann darauf noch nicht ansetzen, das holt `nach_dem_hochladen_im_hintergrund` nach."""
+    index = svc_mit_texterkennung.hochladen("faksimile.pdf", b"gescannt, kein text")
+    assert index.dateiname == "faksimile.pdf"
+    assert all(b.seite is None for b in index.buchseiten)
+    assert svc_mit_texterkennung.datei() == b"gescannt, kein text"
+
+
+def test_hochladen_mit_bereits_erkanntem_text_erkennt_die_seiten_wie_gewohnt(svc_mit_texterkennung):
+    index = svc_mit_texterkennung.hochladen("meine-bibel.pdf", b"ERKANNT:%PDF-fake")
+    gen = index.seite_von(find_book("1Mo").index)
+    assert gen.seite == 1 and gen.erkannt is True
+
+
+def test_nach_dem_hochladen_im_hintergrund_erkennt_text_dann_seiten_dann_verse(svc_mit_texterkennung):
+    svc_mit_texterkennung.hochladen("faksimile.pdf", b"gescannt, kein text")
+    svc_mit_texterkennung.nach_dem_hochladen_im_hintergrund()
+    assert svc_mit_texterkennung.datei() == b"ERKANNT:gescannt, kein text"
+    gen = svc_mit_texterkennung.index().seite_von(find_book("1Mo").index)
+    assert gen.seite == 1 and gen.erkannt is True
+    assert svc_mit_texterkennung.hat_verse() is True
+
+
+def test_nach_dem_hochladen_im_hintergrund_ueberspringt_die_texterkennung_wenn_nicht_noetig(svc_mit_texterkennung):
+    svc_mit_texterkennung.hochladen("meine-bibel.pdf", b"ERKANNT:%PDF-fake")
+    svc_mit_texterkennung.nach_dem_hochladen_im_hintergrund()
+    assert svc_mit_texterkennung.datei() == b"ERKANNT:%PDF-fake"   # unverändert, keine doppelte Erkennung
+    assert svc_mit_texterkennung.hat_verse() is True
 
 
 def test_hochladen_rejects_empty_file(svc):

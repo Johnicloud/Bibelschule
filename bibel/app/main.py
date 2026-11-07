@@ -5,10 +5,11 @@ from pathlib import Path
 
 from app.adapters.inbound.api import create_app
 from app.adapters.outbound.file_repository import FileSystemDateiSpeicher
+from app.adapters.outbound.fraktur_ocr import OcrmypdfFrakturTexterkennung
 from app.adapters.outbound.json_repository import JsonIndexRepository, JsonVersRepository, JsonVerweisRepository
 from app.adapters.outbound.pdf_text import PypdfText
 from app.adapters.outbound.registration import register_with_kern
-from app.adapters.outbound.verse_extractor import PypdfVerseExtractor
+from app.adapters.outbound.verse_extractor import PyMuPdfVerseExtractor
 from app.application.services import BibelService
 
 NAME = "bibel"
@@ -21,7 +22,8 @@ index_repo = JsonIndexRepository(data_dir / "index.json")
 verse_repo = JsonVersRepository(data_dir / "verse.json")
 verweis_repo = JsonVerweisRepository(data_dir / "verweise.json")
 dateien = FileSystemDateiSpeicher(data_dir / "bibel.pdf")
-service = BibelService(index_repo, dateien, PypdfText(), verse_repo, PypdfVerseExtractor(), verweis_repo)
+service = BibelService(index_repo, dateien, PypdfText(), verse_repo, PyMuPdfVerseExtractor(), verweis_repo,
+                       OcrmypdfFrakturTexterkennung())
 app = create_app(service)
 
 if kern_url:

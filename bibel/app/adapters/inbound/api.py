@@ -66,12 +66,13 @@ def create_app(service: BibelService) -> FastAPI:
 
     @api.post("/hochladen", status_code=201)
     async def hochladen(name: str = Form(...), datei: UploadFile = None):
-        # Seiten-Erkennung dauert wenige Sekunden – im Thread-Pool, sonst blockiert das den ganzen Dienst (auch
-        # /api/health) solange. Das Herauslesen der Verse selbst dauert bei einer ganzen Bibel 1-2 Minuten, zu
-        # lang für eine Antwort (Proxy-Timeouts) – läuft als eigener, nicht abgewarteter Hintergrund-Thread.
+        # Seiten-Erkennung (sofern schon eine Textebene da ist) dauert wenige Sekunden – im Thread-Pool, sonst
+        # blockiert das den ganzen Dienst (auch /api/health) solange. Texterkennung (falls nötig) und das
+        # Herauslesen der Verse dauern bei einer ganzen Bibel deutlich länger, zu lang für eine Antwort
+        # (Proxy-Timeouts) – laufen als eigener, nicht abgewarteter Hintergrund-Thread.
         inhalt = await datei.read()
         ergebnis = await run_in_threadpool(service.hochladen, name, inhalt)
-        threading.Thread(target=service.verse_im_hintergrund_einlesen, daemon=True).start()
+        threading.Thread(target=service.nach_dem_hochladen_im_hintergrund, daemon=True).start()
         return index_out(ergebnis)
 
     @api.put("/buecher/{buch_index}")

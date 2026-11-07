@@ -1,6 +1,6 @@
 """Anwendungsfälle. Kennen nur Domäne und Ports."""
-from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, VersRepository, VerseExtractor,
-                                   VerweisRepository)
+from app.application.ports import (DateiSpeicher, IndexRepository, PdfText, Texterkennung, VersRepository,
+                                   VerseExtractor, VerweisRepository)
 from app.domain.bible import BOOKS, Stelle, find_book, parse_ref, parse_stelle
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import Bibelindex, Buchseite, Vers, Verweis, kontextsatz
@@ -9,13 +9,14 @@ from app.domain.models import Bibelindex, Buchseite, Vers, Verweis, kontextsatz
 class BibelService:
     def __init__(self, index_repo: IndexRepository, dateien: DateiSpeicher, text: PdfText,
                  verse_repo: VersRepository | None = None, extractor: VerseExtractor | None = None,
-                 verweis_repo: VerweisRepository | None = None):
+                 verweis_repo: VerweisRepository | None = None, texterkennung: Texterkennung | None = None):
         self.index_repo = index_repo
         self.dateien = dateien
         self.text = text
         self.verse_repo = verse_repo
         self.extractor = extractor
         self.verweis_repo = verweis_repo
+        self.texterkennung = texterkennung
 
     def index(self) -> Bibelindex:
         gespeichert = self.index_repo.get()
@@ -27,23 +28,45 @@ class BibelService:
         return gespeichert
 
     def hochladen(self, dateiname: str, inhalt: bytes) -> Bibelindex:
-        """Speichert die Datei und erkennt die Buch-Seiten (einige Sekunden). Das Herauslesen der Verse selbst
-        dauert bei einer ganzen Bibel 1-2 Minuten – zu lang für eine Antwort auf diesen Aufruf (Proxy-Timeouts).
-        Der Adapter (api.py) stößt `verse_im_hintergrund_einlesen` darum separat an, nicht blockierend."""
+        """Speichert die Datei. Hat sie noch keine eigene Textebene (ein gescanntes Faksimile, z. B. in
+        Fraktur, siehe fraktur_ocr.py), kann die Seiten-Erkennung hier noch nicht ansetzen – das holt
+        `nach_dem_hochladen_im_hintergrund` zusammen mit der Texterkennung nach. Sonst erkennt sie wie bisher
+        gleich die Buch-Seiten (einige Sekunden); das Herauslesen der Verse selbst dauert bei einer ganzen
+        Bibel 1-2 Minuten – zu lang für eine Antwort auf diesen Aufruf (Proxy-Timeouts), der Adapter (api.py)
+        stößt `nach_dem_hochladen_im_hintergrund` darum immer separat an, nicht blockierend."""
         if not inhalt:
             raise InvalidInput("Die Datei ist leer.")
-        erkannt = self.text.buchseiten_erkennen(inhalt)
-        index = Bibelindex(
-            buchseiten=[Buchseite(buch_index=i, seite=erkannt.get(i), erkannt=i in erkannt) for i in range(len(BOOKS))],
-            dateiname=dateiname)
-        self.index_repo.save(index)
         self.dateien.speichere(inhalt)
+        if self.texterkennung is not None and self.texterkennung.noetig(inhalt):
+            index = Bibelindex(buchseiten=[Buchseite(buch_index=i) for i in range(len(BOOKS))], dateiname=dateiname)
+        else:
+            erkannt = self.text.buchseiten_erkennen(inhalt)
+            index = Bibelindex(
+                buchseiten=[Buchseite(buch_index=i, seite=erkannt.get(i), erkannt=i in erkannt) for i in range(len(BOOKS))],
+                dateiname=dateiname)
+        self.index_repo.save(index)
         return index
 
+    def nach_dem_hochladen_im_hintergrund(self) -> None:
+        """Läuft nach jedem Hochladen im Hintergrund (siehe `hochladen`): fehlt noch eine Textebene, zuerst
+        die Texterkennung und danach die Seiten-Erkennung, die beim Hochladen selbst deswegen übersprungen
+        wurde – in jedem Fall abschließend die Verse."""
+        if self.texterkennung is not None:
+            inhalt = self.dateien.lies()
+            if inhalt is not None and self.texterkennung.noetig(inhalt):
+                erkannt_pdf = self.texterkennung.erkennen(inhalt)
+                self.dateien.speichere(erkannt_pdf)
+                erkannt = self.text.buchseiten_erkennen(erkannt_pdf)
+                index = Bibelindex(
+                    buchseiten=[Buchseite(buch_index=i, seite=erkannt.get(i), erkannt=i in erkannt) for i in range(len(BOOKS))],
+                    dateiname=self.index().dateiname)
+                self.index_repo.save(index)
+        self.verse_im_hintergrund_einlesen()
+
     def verse_im_hintergrund_einlesen(self) -> None:
-        """Liest die Verse aus der zuletzt hochgeladenen Datei heraus und speichert sie. Für den Hintergrund-
-        Thread gedacht (siehe `hochladen`) – läuft über die gespeicherte Datei und den gespeicherten Index,
-        nicht über frisch hochgeladene Bytes, damit der Aufrufer nichts durchreichen muss."""
+        """Liest die Verse aus der zuletzt hochgeladenen Datei heraus und speichert sie. Läuft über die
+        gespeicherte Datei und den gespeicherten Index, nicht über frisch hochgeladene Bytes, damit der
+        Aufrufer nichts durchreichen muss."""
         if self.extractor is None or self.verse_repo is None:
             return
         inhalt = self.dateien.lies()

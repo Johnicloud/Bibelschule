@@ -69,3 +69,17 @@ class VerseExtractor(ABC):
     def buch_verse(self, pdf: bytes, von_seite: int, bis_seite: int | None) -> list[tuple[int, int, str]]:
         """[(kapitel, vers, text), ...] für ein Buch, zwischen `von_seite` und `bis_seite` (1-basiert, inklusive,
         None = bis zum Ende der Datei)."""
+
+
+class Texterkennung(ABC):
+    """Ausgehender Port: macht eine gescannte Bibel-PDF ohne eigene Textebene (z. B. ein altes, in Fraktur
+    gesetztes Faksimile) erst einmal lesbar, bevor Seiten-/Verserkennung überhaupt ansetzen können."""
+    @abstractmethod
+    def noetig(self, pdf: bytes) -> bool:
+        """True, wenn die Datei praktisch keinen eigenen Text hat (gescannt) und zuerst per Texterkennung
+        erschlossen werden muss."""
+
+    @abstractmethod
+    def erkennen(self, pdf: bytes) -> bytes:
+        """Dieselbe Datei mit einer unsichtbaren Textebene über den Seitenbildern (Aussehen bleibt gleich).
+        Wirft InvalidInput bei Fehlern."""

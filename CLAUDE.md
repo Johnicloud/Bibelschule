@@ -883,6 +883,62 @@ Sprache der Oberfläche und der Texte: Deutsch.
   statt Port 8170); die Compose-Datei ist mit `docker compose config` auf Gültigkeit geprüft, auf einer echten Proxmox nicht probiert.
   Weiter offen: Ausfüllen fremder Formulare (Feldpositionen von Hand), Test mit echter PowerPoint-/Videodatei, Prüfung auf dem iPad.
 
+- [fertig] Bibel-Verstext deutlich genauer, dazu Fraktur-Texterkennung für gescannte, alte Bibelausgaben
+  (auf Wunsch, „fehlerfrei“ als Ziel und „auch gotische Texte erkennen“):
+  - **`PyMuPdfVerseExtractor` ersetzt `PypdfVerseExtractor`** (`verse_extractor.py`): liest nicht mehr nur
+    rohen Fließtext mit Regel-Erkennung, sondern über PyMuPDF (`pymupdf`) je Textabschnitt Schriftart UND
+    -größe – die Schlachter-PDF nutzt das sehr konsequent (Fließtext `*-Regular`, Verszahl direkt davor FETT
+    und etwas kleiner, Fußnotenzeichen/-text deutlich kleiner, Zwischenüberschriften kursiv, Buchtitel
+    deutlich größer). Damit fallen jetzt zuverlässig weg: ganze Fußnoten-Absätze, die bei der alten
+    Zeilen-Erkennung mitten in einen Vers hineinrutschten (z. B. komplette Fußnoten-Fundgrube in Joh 1,29),
+    einzelne Fußnotenzeichen mitten im Wort (z. B. „Weltb“ → „Welt“), Zwischenüberschriften samt
+    Bibelstellen-Zeile darunter (auch zweizeilige mit einer Art Augenbraue, z. B. „Jesus und Nikodemus.“ +
+    „Die Notwendigkeit der Wiedergeburt“) und der Buchtitel am Buchanfang.
+  - **Kapitelgrenze genauer**: jede verworfene Zwischenüberschrift ist ein Kandidat für die exakte Stelle, an
+    der das unnummerierte Vers 1 eines Kapitels beginnt – erst bestätigt, wenn danach tatsächlich eine
+    Verszahl kommt, die kleiner ist als die zuletzt gesehene (sonst wäre z. B. „Die erste Tempelreinigung“
+    mitten in Johannes 2, weit vor dessen Ende, fälschlich als Kapitelgrenze genommen worden – nur die ihr
+    unmittelbar vorausgehende Überschrift vor einer echten Rücksetzung zählt). Ohne eine passende Überschrift
+    bleibt die alte, bekannte Lücke (Vers 1 hängt am Ende des letzten Verses des vorigen Kapitels).
+  - **Der Gottesname „HERR“** steht in dieser Ausgabe in Kapitälchen (großes „H“ + kleines „ERR“/„ERRN“, in
+    derselben Schriftgröße wie ein Fußnotenzeichen, auch in kursiven Psalm-Überschriften) – ohne Gegenmaßnahme
+    wäre er durchgehend zu „H“ verstümmelt worden. Unterschieden wird über die Länge (ein Fußnotenzeichen ist
+    immer genau EIN Zeichen) und darüber, ob die Zeile daneben noch normal großen Fließtext hat.
+  - **Bekannte, nicht behobene Fälle** (ehrlich dokumentiert, keine redaktionell geprüfte Ausgabe): Psalmen
+    numerieren die Überschrift selbst als Vers 1 (anders als der Rest der Bibel) – ein einmaliger
+    Inhalts-Überlapp zwischen Hiob-Ende und Psalmen-Anfang (die Startseite der Psalmen trägt im Druck noch
+    das Ende von Hiob) verschiebt dadurch die Kapitelzählung der Psalmen durchgehend um 2 (z. B. steht unter
+    „Kapitel 23“ der Text von Psalm 21) – eine Folge der Seiten-genauen (nicht zeilen-genauen) Buchgrenzen, die
+    schon vor dieser Änderung so bestanden; ein großer Kapitälchen-Titel wie „DIE URZEIT: VON DER SCHÖPFUNG
+    BIS ABRAHAM“ am Anfang von 1. Mose hängt am ersten Vers (dieselbe Kapitälchen-Schrift wie bei „HERR“, nur
+    als ganze Zeile statt eines einzelnen Worts, kein allgemein sicherer Weg, beides zu unterscheiden); nach
+    dem letzten Buch (Offenbarung) laufen die Seiten des Anhangs (Landkarten, Maßangaben) ungebremst als
+    weitere, nicht existierende Kapitel mit – es gibt kein nächstes Buch, das die Seite begrenzt. Insgesamt
+    jetzt rund 31 100 statt vorher rund 25 000 gefundene Verse (von geschätzt gut 31 100 insgesamt).
+  - Umfangreiche neue Tests (`tests/test_verse_extractor.py`, mit `reportlab` nachgebaute Seiten mit genau
+    kontrollierten Schriftarten/-größen) decken alle diese Fälle einzeln ab, dazu die Rückfallebene unten.
+  - **Fraktur-Texterkennung** (`fraktur_ocr.py`, `OcrmypdfFrakturTexterkennung`): erkennt beim Hochladen
+    automatisch (`noetig()`, prüft die ersten Seiten auf vorhandenen Text), ob die Datei noch keine eigene
+    Textebene hat (ein gescanntes, in Fraktur gesetztes Faksimile, z. B. eine alte Luther-Ausgabe) und legt in
+    dem Fall zuerst per `ocrmypdf`/Tesseract eine unsichtbare Textebene darüber (wie beim Skripte-Dienst,
+    `--deskew --rotate-pages --oversample 300 --optimize 2`, in Stücken zu 20 Seiten erkannt, damit der
+    Speicherverbrauch nicht von der Seitenzahl einer ganzen Bibel abhängt), bevor die normale Seiten-/
+    Vers-Erkennung überhaupt ansetzen kann – dafür `BibelService.hochladen` jetzt zweigeteilt: die
+    Seiten-Erkennung läuft nur, wenn schon Text da ist, sonst holt `nach_dem_hochladen_im_hintergrund`
+    (ersetzt den bisherigen alleinigen Aufruf von `verse_im_hintergrund_einlesen` im Adapter) erst die
+    Texterkennung, dann die Seiten-, dann die Vers-Erkennung in einem Rutsch nach. Sprachdaten aus
+    `tessdata_best` (Dockerfile): `deu_latf` (eigens für deutschen Fraktur-Text), `Fraktur` (das allgemeinere
+    Skript-Modell) und `deu` (moderne Vor-/Titelseiten, Antiqua-Fußnoten) kombiniert (`-l deu_latf+Fraktur+deu`).
+    Erkennt eine solche OCR-Textebene naturgemäß keine Schriftart-Unterschiede mehr (jedes Zeichen gleich
+    gewichtet) – `PyMuPdfVerseExtractor` fällt dort automatisch auf die alte, reine Textregel zurück (Zahl am
+    Zeilenanfang/nach Satzzeichen, siehe `_regelbasierte_marken`), dieselbe (ungefähre) Güte wie vor dieser
+    Umstellung. Ersetzt NICHT die aktuell hinterlegte Bibel, sondern nur den nächsten Upload – eine zweite,
+    gleichzeitig verfügbare Ausgabe (modern UND Faksimile nebeneinander) wäre eine größere, eigene Erweiterung
+    (mehrere Editionen statt einer einzigen Datei) und ist hier bewusst nicht mit angefasst.
+    Gegen eine synthetische, textlose PDF geprüft (`tests/test_fraktur_ocr.py`, `noetig()`- und
+    Stückelungs-Tests wie beim Skripte-Dienst); eine echte alte Fraktur-Faksimile-Datei lag nicht vor, die
+    OCR-Qualität selbst ist darum nicht an echtem Material geprüft.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).
