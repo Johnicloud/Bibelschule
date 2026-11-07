@@ -939,6 +939,35 @@ Sprache der Oberfläche und der Texte: Deutsch.
     Stückelungs-Tests wie beim Skripte-Dienst); eine echte alte Fraktur-Faksimile-Datei lag nicht vor, die
     OCR-Qualität selbst ist darum nicht an echtem Material geprüft.
 
+- [fertig, Grundgerüst] Neuer Dienst `kommentare`: Bibelkommentare aus gemeinfreien Quellen (Werken), je
+  Versbereich einer Stelle. Fachübergreifend wie glossar/predigten (`./neuer-dienst.sh kommentare
+  "Kommentare"`, eigene Kopie von `domain/bible.py`), nutzt denselben Verweis-Mechanismus wie glossar
+  (`HttpBibelVerweise`, `art="kommentare"`, `BIBEL_URL`) – jeder Eintrag legt beim ersten Vers seines Bereichs
+  einen Verweis beim Bibel-Dienst an, best effort wie überall (ein kurz nicht erreichbarer Bibel-Dienst
+  verhindert das Anlegen nicht).
+  - **Datenmodell**: `Quelle` (Titel, Autor, Sprache, Lizenz, Quell-URL, Namensnennung – eigene JSON-Datei
+    `quellen.json`) und `KommentarEintrag` (Quelle, Buch, Kapitel, `vers_von`/`vers_bis`, Text, Verweis-ID –
+    `eintraege.json`). `EintraegeRepository.zu_stelle(buch, kapitel, vers)` findet alle Einträge, deren Bereich
+    diesen Vers einschließt (`vers_von <= vers <= vers_bis`), unabhängig von der Quelle.
+  - **API**: `GET/POST /api/kommentare/quellen`, `DELETE /api/kommentare/quellen/{id}` (löscht auch alle ihre
+    Einträge samt Verweisen), `GET /api/kommentare/quellen/{id}/eintraege`, `GET /api/kommentare/eintraege?
+    buch=&kapitel=&vers=` (quellenübergreifend, mit `quelle_titel`/`quelle_sprache` je Treffer),
+    `POST/DELETE /api/kommentare/eintraege`. `KommentarService.import_ersetzen(quelle_id, eintraege)` ersetzt
+    alle Einträge einer Quelle auf einmal (für einen Importer) – ein einzelner ungültiger Eintrag (z. B. ein
+    nicht erkanntes Buch beim Parsen) bricht den ganzen Import nicht ab, nur dieser eine wird übersprungen.
+  - **Oberfläche**: neuer globaler Reiter „Kommentare" (`KommentareView.vue`, Symbol `kommentare`) – Quellen
+    als Chips, je Quelle Verwaltung (anlegen/löschen) und ihre Einträge (anlegen/löschen). ZUSÄTZLICH direkt im
+    „Lesen"-Bereich von `BibelView.vue`: jede Verszahl ist jetzt anklickbar (`versWaehlen`), darunter erscheint
+    ein Kommentare-Panel mit allen Treffern quellenübergreifend (Quelle + Bereich + Text je Treffer) – beide
+    Darstellungen auf Wunsch nebeneinander, nicht nur eine.
+  - **Noch offen** (auf Wunsch zuerst das Grundgerüst, der Dächsel-Importer folgt als nächster Schritt):
+    bisher nur die manuelle Eingabe einzelner Einträge über die Oberfläche/API, kein automatischer Import aus
+    einer Dächsel-PDF (sermon-online.com) – der müsste Bibeltext von Auslegung trennen und Bibelstellen aus dem
+    PDF-Text erkennen, ähnlich den Lektionen aus der Bibel-Texterkennung (siehe oben). Schlatter (teils Fraktur-
+    Scans, 1913) und Matthew Henry (englisch, SWORD-Modul/CCEL-HTML) sind als weitere Quellen vorgesehen, aber
+    noch nicht angefangen. Englische Quellen zeigt die Oberfläche schon mit einer Sprachmarke `(en)` an, bevor
+    es eine gibt.
+
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·
 `GET /api/manifest` {name,label,panel,status:[{key,label}]} · optional `GET /api/subjects` (vorhandene Fächer, der Kern übernimmt sie).

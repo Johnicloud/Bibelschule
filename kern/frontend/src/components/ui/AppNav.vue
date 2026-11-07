@@ -14,6 +14,7 @@ const tabs = [
   { id: 'notizen', label: 'Notizen', icon: 'notizen' },
   { id: 'fragenki', label: 'Fragen und KI', icon: 'funken' },
   { id: 'glossar', label: 'Glossar', icon: 'glossar' },
+  { id: 'kommentare', label: 'Kommentare', icon: 'kommentare' },
   { id: 'adressbuch', label: 'Adressbuch', icon: 'adressbuch' },
 ]
 </script>

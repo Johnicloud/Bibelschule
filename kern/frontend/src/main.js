@@ -11,6 +11,7 @@ import { createFragenkiApi } from './adapters/fragenkiApi'
 import { createGlossarApi } from './adapters/glossarApi'
 import { createHttpApi } from './adapters/httpApi'
 import { createKernApi } from './adapters/kernApi'
+import { createKommentareApi } from './adapters/kommentareApi'
 import { createNotizenApi } from './adapters/notizenApi'
 import { createPdfcreatorApi } from './adapters/pdfcreatorApi'
 import { createPredigtenApi } from './adapters/predigtenApi'
@@ -27,6 +28,7 @@ import { createFlashcardService } from './application/flashcardService'
 import { createNotizenService } from './application/notizenService'
 import { createFragenkiService } from './application/fragenkiService'
 import { createGlossarService } from './application/glossarService'
+import { createKommentareService } from './application/kommentareService'
 import { createPdfcreatorService } from './application/pdfcreatorService'
 import { createPredigtenService } from './application/predigtenService'
 import { createSubjectService } from './application/subjectService'
@@ -53,4 +55,5 @@ createApp(App)
   .provide('notizen', createNotizenService(createNotizenApi('/api/notizen')))
   .provide('fragenki', createFragenkiService(createFragenkiApi('/api/fragenki')))
   .provide('glossar', createGlossarService(createGlossarApi('/api/glossar')))
+  .provide('kommentare', createKommentareService(createKommentareApi('/api/kommentare')))
   .mount('#app')

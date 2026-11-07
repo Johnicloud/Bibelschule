@@ -20,6 +20,7 @@ import PredigtenView from './views/PredigtenView.vue'
 import NotizenView from './views/NotizenView.vue'
 import FragenKiView from './views/FragenKiView.vue'
 import GlossarView from './views/GlossarView.vue'
+import KommentareView from './views/KommentareView.vue'
 import PasswortAendernPflichtView from './views/PasswortAendernPflichtView.vue'
 import { abmeldeHinweis, gemeinde, isAdmin, loggedIn, mussPasswortAendern, nachname, username, vorname } from './state/auth'
 
@@ -27,7 +28,7 @@ const IDLE_LOGOUT_MINUTEN = 15   // wie beim Server (MemorySessionStore): 15 Min
 const IDLE_LOGOUT_MS = IDLE_LOGOUT_MINUTEN * 60 * 1000
 
 const auth = inject('auth')
-const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen' | 'predigten' | 'notizen' | 'fragenki' | 'glossar'
+const view = ref('home') // 'home' | 'subjects' | 'subject' | 'cards' | 'study' | 'profile' | 'adressbuch' | 'noten' | 'bibel' | 'bibliothek' | 'schnelllesen' | 'predigten' | 'notizen' | 'fragenki' | 'glossar' | 'kommentare'
 const subjectId = ref(null) // aktuelles Fach (Fach-Ansicht oder Lernen eines Fachs)
 const tab = ref('uebersicht') // Reiter im Fach = Name des Dienstes (oder 'aufgaben'/'uebersicht')
 
@@ -103,6 +104,7 @@ onMounted(async () => {
       <NotizenView v-else-if="view === 'notizen'" />
       <FragenKiView v-else-if="view === 'fragenki'" />
       <GlossarView v-else-if="view === 'glossar'" />
+      <KommentareView v-else-if="view === 'kommentare'" />
       <StudyView v-else :deck-id="subjectId" @back="subjectId ? go('subject', subjectId) : go('home')" />
     </main>
     <StudyFab @study="go('study')" />

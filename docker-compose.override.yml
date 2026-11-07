@@ -1,4 +1,13 @@
 services:
+  kommentare:
+    build: ./kommentare
+    environment:
+      KERN_URL: http://kern:8000
+      SERVICE_URL: http://kommentare:8000
+      BIBEL_URL: http://bibel:8000       # legt Verweise ("art=kommentare") beim Bibel-Dienst an
+    volumes:
+      - ./data/kommentare:/app/data
+    restart: unless-stopped
   glossar:
     build: ./glossar
     environment:

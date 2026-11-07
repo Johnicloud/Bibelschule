@@ -4,6 +4,7 @@ import AppIcon from '../components/ui/AppIcon.vue'
 import EmptyState from '../components/ui/EmptyState.vue'
 
 const bibel = inject('bibel')
+const kommentare = inject('kommentare')
 const index = ref(null)
 const loadError = ref('')
 const laedtHoch = ref(false)
@@ -31,6 +32,12 @@ const sucheTreffer = ref(null)
 const sucheLaedt = ref(false)
 const sucheFehler2 = ref('')
 
+// Kommentare zum angeklickten Vers (ein Klick auf eine Versnummer wählt sie aus, siehe versWaehlen).
+const ausgewaehlterVers = ref(null)
+const kommentarEintraege = ref([])
+const kommentareFehler = ref('')
+const kommentareLaedt = ref(false)
+
 async function load() {
   try { index.value = await bibel.index(); loadError.value = '' }
   catch (e) { loadError.value = e.message }
@@ -45,6 +52,8 @@ async function nachschlagen() {
     gelesenesKapitel.value = ergebnis
     gewaehltesBuch.value = ergebnis.buch
     gewaehlteKapitelnummer.value = ergebnis.kapitel
+    if (ergebnis.markiert) await versWaehlen(ergebnis.markiert)
+    else { ausgewaehlterVers.value = null; kommentarEintraege.value = [] }
   } catch (e) { sucheFehler.value = e.message; gelesenesKapitel.value = null }
   finally { kapitelLaedt.value = false }
 }
@@ -58,8 +67,19 @@ async function kapitelLesen(buch, nummer, markierterVers = null) {
     gelesenesKapitel.value = ergebnis
     gewaehltesBuch.value = buch
     gewaehlteKapitelnummer.value = nummer
+    if (markierterVers) await versWaehlen(markierterVers)
+    else { ausgewaehlterVers.value = null; kommentarEintraege.value = [] }
   } catch (e) { sucheFehler.value = e.message }
   finally { kapitelLaedt.value = false }
+}
+
+async function versWaehlen(vers) {
+  ausgewaehlterVers.value = vers
+  kommentareFehler.value = ''
+  kommentareLaedt.value = true
+  try { kommentarEintraege.value = await kommentare.zuStelle(gewaehltesBuch.value, gewaehlteKapitelnummer.value, vers) }
+  catch (e) { kommentareFehler.value = e.message; kommentarEintraege.value = [] }
+  finally { kommentareLaedt.value = false }
 }
 
 async function suchen() {
@@ -218,9 +238,30 @@ onMounted(load)
         <p v-else class="font-serif text-lg leading-[2.1] text-slate-800 dark:text-slate-200">
           <span v-for="v in gelesenesKapitel.verse" :key="v.id"
                 :class="v.vers === gelesenesKapitel.markiert ? 'rounded bg-primary/15 px-1 py-0.5 ring-1 ring-primary/30' : ''">
-            <sup class="mr-0.5 font-sans text-xs font-semibold text-primary">{{ v.vers }}</sup>{{ v.text }}{{ ' ' }}
+            <sup class="mr-0.5 cursor-pointer font-sans text-xs font-semibold text-primary hover:underline"
+                 :title="`Kommentare zu Vers ${v.vers}`" @click="versWaehlen(v.vers)">{{ v.vers }}</sup>{{ v.text }}{{ ' ' }}
           </span>
         </p>
+
+        <div v-if="ausgewaehlterVers" class="mt-6 border-t border-slate-200 pt-4 dark:border-slate-700">
+          <h4 class="text-sm font-semibold">
+            Kommentare zu {{ gelesenesKapitel.name }} {{ gewaehlteKapitelnummer }},{{ ausgewaehlterVers }}
+          </h4>
+          <p v-if="kommentareLaedt" class="mt-2 text-sm text-slate-500 dark:text-slate-400">Lädt …</p>
+          <p v-else-if="kommentareFehler" class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ kommentareFehler }}</p>
+          <p v-else-if="!kommentarEintraege.length" class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Noch kein Kommentar zu diesem Vers hinterlegt.
+          </p>
+          <ul v-else class="mt-2 grid gap-2">
+            <li v-for="e in kommentarEintraege" :key="e.id" class="rounded-lg bg-backdrop p-3 text-sm">
+              <p class="font-medium text-primary">
+                {{ e.quelle_titel }}<span v-if="e.quelle_sprache && e.quelle_sprache !== 'de'" class="ml-1 opacity-70">({{ e.quelle_sprache }})</span>
+                <span class="font-normal opacity-70"> · {{ e.buch_name }} {{ e.kapitel }},{{ e.vers_von }}<span v-if="e.vers_bis !== e.vers_von">–{{ e.vers_bis }}</span></span>
+              </p>
+              <p class="mt-1 whitespace-pre-line">{{ e.text }}</p>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
