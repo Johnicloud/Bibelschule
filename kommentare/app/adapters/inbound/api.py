@@ -1,13 +1,24 @@
 """Eingehender Adapter: HTTP-API (FastAPI) ruft die Anwendungsfälle auf.
 Interaktive Doku: /api/docs  ·  Schema: /api/openapi.json"""
+import logging
+import threading
+
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.application.services import KommentarService
-from app.domain.bible import BOOKS
+from app.domain.bible import BOOKS, find_book
 from app.domain.errors import InvalidInput, NotFound
 from app.domain.models import KommentarEintrag, Quelle
+
+log = logging.getLogger(__name__)
+
+MATTHEW_HENRY_TITEL = "Matthew Henry, Commentary on the Whole Bible"
+
+
+class MatthewHenryImportIn(BaseModel):
+    buecher: list[str] | None = None   # Kurznamen, z. B. ["Mt", "Mk"] – None/leer = die ganze Bibel
 
 
 class QuelleIn(BaseModel):
@@ -44,7 +55,10 @@ def eintrag_out(e: KommentarEintrag, quelle: Quelle | None = None) -> dict:
             "vers_bis": e.vers_bis, "text": e.text}
 
 
-def create_app(service: KommentarService) -> FastAPI:
+def create_app(service: KommentarService, matthew_henry_import=None) -> FastAPI:
+    """`matthew_henry_import`: optionaler Port `(buch_indizes: list[int] | None) -> list[tuple]` (siehe
+    matthew_henry.py), lädt die Einträge von der HelloAO-API. Ohne ihn bleibt die Import-Route ohne Wirkung
+    (liefert 503) – wie bei anderen optionalen Zusatzfähigkeiten im Projekt (z. B. Ollama bei pdfcreator)."""
     app = FastAPI(title="Kommentare", docs_url="/api/docs", openapi_url="/api/openapi.json")
     api = APIRouter(prefix="/api")
 
@@ -97,6 +111,35 @@ def create_app(service: KommentarService) -> FastAPI:
     @api.delete("/eintraege/{eintrag_id}", status_code=204)
     def eintrag_loeschen(eintrag_id: str):
         service.eintrag_loeschen(eintrag_id)
+
+    @api.post("/import/matthew-henry", status_code=202)
+    def matthew_henry_importieren(body: MatthewHenryImportIn):
+        if matthew_henry_import is None:
+            return JSONResponse({"detail": "Matthew-Henry-Import ist nicht eingerichtet."}, status_code=503)
+        buch_indizes = None
+        if body.buecher:
+            buch_indizes = []
+            for kurz in body.buecher:
+                buch = find_book(kurz)
+                if buch is None:
+                    raise InvalidInput(f"Das Bibelbuch „{kurz}“ kenne ich nicht.")
+                buch_indizes.append(buch.index)
+
+        def _import_im_hintergrund():
+            quelle = next((q for q in service.quellen_liste() if q.autor == "Matthew Henry"), None)
+            if quelle is None:
+                quelle = service.quelle_anlegen(
+                    MATTHEW_HENRY_TITEL, "Matthew Henry", "en", "gemeinfrei (CC Public Domain Mark)",
+                    "https://bible.helloao.org",
+                    f"{MATTHEW_HENRY_TITEL} (public domain), via bible.helloao.org")
+            try:
+                eintraege = matthew_henry_import(buch_indizes)
+                service.import_teilweise(quelle.id, eintraege)
+            except Exception as e:
+                log.warning("Matthew-Henry-Import fehlgeschlagen: %s", e)
+
+        threading.Thread(target=_import_im_hintergrund, daemon=True).start()
+        return {"status": "gestartet"}
 
     # Fach-Vertrag: fachübergreifend, trotzdem die drei Pflicht-Endpunkte als No-ops, damit der Kern beim
     # Abgleich keine Ausnahme braucht (wie bei bibel/glossar/predigten/schnelllesen).

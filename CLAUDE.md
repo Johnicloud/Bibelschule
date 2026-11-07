@@ -958,15 +958,38 @@ Sprache der Oberfläche und der Texte: Deutsch.
   - **Oberfläche**: neuer globaler Reiter „Kommentare" (`KommentareView.vue`, Symbol `kommentare`) – Quellen
     als Chips, je Quelle Verwaltung (anlegen/löschen) und ihre Einträge (anlegen/löschen). ZUSÄTZLICH direkt im
     „Lesen"-Bereich von `BibelView.vue`: jede Verszahl ist jetzt anklickbar (`versWaehlen`), darunter erscheint
-    ein Kommentare-Panel mit allen Treffern quellenübergreifend (Quelle + Bereich + Text je Treffer) – beide
-    Darstellungen auf Wunsch nebeneinander, nicht nur eine.
-  - **Noch offen** (auf Wunsch zuerst das Grundgerüst, der Dächsel-Importer folgt als nächster Schritt):
-    bisher nur die manuelle Eingabe einzelner Einträge über die Oberfläche/API, kein automatischer Import aus
-    einer Dächsel-PDF (sermon-online.com) – der müsste Bibeltext von Auslegung trennen und Bibelstellen aus dem
-    PDF-Text erkennen, ähnlich den Lektionen aus der Bibel-Texterkennung (siehe oben). Schlatter (teils Fraktur-
-    Scans, 1913) und Matthew Henry (englisch, SWORD-Modul/CCEL-HTML) sind als weitere Quellen vorgesehen, aber
-    noch nicht angefangen. Englische Quellen zeigt die Oberfläche schon mit einer Sprachmarke `(en)` an, bevor
-    es eine gibt.
+    ein Kommentare-Panel mit allen Treffern quellenübergreifend (Quelle + Bereich + Text je Treffer, mit
+    Sprachmarke `(en)` bei nicht-deutschen Quellen) – beide Darstellungen auf Wunsch nebeneinander, nicht nur eine.
+  - **Matthew Henry importiert** (auf Wunsch zuerst, vor Dächsel/Schlatter): statt HTML von CCEL zu
+    scrapen oder ein SWORD-Modul selbst zu entpacken, liefert die kostenlose, quellenoffene **HelloAO Bible
+    API** (`bible.helloao.org`, keine Anmeldung/kein Schlüssel nötig) Matthew Henrys „Commentary on the Whole
+    Bible" fertig als sauberes JSON, einmal je Kapitel (`GET /api/c/matthew-henry/{USFM}/{Kapitel}.json`) –
+    kein eigenes Parsen von HTML oder Binärformat nötig, keine OCR-Fehler (anders als bei der unten erwähnten
+    Dächsel-Quelle). `matthew_henry.py`: `_USFM`, eine feste Zuordnungstabelle der 66 Bücher zu den üblichen
+    USFM-Dreibuchstaben-Codes (z. B. `JHN`, `ROM`) in derselben Reihenfolge wie `BOOKS`, gegen die Buchliste
+    geprüft; `HelloAoKlient.kapitel()` liefert `None` bei 404 (kein Henry-Kommentar zu diesem Kapitel – Henry
+    deckt insgesamt nur rund 4100 von gut 31000 Versen ab, kommentiert oft mehrere Verse unter einer
+    Überschrift zusammen statt jeden einzeln). Ein JSON-Eintrag mit `number=n` deckt darum alle Verse bis
+    AUSSCHLIESSLICH zum nächsten Eintrag im selben Kapitel ab; der letzte Eintrag eines Kapitels deckt
+    vorsichtshalber nur seinen eigenen Vers (die wirkliche letzte Versnummer des Kapitels ist von der
+    API-Antwort aus nicht bekannt).
+    Route `POST /api/kommentare/import/matthew-henry` (Body optional `{"buecher": ["Mt", "Mk"]}`, leer/fehlend
+    = die ganze Bibel) startet den Import im Hintergrund (202, wie bei der Bibel-Texterkennung) – legt beim
+    ersten Aufruf die Quelle „Matthew Henry, Commentary on the Whole Bible" an (gemeinfrei, CC Public Domain
+    Mark, `sprache="en"`). Dafür neuer Anwendungsfall `KommentarService.import_teilweise`: ersetzt anders als
+    `import_ersetzen` nur die Bücher, die in den neuen Daten tatsächlich vorkommen – ein Import in mehreren
+    Schritten (z. B. erst ein Buch zum Prüfen, später der Rest, oder ein erneuter Lauf für nur ein Buch)
+    löscht nicht versehentlich die Einträge anderer, schon importierter Bücher derselben Quelle.
+    Gegen die echte API geprüft: voller Import aller 66 Bücher (rund 1167 Kapitel-Aufrufe, mit 0,15 s Pause
+    je Aufruf aus Rücksicht auf die kostenlose API) ergab 4123 Einträge (ein einzelner mit unplausiblem
+    Versbereich wurde übersprungen, siehe `_eintraege_aus_roh`) – nahe an den von der API selbst gemeldeten
+    rund 4124. Stichproben (Joh 3,16; Ps 23,1; 1Mo 1,1; Röm 8,28) inhaltlich passend.
+  - **Noch offen**: Dächsel (sermon-online.com, gemeinfrei) und Schlatter (teils Fraktur-Scans, 1913) als
+    weitere, deutschsprachige Quellen. Für Dächsel liegt schon eine Analyse vor: die von sermon-online.com
+    mitgelieferte TXT-Fassung ist eine OCR-Erkennung des alten Drucks mit deutlich sichtbaren Fehlern (z. B.
+    Ziffern als Buchstaben gelesen – „Z." statt „3."), UND Dächsel fügt die Auslegung in eckigen Klammern
+    MITTEN in den Bibelvers ein (kein sauber abtrennbarer Auslegungstext wie bei Matthew Henry) – beides macht
+    einen automatischen Import hier deutlich unsicherer; noch nicht begonnen.
 
 ## Fach-Vertrag (jeder Dienst)
 `GET /api/health` · `PUT /api/subjects/{id}` {name} · `DELETE /api/subjects/{id}` · `GET /api/subjects/{id}/status` (darf `progress` 0 bis 100 oder null enthalten) ·

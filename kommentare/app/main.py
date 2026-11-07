@@ -6,6 +6,7 @@ from pathlib import Path
 from app.adapters.inbound.api import create_app
 from app.adapters.outbound.bibel_client import HttpBibelVerweise, NullBibelVerweise
 from app.adapters.outbound.json_repository import JsonEintraegeRepository, JsonQuellenRepository
+from app.adapters.outbound.matthew_henry import HelloAoKlient, alle_eintraege
 from app.adapters.outbound.registration import register_with_kern
 from app.application.services import KommentarService
 
@@ -19,7 +20,9 @@ own_url = os.getenv("SERVICE_URL") or f"http://{NAME}:8000"
 quellen_repo = JsonQuellenRepository(data_dir / "quellen.json")
 eintraege_repo = JsonEintraegeRepository(data_dir / "eintraege.json")
 verweise = HttpBibelVerweise(bibel_url) if bibel_url else NullBibelVerweise()
-app = create_app(KommentarService(quellen_repo, eintraege_repo, verweise))
+matthew_henry_klient = HelloAoKlient()
+app = create_app(KommentarService(quellen_repo, eintraege_repo, verweise),
+                 matthew_henry_import=lambda buecher: alle_eintraege(matthew_henry_klient, buecher))
 
 if kern_url:
     threading.Thread(target=register_with_kern, args=(kern_url, NAME, own_url), daemon=True).start()

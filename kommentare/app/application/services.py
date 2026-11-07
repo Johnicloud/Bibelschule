@@ -103,14 +103,10 @@ class KommentarService:
         self.quelle(quelle_id)
         return sorted(self.eintraege.zu_quelle(quelle_id), key=lambda e: (e.buch_index, e.kapitel, e.vers_von))
 
-    def import_ersetzen(self, quelle_id: str, eintraege_roh: list[tuple[str, int, int, int, str]]) -> list[KommentarEintrag]:
-        """Ersetzt ALLE Einträge einer Quelle durch die übergebenen (buch_kurz, kapitel, vers_von, vers_bis,
-        text) – für einen (erneuten) Import, z. B. aus einem Dächsel-Band. Ein einzelner ungültiger Eintrag
-        (z. B. ein nicht erkanntes Bibelbuch beim Parsen) bricht den ganzen Import nicht ab, nur dieser eine
-        wird übersprungen (geloggt). Alte Verweise werden zuerst aufgeräumt, dann neue angelegt."""
-        self.quelle(quelle_id)
-        for alt in self.eintraege.delete_zu_quelle(quelle_id):
-            self._verweis_loeschen_sicher(alt.verweis_id)
+    def _eintraege_aus_roh(self, quelle_id: str, eintraege_roh: list[tuple[str, int, int, int, str]]) -> list[KommentarEintrag]:
+        """Baut KommentarEintrag-Objekte aus rohen (buch_kurz, kapitel, vers_von, vers_bis, text)-Tupeln und
+        legt je Eintrag einen Verweis an. Ein einzelner ungültiger Eintrag (z. B. ein nicht erkanntes
+        Bibelbuch beim Parsen) bricht den Import nicht ab, nur dieser eine wird übersprungen (geloggt)."""
         neue: list[KommentarEintrag] = []
         for buch_kurz, kapitel, vers_von, vers_bis, text in eintraege_roh:
             try:
@@ -126,5 +122,29 @@ class KommentarService:
             verweis_id = self._verweis_anlegen_sicher(stelle, quelle_id, None)
             neue.append(KommentarEintrag(quelle_id=quelle_id, buch_index=buch.index, kapitel=kapitel,
                                         vers_von=vers_von, vers_bis=vers_bis, text=text, verweis_id=verweis_id))
+        return neue
+
+    def import_ersetzen(self, quelle_id: str, eintraege_roh: list[tuple[str, int, int, int, str]]) -> list[KommentarEintrag]:
+        """Ersetzt ALLE Einträge einer Quelle durch die übergebenen (buch_kurz, kapitel, vers_von, vers_bis,
+        text) – für einen (erneuten) Import, z. B. aus einem Dächsel-Band. Alte Verweise werden zuerst
+        aufgeräumt, dann neue angelegt (siehe `_eintraege_aus_roh`)."""
+        self.quelle(quelle_id)
+        for alt in self.eintraege.delete_zu_quelle(quelle_id):
+            self._verweis_loeschen_sicher(alt.verweis_id)
+        neue = self._eintraege_aus_roh(quelle_id, eintraege_roh)
+        self.eintraege.save_alle(neue)
+        return neue
+
+    def import_teilweise(self, quelle_id: str, eintraege_roh: list[tuple[str, int, int, int, str]]) -> list[KommentarEintrag]:
+        """Wie `import_ersetzen`, ersetzt aber nur die Bücher, die in `eintraege_roh` tatsächlich vorkommen –
+        Einträge derselben Quelle zu anderen Büchern bleiben unangetastet. Für einen Import in mehreren
+        Schritten (z. B. Buch für Buch, wie bei Matthew Henry über die HelloAO-API)."""
+        self.quelle(quelle_id)
+        betroffene_buecher = {find_book(b).index for b, *_ in eintraege_roh if find_book(b) is not None}
+        for alt in self.eintraege.zu_quelle(quelle_id):
+            if alt.buch_index in betroffene_buecher:
+                self._verweis_loeschen_sicher(alt.verweis_id)
+                self.eintraege.delete(alt.id)
+        neue = self._eintraege_aus_roh(quelle_id, eintraege_roh)
         self.eintraege.save_alle(neue)
         return neue

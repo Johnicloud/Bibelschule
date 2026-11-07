@@ -149,3 +149,23 @@ def test_import_ersetzen_ueberspringt_ungueltige_eintraege_statt_abzubrechen(svc
     q = _quelle(svc)
     neue = svc.import_ersetzen(q.id, [("Joh", 3, 16, 16, "Gültig."), ("Xyz", 1, 1, 1, "Unbekanntes Buch.")])
     assert [e.text for e in neue] == ["Gültig."]
+
+
+def test_import_teilweise_laesst_andere_buecher_derselben_quelle_unangetastet(svc, verweise):
+    q = _quelle(svc)
+    svc.import_teilweise(q.id, [("Joh", 3, 16, 16, "Zu Johannes.")])
+    svc.import_teilweise(q.id, [("Mt", 1, 1, 1, "Zu Matthäus.")])
+
+    alle = svc.eintraege_zu_quelle(q.id)
+    assert sorted(e.text for e in alle) == ["Zu Johannes.", "Zu Matthäus."]
+
+
+def test_import_teilweise_ersetzt_nur_die_betroffenen_buecher(svc, verweise):
+    q = _quelle(svc)
+    svc.import_teilweise(q.id, [("Joh", 3, 16, 16, "Alte Fassung Johannes.")])
+    alte = svc.eintraege_zu_quelle(q.id)[0]
+
+    svc.import_teilweise(q.id, [("Joh", 3, 16, 18, "Neue Fassung Johannes.")])
+    neue = svc.eintraege_zu_quelle(q.id)
+    assert [e.text for e in neue] == ["Neue Fassung Johannes."]
+    assert verweise.geloescht == [alte.verweis_id]
